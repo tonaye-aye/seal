@@ -30,6 +30,8 @@ export type Finding = {
   id: string;
   kind: FindingKind;
   merchant: string;
+  /** Merchant keys of the recurring charges involved (e.g. "skylink"), to link upcoming charges to this finding. */
+  keys: string[];
   title: string;
   why: string;
   action: { kind: ActionKind; summary: string };
@@ -141,6 +143,7 @@ function toFinding(candidate: Candidate, verdict: Verdict, verified: ReturnType<
     id: candidate.id.replace(/^cand_/, "finding_"),
     kind: verdict.kind as FindingKind,
     merchant: candidate.names.join(" + "),
+    keys: candidate.keys,
     title: verdict.title,
     why: verdict.why,
     action: { kind: verdict.action, summary: verdict.actionSummary },

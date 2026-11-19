@@ -7,6 +7,7 @@ import { resetEdit, setEdit } from "../../lib/scan-store";
 import { evidenceDate, lookupEvidence, type EvidenceView } from "../evidence";
 import { KIND_LABEL, SOON_DAYS, daysText, daysUntil, figureValue, isUnsure, shortDate } from "../format";
 import { Kbd, KeyButton, KeyHint } from "../Kbd";
+import { ViewHeading } from "./ViewHeading";
 
 // One finding, opened: why it was flagged, the evidence trail (cited items
 // first) on the left, and on the right the drafted fix with the figures code
@@ -176,12 +177,15 @@ function DraftPane({
   focused,
   paneRef,
   scanning,
+  onFocus,
 }: {
   finding: Finding;
   edited: boolean;
   editing: boolean;
   onStopEditing: () => void;
   focused: boolean;
+  /** A click in the pane makes it the one J/K act on. */
+  onFocus: () => void;
   paneRef: React.RefObject<HTMLDivElement | null>;
   scanning: boolean;
 }) {
@@ -197,7 +201,7 @@ function DraftPane({
   }, [editing]);
 
   return (
-    <div ref={paneRef} className={`min-h-0 overflow-y-auto rounded-lg p-3 ${focused ? "pane-focus" : ""}`}>
+    <div ref={paneRef} onClick={onFocus} className={`min-h-0 overflow-y-auto rounded-lg p-3 ${focused ? "pane-focus" : ""}`}>
       {draft ? (
         <>
           <div className="mb-2 flex items-center gap-2">
@@ -317,8 +321,8 @@ export function FindingDetail({
   evidenceIndex,
   editing,
   onStopEditing,
-  onBack,
   onSelectEvidence,
+  onFocusDraft,
   draftRef,
   scanning,
 }: {
@@ -329,8 +333,8 @@ export function FindingDetail({
   evidenceIndex: number;
   editing: boolean;
   onStopEditing: () => void;
-  onBack: () => void;
   onSelectEvidence: (index: number) => void;
+  onFocusDraft: () => void;
   draftRef: React.RefObject<HTMLDivElement | null>;
   scanning: boolean;
 }) {
@@ -346,12 +350,13 @@ export function FindingDetail({
 
   return (
     <section aria-label="Finding" className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-start justify-between gap-4 px-4 pt-3 pb-2.5">
-        <div className="min-w-0">
-          <div className="mb-1 flex items-center gap-2 text-[12px] whitespace-nowrap">
-            <KeyButton keys={["Esc"]} label="Back" tone="faint" onClick={onBack} />
-            <span className="text-faint">·</span>
-            <span className="truncate font-medium">{finding?.merchant ?? (item as Cleared).merchant}</span>
+      {/* Pinned, like the list's and the timeline's headings. */}
+      <ViewHeading
+        view="finding"
+        title={item.title}
+        eyebrow={
+          <>
+            <span className="truncate font-medium">{item.merchant}</span>
             {finding ? (
               <>
                 <span className="shrink-0 rounded-full border border-hairline px-2 py-px text-[11px] text-muted">{KIND_LABEL[finding.kind]}</span>
@@ -369,29 +374,29 @@ export function FindingDetail({
             ) : (
               <span className="rounded-full border border-hairline px-2 py-px text-[11px] text-positive/80">Looks fine</span>
             )}
-          </div>
-          <h1 className="truncate text-[16px] font-medium tracking-[-0.015em]">{item.title}</h1>
-          <p className="mt-0.5 line-clamp-2 text-[12.5px] text-muted">{item.why}</p>
-          {finding?.deadline && (
-            <p className="mt-0.5 truncate text-[12px] text-faint">
-              Next date: {finding.deadline.label}, {shortDate(finding.deadline.date)}
-            </p>
-          )}
-        </div>
-        {finding && <Amounts finding={finding} />}
-      </div>
+          </>
+        }
+        action={finding && <Amounts finding={finding} />}
+      >
+        <span className="line-clamp-2">{item.why}</span>
+        {finding?.deadline && (
+          <span className="mt-0.5 block truncate text-[12px] text-faint">
+            Next date: {finding.deadline.label}, {shortDate(finding.deadline.date)}
+          </span>
+        )}
+      </ViewHeading>
 
       {finding && isUnsure(finding) && (
-        <div className="mx-4 mb-2 rounded-md border border-amber/30 bg-amber-glow/40 px-3 py-1.5 text-[12px]">
+        <div className="mx-4 mt-2 rounded-md border border-amber/30 bg-amber-glow/40 px-3 py-1.5 text-[12px]">
           <span className="font-medium text-amber">Not sure: check evidence. </span>
           <span className="text-muted">{finding.doubts.join(" ") || "The agent is less confident about this one."}</span>
         </div>
       )}
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] gap-2 border-t border-hairline px-2 pt-2">
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] gap-2 px-2 pt-2">
         <EvidenceTrail items={evidence} selected={evidenceIndex} focused={pane === "evidence"} needles={needles} onSelect={onSelectEvidence} />
         {finding ? (
-          <DraftPane finding={finding} edited={edited} editing={editing} onStopEditing={onStopEditing} focused={pane === "draft"} paneRef={draftRef} scanning={scanning} />
+          <DraftPane finding={finding} edited={edited} editing={editing} onStopEditing={onStopEditing} focused={pane === "draft"} paneRef={draftRef} scanning={scanning} onFocus={onFocusDraft} />
         ) : (
           <div className="rounded-lg p-3 text-[12.5px]">
             <h3 className="mb-1.5 font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">Why it was left alone</h3>
@@ -405,7 +410,7 @@ export function FindingDetail({
 }
 
 /** A small mouse, for the "click" hint (the mouse's version of a key cap). */
-function MouseIcon() {
+export function MouseIcon() {
   return (
     <svg width="12" height="16" viewBox="0 0 12 16" aria-hidden="true" className="text-faint">
       <rect x="1" y="1" width="10" height="14" rx="5" fill="none" stroke="currentColor" strokeWidth="1.3" />
@@ -436,9 +441,10 @@ export function ActionBar({
   if (mouse && !detail && item && !("undecided" in item)) {
     const hint = "evidence" in item ? "Click for more detail" : "Click to see why it looks fine";
     return (
-      <div className="flex h-10 shrink-0 items-center gap-3 border-t border-hairline px-4 text-[12px]">
+      // The click hint sits on the right, where the keyboard's J/K hint would be.
+      <div className="flex h-10 shrink-0 items-center justify-between gap-3 border-t border-hairline px-4 text-[12px]">
         <span className="max-w-[220px] truncate font-medium text-text">{item.merchant}</span>
-        <span className="inline-flex items-center gap-1.5 text-muted">
+        <span className="inline-flex shrink-0 items-center gap-1.5 text-muted">
           <MouseIcon />
           {hint}
         </span>
@@ -466,8 +472,8 @@ export function ActionBar({
   return (
     <div className="flex h-10 shrink-0 items-center justify-between border-t border-hairline px-4 text-[12px]">
       <div className="flex min-w-0 items-center gap-3">
-        {/* In the list, say which finding the keys act on: the pointer doesn't change it. */}
-        {!detail && item && "evidence" in item && (
+        {/* Say which finding the actions apply to, in the list and in an open finding alike. */}
+        {item && !("undecided" in item) && (detail || "evidence" in item) && (
           <span className="max-w-[150px] truncate font-medium text-text" title={item.merchant}>
             {item.merchant}
           </span>
@@ -478,6 +484,8 @@ export function ActionBar({
             keys={h.keys}
             label={h.label}
             tone={h.command === "approve" ? "amber" : "muted"}
+            // In an open finding the actions stay, as plain buttons once the mouse moves.
+            mouse={mouse && detail}
             onClick={() => onCommand(h.command)}
           />
         ))}
@@ -485,8 +493,16 @@ export function ActionBar({
       </div>
       <div className="flex shrink-0 items-center gap-3">
         {!detail && item && !("undecided" in item) && <KeyButton keys={["↵"]} label="Open" tone="faint" onClick={() => onCommand("open")} />}
-        {detail && <KeyHint keys={["J", "K"]} label={pane === "draft" ? "Scroll" : "Evidence"} />}
-        {detail && twoPanes && <KeyButton keys={["Tab"]} label="Switch pane" tone="faint" onClick={() => onCommand("pane")} />}
+        {!detail && <KeyHint keys={["J", "K"]} label="Move" />}
+        {detail && !mouse && <KeyHint keys={["J", "K"]} label={pane === "draft" ? "Scroll" : "Evidence"} />}
+        {detail && !mouse && twoPanes && <KeyButton keys={["Tab"]} label="Switch pane" tone="faint" onClick={() => onCommand("pane")} />}
+        {/* With the mouse, the click hint takes the place of the navigation keys, as in the list. */}
+        {detail && mouse && (
+          <span className="inline-flex items-center gap-1.5 text-muted">
+            <MouseIcon />
+            Click any evidence to read it
+          </span>
+        )}
       </div>
     </div>
   );

@@ -2,10 +2,12 @@ import { APP_NAME } from "../../lib/app";
 import { formatDay, now } from "../../lib/clock";
 import { useScan, type ScanState } from "../../lib/scan-store";
 import { clockTime } from "../format";
+import { centerWindow, startWindowDrag } from "../../lib/native";
 import { Mark } from "./Mark";
 
 // Top bar: who we are, what day it is, and what the agent is doing (or when
-// it last checked).
+// it last checked). It is also the window's handle: drag it to move the
+// palette, double-click it to put it back in the centre.
 
 const STAGE_SHORT = {
   sync: "Syncing",
@@ -28,23 +30,34 @@ function status(scan: ScanState): { text: string; dot: string } {
       return { text: p ? `${stage} ${p.done}/${p.total}` : stage, dot: "bg-amber motion-safe:animate-pulse" };
     }
     case "done":
+      // The timer's background check: the results shown are still the last ones.
+      if (scan.refreshing) return { text: "Checking again", dot: "bg-amber motion-safe:animate-pulse" };
       return { text: `Checked ${clockTime(scan.result?.checkedAt ?? "")}`, dot: "bg-positive" };
     case "error":
       return { text: "Check didn't finish", dot: "bg-danger" };
   }
 }
 
-export function Header() {
+export function Header({ action }: { action?: React.ReactNode }) {
   const scan = useScan();
   const s = status(scan);
   return (
-    <header className="flex h-12 shrink-0 items-center justify-between px-4">
+    <header
+      className="flex h-12 shrink-0 items-center justify-between px-4"
+      onMouseDown={(e) => {
+        // Buttons in the bar (the view switch) stay clickable.
+        if (e.button !== 0 || (e.target as HTMLElement).closest("button")) return;
+        if (e.detail === 2) centerWindow();
+        else startWindowDrag();
+      }}
+    >
       <div className="flex items-center gap-2">
         <span className="text-amber">
           <Mark />
         </span>
         <span className="font-medium tracking-[-0.01em]">{APP_NAME}</span>
-        <span className="text-faint">Household check</span>
+        {/* Switches between the list and the timeline. */}
+        {action && <span className="ml-2">{action}</span>}
       </div>
       <div className="flex items-center gap-3 font-mono text-[11px] text-faint">
         <span className="flex items-center gap-1.5" aria-live="polite">

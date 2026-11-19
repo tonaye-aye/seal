@@ -13,11 +13,12 @@ pub const LABEL: &str = "palette";
 /// them steals focus and the palette disappears.
 pub const HIDE_ON_BLUR: bool = true;
 
-/// Centre the palette on screen, show it, focus it and tell the UI it opened
-/// (the UI uses that event to reset itself and replay its entrance animation).
+/// Show the palette, focus it and tell the UI it opened (the UI uses that
+/// event to reset itself and replay its entrance animation). It opens where
+/// the user last left it: it starts centred (tauri.conf.json) and can be
+/// dragged by its top bar; a double-click there centres it again.
 pub fn show<R: Runtime>(app: &AppHandle<R>) {
     let Some(window) = app.get_webview_window(LABEL) else { return };
-    let _ = window.center();
     let _ = window.show();
     let _ = window.set_focus();
     let _ = window.emit("palette:shown", ());
@@ -30,6 +31,8 @@ pub fn hide<R: Runtime>(app: &AppHandle<R>) {
         return;
     }
     let _ = window.hide();
+    // The UI uses this to know it is in the background (for the timed re-check).
+    let _ = window.emit("palette:hidden", ());
     // On macOS, hiding the app (not just the window) is what returns focus to
     // the previous app, so the user can keep typing where they were.
     #[cfg(target_os = "macos")]

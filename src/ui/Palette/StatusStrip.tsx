@@ -74,7 +74,7 @@ export function StatusStrip() {
             {status?.state === "needs_reconnect" && (
               <button
                 type="button"
-                onClick={() => void reconnectCalendar().then(startScan)}
+                onClick={() => void reconnectCalendar().then(() => startScan())}
                 className="-mr-1 ml-0.5 rounded-full bg-raised px-2 text-[11px] text-text hover:bg-hairline"
               >
                 Reconnect

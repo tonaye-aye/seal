@@ -1,10 +1,12 @@
 import { forwardRef } from "react";
 import { Kbd } from "../Kbd";
 
-// The search bar. It is not focused on open, so single-letter shortcuts
-// (J, K, A) drive the findings list. Press / to type here.
-export const CommandBar = forwardRef<HTMLInputElement, { value: string; onChange: (value: string) => void }>(
-  function CommandBar({ value, onChange }, ref) {
+// The search bar, shared by the list and the timeline. It is not focused on
+// open, so single-letter shortcuts (J, K, A) drive the view. Press / to type here.
+type Props = { value: string; onChange: (value: string) => void; label?: string; placeholder?: string };
+
+export const CommandBar = forwardRef<HTMLInputElement, Props>(
+  function CommandBar({ value, onChange, label = "Search findings", placeholder = "Search findings by business or problem" }, ref) {
     return (
       <div className="px-3 pb-2">
         <label className="flex h-10 items-center gap-2.5 rounded-lg border border-hairline bg-bg/60 px-3 transition-colors duration-(--duration-fast) focus-within:border-amber/50 focus-within:bg-bg/80">
@@ -15,8 +17,8 @@ export const CommandBar = forwardRef<HTMLInputElement, { value: string; onChange
           <input
             ref={ref}
             type="text"
-            aria-label="Search findings"
-            placeholder="Search findings by business or problem"
+            aria-label={label}
+            placeholder={placeholder}
             spellCheck={false}
             autoComplete="off"
             value={value}

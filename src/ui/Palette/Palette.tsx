@@ -8,9 +8,13 @@ import { AllClear, FindingsList, NotChecked, Scanning, ScanError, listItems, typ
 import { CommandBar } from "./CommandBar";
 import { Footer } from "./Footer";
 import { Header } from "./Header";
+import { SwitchButton } from "../Kbd";
+import { ListIcon, TimelineIcon } from "./ViewHeading";
 import { ShortcutSheet } from "./ShortcutSheet";
 import { Toast } from "./Toast";
 import { TraceDrawer } from "./Trace";
+import { Timeline, TimelineBar } from "./Timeline";
+import { buildTimeline, filterTimeline, nowIndex } from "../timeline";
 
 // The summoned palette. It fills the native window; the window itself is
 // transparent with a macOS blur behind, so this panel adds the warm tint.
@@ -18,7 +22,8 @@ import { TraceDrawer } from "./Trace";
 // It owns every key, in one handler, so nothing else can fight over them:
 //   list    J/K move, Enter opens, A approve, E edit, S snooze, D not a leak
 //   detail  J/K move through evidence (or scroll the draft), Tab switch pane
-//   always  Cmd+Z undo, / search, T trace, R check again, ? keys, Esc back
+//   timeline  J/K move through time, Enter opens the line's finding
+//   always  Cmd+Enter timeline, Cmd+Z undo, / search, T trace, R check again, ? keys, Esc back
 
 const HINT_KEY = "life.hintSeen";
 
@@ -51,7 +56,10 @@ export function Palette() {
   // Which hand is driving: moving the mouse moves the selection and shows the
   // row's click buttons; any key press hides them until the mouse moves again.
   const [mouse, setMouse] = useState(false);
-  const [view, setView] = useState<"list" | "detail">("list");
+  const [view, setView] = useState<"list" | "detail" | "timeline">("list");
+  // Where Esc goes back to from an open finding.
+  const [detailFrom, setDetailFrom] = useState<"list" | "timeline">("list");
+  const [timelineKey, setTimelineKey] = useState<string>();
   const [pane, setPane] = useState<Pane>("evidence");
   const [evidenceIndex, setEvidenceIndex] = useState(0);
   const [editing, setEditing] = useState(false);
@@ -65,12 +73,15 @@ export function Palette() {
   const selectedItem: Finding | Cleared | undefined =
     selected?.type === "finding" ? selected.finding : selected?.type === "cleared" ? selected.cleared : undefined;
   const evidenceCount = selectedItem ? evidenceFor(selectedItem, scan.corpus).length : 0;
+  const entries = filterTimeline(buildTimeline(scan), query);
+  const selectedEntry = entries.find((e) => e.key === timelineKey) ?? entries[nowIndex(entries)] ?? entries[entries.length - 1];
 
   useEffect(() => {
     activeHotkey().then(setHotkey).catch(() => setHotkey([]));
     return onPaletteShown(() => {
       setQuery("");
       setView("list");
+      setDetailFrom("list");
       setEditing(false);
       setSheetOpen(false);
       setOpenCount((n) => n + 1);
@@ -99,17 +110,50 @@ export function Palette() {
   function move(by: number) {
     if (!items.length) return;
     const at = Math.max(0, items.findIndex((i) => i.key === selected?.key));
+    // Up from the first row goes back to the search bar.
+    if (by < 0 && at === 0) return inputRef.current?.focus();
     select(items[Math.min(items.length - 1, Math.max(0, at + by))].key);
     setScrollKey((n) => n + 1);
   }
 
-  function open(key: string) {
+  function open(key: string, from: "list" | "timeline" = "list") {
     const item = items.find((i) => i.key === key);
     if (!item || item.type === "undecided") return;
     select(key);
     setView("detail");
+    setDetailFrom(from);
     setPane("evidence");
     setEditing(false);
+  }
+
+  function openTimeline() {
+    // The search carries over, so "Skylink" then Cmd+Enter shows Skylink's dates.
+    setEditing(false);
+    setView("timeline");
+    // Land on the first thing still to come, just under the "now" marker.
+    setTimelineKey(entries[nowIndex(entries)]?.key);
+  }
+
+  function moveInTimeline(by: number) {
+    if (!entries.length) return;
+    const at = Math.max(0, entries.findIndex((e) => e.key === selectedEntry?.key));
+    if (by < 0 && at === 0) return inputRef.current?.focus();
+    setTimelineKey(entries[Math.min(entries.length - 1, Math.max(0, at + by))].key);
+    setScrollKey((n) => n + 1);
+  }
+
+  /** Enter (or a click) on a timeline line opens the finding, or the cleared case, it belongs to. */
+  function openEntry(key = selectedEntry?.key) {
+    const entry = entries.find((e) => e.key === key);
+    const target = entry?.findingId ?? entry?.clearedId;
+    if (!entry || !target) return;
+    setTimelineKey(entry.key);
+    open(target, "timeline");
+  }
+
+  function back() {
+    if (view === "detail") setView(detailFrom);
+    else if (view === "timeline") setView("list");
   }
 
   /** The next row to land on once the selected finding moves down the list. */
@@ -168,7 +212,7 @@ export function Palette() {
         return;
       case "rescan":
         // Check again, signing the calendar back in first if it needs it.
-        if (live.statuses.calendar?.state === "needs_reconnect") void reconnectCalendar().then(startScan);
+        if (live.statuses.calendar?.state === "needs_reconnect") void reconnectCalendar().then(() => startScan());
         else void startScan();
         return;
     }
@@ -191,7 +235,9 @@ export function Palette() {
           panelRef.current?.focus();
         } else if (typing && query) setQuery("");
         else if (typing) panelRef.current?.focus();
-        else if (view === "detail") setView("list");
+        else if (view === "detail") back();
+        else if (view === "timeline" && query) setQuery("");
+        else if (view === "timeline") back();
         else if (traceOpen) setTraceOpen(false);
         else if (query) setQuery("");
         else hidePalette();
@@ -207,12 +253,21 @@ export function Palette() {
         return; // Everything else is typing in the draft.
       }
 
+      // Cmd+Enter opens the timeline from anywhere, and closes it again.
+      if (key === "Enter" && event.metaKey) {
+        event.preventDefault();
+        if (view === "timeline") setView("list");
+        else openTimeline();
+        return;
+      }
+
       if (typing) {
         // In search: Enter or Down goes to the results.
         if (key === "Enter" || key === "ArrowDown") {
           event.preventDefault();
           panelRef.current?.focus();
-          select(items[0]?.key);
+          if (view === "timeline") setTimelineKey((entries[nowIndex(entries)] ?? entries[0])?.key);
+          else select(items[0]?.key);
           setScrollKey((n) => n + 1);
         }
         return;
@@ -233,6 +288,32 @@ export function Palette() {
       const inDetail = view === "detail";
       const down = lower === "j" || key === "ArrowDown";
       const up = lower === "k" || key === "ArrowUp";
+
+      if (view === "timeline") {
+        // Only moving, opening and the "always" keys work here: A/S/D/E act
+        // on findings, so they wait until one is open.
+        if (down || up) {
+          event.preventDefault();
+          moveInTimeline(down ? 1 : -1);
+        } else if (key === "Enter") {
+          event.preventDefault();
+          openEntry();
+        } else if (key === "/") {
+          event.preventDefault();
+          inputRef.current?.focus();
+        } else if (key === "?") {
+          event.preventDefault();
+          setSheetOpen(true);
+        } else if (lower === "r") {
+          event.preventDefault();
+          run("rescan");
+        } else if (lower === "t") {
+          event.preventDefault();
+          setTraceOpen((o) => !o);
+        }
+        return;
+      }
+
       if (down || up) {
         event.preventDefault();
         if (!inDetail) move(down ? 1 : -1);
@@ -292,13 +373,37 @@ export function Palette() {
           setEditing(false);
           panelRef.current?.focus();
         }}
-        onBack={() => setView("list")}
+        onFocusDraft={() => setPane("draft")}
         onSelectEvidence={(i) => {
           setEvidenceIndex(i);
           setPane("evidence");
         }}
         draftRef={draftRef}
         scanning={scan.phase === "scanning"}
+      />
+    );
+  } else if (view === "timeline") {
+    main = (
+      <Timeline
+        entries={entries}
+        selectedKey={selectedEntry?.key}
+        scrollKey={scrollKey}
+        onHover={(key) => {
+          setMouse(true);
+          if (key !== selectedEntry?.key) setTimelineKey(key);
+        }}
+        onOpen={openEntry}
+        scan={scan}
+        query={query}
+        search={
+          <CommandBar
+            ref={inputRef}
+            value={query}
+            onChange={setQuery}
+            label="Search the timeline"
+            placeholder="Search the timeline by business or date"
+          />
+        }
       />
     );
   } else if (nothingYet && scan.phase === "scanning") main = <Scanning scan={scan} />;
@@ -323,6 +428,7 @@ export function Palette() {
         showHint={showHint}
         onDismissHint={dismissHint}
         query={query}
+        search={<CommandBar ref={inputRef} value={query} onChange={setQuery} />}
       />
     );
 
@@ -335,21 +441,44 @@ export function Palette() {
       ref={panelRef}
       tabIndex={-1}
       className="palette-enter relative flex h-full flex-col overflow-hidden rounded-[14px] border border-white/[0.06] bg-bg/[0.86] outline-none"
+      // Any real pointer movement switches to mouse mode (click hints, no key
+      // caps); any key press switches back. A still pointer under scrolling
+      // content can fire a move event with no movement, so that doesn't count.
+      onMouseMove={(e) => {
+        if (e.movementX !== 0 || e.movementY !== 0) setMouse(true);
+      }}
     >
-      <Header />
+      <Header
+        action={
+          view === "list" && !nothingYet ? (
+            <SwitchButton keys={["⌘", "↵"]} label="View timeline" icon={<TimelineIcon />} mouse={mouse} onClick={openTimeline} />
+          ) : view === "timeline" ? (
+            <SwitchButton keys={["Esc"]} label="View list" icon={<ListIcon />} mouse={mouse} onClick={back} />
+          ) : view === "detail" ? (
+            <SwitchButton keys={["Esc"]} label={detailFrom === "timeline" ? "Back to timeline" : "Back to list"}
+              icon={detailFrom === "timeline" ? <TimelineIcon /> : <ListIcon />}
+              mouse={mouse}
+              onClick={back}
+            />
+          ) : undefined
+        }
+      />
       {scan.usedReplay && (
         <p role="status" className="mx-3 mb-2 truncate rounded-md border border-amber/25 bg-amber-glow/30 px-3 py-1 text-[11.5px] text-muted">
           <span className="font-medium text-amber">Replay mode.</span> Some answers are saved replies from an earlier run, not live from the model.
         </p>
       )}
-      {!inDetail && <CommandBar ref={inputRef} value={query} onChange={setQuery} />}
       <div className="h-px shrink-0 bg-hairline" />
       <div className="relative flex min-h-0 flex-1 flex-col">
         {main}
         {traceOpen && <TraceDrawer lines={scan.trace} onClose={() => setTraceOpen(false)} />}
       </div>
-      {!nothingYet && <ActionBar item={actionItem} detail={inDetail} pane={pane} mouse={mouse} onCommand={run} />}
-      <Footer hotkey={hotkey} onTrace={() => setTraceOpen((o) => !o)} onKeys={() => setSheetOpen(true)} />
+      {view === "timeline" ? (
+        <TimelineBar entry={selectedEntry} mouse={mouse} onOpen={() => openEntry()} />
+      ) : (
+        !nothingYet && <ActionBar item={actionItem} detail={inDetail} pane={pane} mouse={mouse} onCommand={run} />
+      )}
+      <Footer hotkey={hotkey} mouse={mouse} onTrace={() => setTraceOpen((o) => !o)} onKeys={() => setSheetOpen(true)} />
       <Toast />
       {sheetOpen && <ShortcutSheet onClose={() => setSheetOpen(false)} />}
     </div>

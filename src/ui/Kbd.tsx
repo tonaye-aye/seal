@@ -31,11 +31,14 @@ export function KeyButton({
   label,
   onClick,
   tone = "muted",
+  mouse = false,
 }: {
   keys: string[];
   label: string;
   onClick: () => void;
   tone?: "muted" | "amber" | "faint";
+  /** In mouse mode the key caps are hidden: it's just a button to click. */
+  mouse?: boolean;
 }) {
   const colour = tone === "amber" ? "text-amber" : tone === "faint" ? "text-faint hover:text-muted" : "text-muted hover:text-text";
   return (
@@ -47,7 +50,41 @@ export function KeyButton({
       onClick={onClick}
       className={`-mx-1.5 inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 transition-colors duration-(--duration-fast) hover:bg-raised ${colour}`}
     >
-      <Kbd keys={keys} />
+      {!mouse && <Kbd keys={keys} />}
+      {label}
+    </button>
+  );
+}
+
+/**
+ * The top bar's view switch. For keyboard users it reads like a key hint
+ * ("⌘↵ View timeline"). Once the mouse moves, the key caps make way for the
+ * icon of the view it goes to; a key press brings them back.
+ */
+export function SwitchButton({
+  keys,
+  label,
+  icon,
+  mouse,
+  onClick,
+}: {
+  keys: string[];
+  label: string;
+  /** The destination view's icon, shown in mouse mode instead of the keys. */
+  icon: React.ReactNode;
+  mouse: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      tabIndex={-1}
+      // Keep keyboard focus on the palette, so the keys keep working after a click.
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
+      className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md border border-transparent px-2 text-[12px] text-faint transition-colors duration-(--duration-fast) hover:border-hairline hover:bg-raised hover:text-text"
+    >
+      {mouse ? <span className="inline-grid size-4 place-items-center [&>svg]:size-3.5">{icon}</span> : <Kbd keys={keys} />}
       {label}
     </button>
   );

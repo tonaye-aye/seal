@@ -14,8 +14,8 @@
       {
         "label": "palette",
         "title": "Life",
-        "width": 760,
-        "height": 520,
+        "width": 1000,
+        "height": 680,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,
