@@ -38,3 +38,25 @@ export function startWindowDrag(): void {
 export function centerWindow(): void {
   if (isTauri()) void getCurrentWindow().center();
 }
+
+// Whether the palette is on screen. The window starts hidden in the app (it
+// waits for the hotkey); in a plain browser there is no hiding, so it is shown.
+let paletteHidden = isTauri();
+const visibilityListeners = new Set<() => void>();
+onPaletteShown(() => setHidden(false));
+onPaletteHidden(() => setHidden(true));
+
+function setHidden(next: boolean): void {
+  paletteHidden = next;
+  visibilityListeners.forEach((run) => run());
+}
+
+export function isPaletteHidden(): boolean {
+  return paletteHidden;
+}
+
+/** Runs `handler` whenever the palette is shown or hidden. Returns an unsubscribe. */
+export function onPaletteVisibility(handler: () => void): () => void {
+  visibilityListeners.add(handler);
+  return () => visibilityListeners.delete(handler);
+}
