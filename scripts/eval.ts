@@ -9,16 +9,24 @@
 //              none is expected)
 //   citations  every cited id is real (code drops invented ones) and at least
 //              one cited id is in the expected evidence
+//   draft      the finding has a draft that passed the claim check (every
+//              amount, date, reference, kWh, count and % found in the verified
+//              figures or evidence), signs off "Thanks, Maya", leaks no internal
+//              ids, and mentions the key facts a reader needs (MUST below).
+//              Also checks a draft saves and discards through the email
+//              connector (drafts only, nothing sent).
 //
 // This script (not the app) may read seed/eval/.
 //
-// Run: node --env-file=.env scripts/eval.ts [--live | --fresh-judge] [--repeat N] [--verbose]
+// Run: node --env-file=.env scripts/eval.ts [--live | --fresh-judge | --fresh-draft] [--repeat N] [--verbose]
 //   default        saved model replies where available (fast, repeatable)
 //   --fresh-judge  extraction from saved replies, the judge called fresh each run
+//   --fresh-draft  drafting (Flash and the 35B fallback) called fresh each run
 //   --live         every model call fresh
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { runScan, type ScanResult } from "../src/agent/pipeline.ts";
+import { discardSaved, saveDraft } from "../src/agent/draft.ts";
+import { runScan, type Finding, type ScanResult } from "../src/agent/pipeline.ts";
 import { createConnectors } from "../src/connectors/index.ts";
 import { createLlm, type ChatRequest, type LlmClient } from "../src/lib/llm.ts";
 import { nodeTransport } from "./llm-node.ts";
@@ -27,6 +35,7 @@ import { nodeSeedSource } from "./seed-source.ts";
 const args = process.argv.slice(2);
 const live = args.includes("--live");
 const freshJudge = args.includes("--fresh-judge");
+const freshDraft = args.includes("--fresh-draft");
 const verbose = args.includes("--verbose");
 const repeat = Number(args[args.indexOf("--repeat") + 1]) || 1;
 
@@ -39,23 +48,67 @@ const truth = JSON.parse(await readFile(new URL("../seed/eval/ground_truth.json"
 // The ground truth names one kind differently.
 const KIND_ALIASES: Record<string, string> = { price_increase_vs_contract: "price_increase" };
 
-/** Model calls: extraction from saved replies unless --live; the judge fresh with --fresh-judge or --live. */
+/** Model calls: saved replies unless --live, or the stage asked for fresh (judge = 35B thinking, draft = Flash or 35B not thinking). */
 function client(): LlmClient {
   const transport = nodeTransport();
   const cached = createLlm(transport, { mode: live ? "live" : "cache_first" });
   const fresh = createLlm(transport, { mode: "live" });
+  const isJudge = (r: ChatRequest) => r.model === "judge" && r.think;
+  const isDraft = (r: ChatRequest) => r.model === "flash" || (r.model === "judge" && !r.think);
   return {
-    chat: (request: ChatRequest) => ((freshJudge || live) && request.model === "judge" ? fresh : cached).chat(request),
+    chat: (request: ChatRequest) =>
+      (live || (freshJudge && isJudge(request)) || (freshDraft && isDraft(request)) ? fresh : cached).chat(request),
   } as LlmClient;
 }
 
-type LeakScore = { id: string; flagged: boolean; kind: boolean; amount: boolean; deadline: boolean; citesEvidence: boolean; detail: string };
+// Facts a reader of each draft needs (compared ignoring case and commas, with
+// dates also matched in short form). Lifted from the spike.
+const MUST: Record<string, string[]> = {
+  L1: ["24 months", "$79.00", "14 October 2025"],
+  L2: ["StreamBox", "Apple", "17.99"],
+  L3: ["14 November", "28 November", "$89.00"],
+  L4: ["BrightPage", "14.99"],
+  L5: ["KP-20418", "R-77311", "R-77402", "$385.00"],
+  L6: ["1,109", "1,485.54", "4 December"],
+  L7: ["47,006", "30 October"],
+};
+const INTERNAL_ID = /\b(?:msg|doc|evt)_\d+|\b(?:JE|MC)-\d{5}\b/;
+
+type DraftScore = { ok: boolean; grounded: boolean; missing: string[]; fallback: boolean; detail: string };
+
+function scoreDraft(leakId: string, finding: Finding | undefined): DraftScore {
+  const d = finding?.draft;
+  if (!d) return { ok: false, grounded: false, missing: MUST[leakId] ?? [], fallback: false, detail: "no draft" };
+  const text = `${d.subject}\n${d.body}`;
+  const flat = (s: string) => s.toLowerCase().replace(/,/g, "");
+  const shortMonths = (s: string) => s.replace(/(January|February|March|April|May|June|July|August|September|October|November|December)/g, (m) => m.slice(0, 3));
+  const missing = (MUST[leakId] ?? []).filter((m) => !flat(text).includes(flat(m)) && !flat(shortMonths(text)).includes(flat(shortMonths(m))));
+  const signed = /thanks,\s*maya/i.test(d.body);
+  const ids = INTERNAL_ID.test(text);
+  const fallback = d.attempts.length > 1;
+  const ok = d.grounded && signed && !ids && missing.length === 0;
+  const words = d.body.split(/\s+/).length;
+  const parts = [
+    d.grounded ? "claim check clean" : `NOT GROUNDED: ${d.problems.join(" | ")}`,
+    missing.length ? `missing: ${missing.join(" | ")}` : "key facts present",
+    signed ? "" : "no sign-off",
+    ids ? "INTERNAL IDS" : "",
+    `${words} words`,
+    `to ${d.to.address}`,
+    d.attachDocumentIds.length ? `attach ${d.attachDocumentIds.join(",")}` : "",
+    d.attempts.map((a) => `${a.model.split("/").pop()} ${(a.ms / 1000).toFixed(1)}s${a.problems.length ? ` (${a.problems.length} problems: ${a.problems.join(" | ")})` : ""}`).join(" -> "),
+  ];
+  return { ok, grounded: d.grounded, missing, fallback, detail: parts.filter(Boolean).join("; ") };
+}
+
+type LeakScore = { id: string; flagged: boolean; kind: boolean; amount: boolean; deadline: boolean; citesEvidence: boolean; detail: string; draft: DraftScore };
 
 function score(result: ScanResult) {
   const leaks: LeakScore[] = truth.leaks.map((leak) => {
     const expectedIds = new Set(Object.values(leak.evidence).flat());
     const finding = result.findings.find((f) => f.evidence.some((e) => expectedIds.has(e.id.split(":")[0])));
-    if (!finding) return { id: leak.id, flagged: false, kind: false, amount: false, deadline: false, citesEvidence: false, detail: "not flagged" };
+    const draft = scoreDraft(leak.id, finding);
+    if (!finding) return { id: leak.id, flagged: false, kind: false, amount: false, deadline: false, citesEvidence: false, detail: "not flagged", draft };
     const money = Object.entries(leak.amounts)
       .filter(([k, v]) => typeof v === "number" && !/count|charges|pct|tolerance|remaining/.test(k))
       .map(([, v]) => Math.round((v as number) * 100));
@@ -73,6 +126,7 @@ function score(result: ScanResult) {
       amount,
       deadline,
       citesEvidence,
+      draft,
       detail: `${finding.title} [${finding.kind}, ${finding.confidence}] at stake ${headline.map((h) => `$${(h / 100).toFixed(2)}`).join("/")}, deadline ${finding.deadline?.date ?? "none"}`,
     };
   });
@@ -93,6 +147,7 @@ function score(result: ScanResult) {
 }
 
 const runs: ReturnType<typeof score>[] = [];
+const saveChecks: boolean[] = [];
 for (let run = 1; run <= repeat; run++) {
   const connectors = await createConnectors({ source: nodeSeedSource, latencyScale: 0 });
   const started = performance.now();
@@ -103,12 +158,22 @@ for (let run = 1; run <= repeat; run++) {
   const s = score(result);
   runs.push(s);
 
+  // Approve and undo go through the email connector, which only keeps drafts.
+  const withDraft = result.findings.filter((f) => f.draft);
+  const saved = await Promise.all(withDraft.map((f) => saveDraft(connectors, f.draft!)));
+  const listed = (await connectors.email.listDrafts()).length;
+  await Promise.all(saved.map((d) => discardSaved(connectors, d.id)));
+  const afterUndo = (await connectors.email.listDrafts()).length;
+  saveChecks.push(listed === withDraft.length && afterUndo === 0);
+
   console.log(`\n\nRun ${run} of ${repeat}: ${seconds} s${result.usedReplay ? " (some answers from saved replies)" : ""}`);
   for (const l of s.leaks) {
     const marks = [l.flagged && "flagged", l.kind && "kind", l.amount && "amount", l.deadline && "deadline", l.citesEvidence && "cites"].filter(Boolean);
     const all = l.flagged && l.kind && l.amount && l.deadline && l.citesEvidence;
     console.log(`  ${all ? "ok  " : l.flagged ? "PART" : "MISS"} ${l.id}  ${marks.join(" ")}  ${verbose || !all ? l.detail : ""}`);
   }
+  for (const l of s.leaks) console.log(`  ${l.draft.ok ? "ok  " : "FAIL"} ${l.id} draft  ${verbose || !l.draft.ok ? l.draft.detail : ""}`);
+  console.log(`  ${saveChecks.at(-1) ? "ok  " : "FAIL"} drafts saved to and discarded from the email connector (nothing sent)`);
   for (const d of s.decoyFlags) console.log(`  ${d.flagged ? "FAIL" : "ok  "} ${d.id}  ${d.flagged ? "flagged as a problem" : "cleared"}: ${d.why}`);
   for (const f of s.falseAlarms) console.log(`  FAIL false alarm: ${f.title}`);
   if (result.undecided.length) console.log(`  undecided: ${result.undecided.map((u) => `${u.merchant} (${u.error})`).join("; ")}`);
@@ -118,6 +183,7 @@ for (let run = 1; run <= repeat; run++) {
       console.log(`    why: ${f.why}`);
       console.log(`    do: ${f.action.summary}`);
       if (f.doubts.length) console.log(`    doubts: ${f.doubts.join("; ")}`);
+      if (f.draft) console.log(`    draft to ${f.draft.to.address}: ${f.draft.subject}\n      ${f.draft.body.replace(/\n/g, "\n      ")}`);
     }
   }
 
@@ -137,4 +203,7 @@ console.log(`  kind         ${total((l) => l.kind)}/${out}`);
 console.log(`  amount       ${total((l) => l.amount)}/${out}`);
 console.log(`  deadline     ${total((l) => l.deadline)}/${out}`);
 console.log(`  citations    ${total((l) => l.citesEvidence)}/${out} cite expected evidence`);
-process.exitCode = total((l) => l.flagged) === out && decoysFlagged === 0 && falseAlarms === 0 ? 0 : 1;
+console.log(`  drafts       ${total((l) => l.draft.ok)}/${out} fully correct, ${total((l) => l.draft.grounded)}/${out} pass the claim check, ${total((l) => l.draft.fallback)} needed the 35B rewrite`);
+console.log(`  save/undo    ${saveChecks.filter(Boolean).length}/${saveChecks.length} runs`);
+process.exitCode =
+  total((l) => l.flagged) === out && decoysFlagged === 0 && falseAlarms === 0 && total((l) => l.draft.ok) === out && saveChecks.every(Boolean) ? 0 : 1;

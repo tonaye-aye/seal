@@ -9,7 +9,10 @@
 //   4 extract facts        9B       (extract.ts)
 //   5 verify figures       code     (verify.ts)
 //   6 judge each case      35B      (judge.ts)
-//   (7 drafting comes next, on its own branch)
+//   7 draft the fix        Flash, 35B fallback, claim check in code (draft.ts)
+//
+// Each case is drafted as soon as it is judged, so the first finding (with its
+// draft) can be shown while other cases are still being judged.
 
 import { now } from "../lib/clock.ts";
 import { localDate, toZonedIso } from "../lib/dates.ts";
@@ -17,6 +20,7 @@ import type { LlmClient } from "../lib/llm.ts";
 import { syncAll, type ConnectorStatus, type Connectors } from "../connectors/index.ts";
 import { buildCorpus, mapLimited } from "./corpus.ts";
 import { detect, upcomingCharges, type Candidate, type EvidenceRef } from "./detectors.ts";
+import { draftFinding, loadVoice, type ProposedDraft } from "./draft.ts";
 import { extractAll } from "./extract.ts";
 import { judgeCase, type ActionKind, type FindingKind, type Verdict } from "./judge.ts";
 import { retrieveExact } from "./retrieval.ts";
@@ -42,18 +46,22 @@ export type Finding = {
   status: "new" | "approved" | "snoozed" | "dismissed";
   verified: true;
   judgedBy: { model: string; source: "live" | "cache"; ms: number };
+  /** The message that fixes it, waiting for approval. Absent when there is nothing to ask for. */
+  draft?: ProposedDraft;
 };
 
 /** A case the agent looked at and decided is fine, with the reason. */
 export type Cleared = { id: string; merchant: string; title: string; why: string; citedIds: string[] };
 
-export type Stage = "sync" | "read" | "detect" | "retrieve" | "extract" | "verify" | "judge";
+export type Stage = "sync" | "read" | "detect" | "retrieve" | "extract" | "verify" | "judge" | "draft";
 
 export type AgentEvent =
   | { type: "stage"; stage: Stage; status: "start" | "done"; detail?: string; at: number }
   | { type: "connector"; status: ConnectorStatus; at: number }
   | { type: "progress"; stage: Stage; done: number; total: number; label?: string; at: number }
   | { type: "finding"; finding: Finding; at: number }
+  /** A finding's draft is ready (it arrives after the finding itself). */
+  | { type: "draft"; findingId: string; draft: ProposedDraft; at: number }
   | { type: "cleared"; cleared: Cleared; at: number }
   | { type: "problem"; stage: Stage; message: string; at: number };
 
@@ -188,7 +196,11 @@ export async function runScan(
   const verified = detection.candidates.map((c, i) => verifyCase(c, evidence[i], extraction, corpus));
   stage("verify", "done", `${verified.reduce((n, v) => n + v.figures.length, 0)} figures checked`);
 
+  const voice = await loadVoice(connectors);
   stage("judge", "start");
+  stage("draft", "start", "each finding is drafted as soon as it is judged");
+  let drafted = 0;
+  let toDraft = 0;
   const findings: Finding[] = [];
   const cleared: Cleared[] = [];
   const undecided: ScanResult["undecided"] = [];
@@ -207,6 +219,22 @@ export async function runScan(
         const finding = toFinding(candidate, verdict, verified[i], evidence[i].items);
         findings.push(finding);
         emit({ type: "finding", finding, at: at() });
+        // A "Check X" finding (action none) has nothing to ask a business yet.
+        if (verdict.action !== "none") {
+          toDraft++;
+          try {
+            finding.draft = await draftFinding(llm, finding, corpus, voice);
+            usedReplay ||= finding.draft.source === "cache";
+            emit({ type: "draft", findingId: finding.id, draft: finding.draft, at: at() });
+            if (!finding.draft.grounded) {
+              emit({ type: "problem", stage: "draft", message: `${finding.merchant}: draft needs checking (${finding.draft.problems.join("; ")})`, at: at() });
+            }
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            emit({ type: "problem", stage: "draft", message: `${finding.merchant}: couldn't draft (${message})`, at: at() });
+          }
+          emit({ type: "progress", stage: "draft", done: ++drafted, total: toDraft, label: finding.merchant, at: at() });
+        }
       } else {
         const c: Cleared = { id: candidate.id, merchant: candidate.names.join(" + "), title: verdict.title, why: verdict.why, citedIds: verdict.citedIds };
         cleared.push(c);
@@ -220,6 +248,9 @@ export async function runScan(
     emit({ type: "progress", stage: "judge", done: ++judged, total: detection.candidates.length, label: candidate.names.join(" + "), at: at() });
   });
   stage("judge", "done", `${findings.length} need you, ${cleared.length} look fine`);
+  const withDrafts = findings.filter((f) => f.draft);
+  const unchecked = withDrafts.filter((f) => !f.draft!.grounded).length;
+  stage("draft", "done", `${withDrafts.length} drafts ready${unchecked ? `, ${unchecked} need checking` : ", every claim checked"}`);
 
   return {
     findings: rank(findings),
