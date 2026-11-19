@@ -1,9 +1,10 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App";
+import "./styles/tokens.css";
+import { Palette } from "./ui/Palette/Palette";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <App />
+    <Palette />
   </React.StrictMode>,
 );
