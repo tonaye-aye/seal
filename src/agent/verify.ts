@@ -39,6 +39,13 @@ export type VerifiedCase = {
   notes: string[];
   /** Things that didn't add up, shown as "check this" rather than hidden. */
   warnings: string[];
+  /**
+   * Hard facts, checked by code, that point one way. If the judge's verdict
+   * goes against them, the case is shown as "Not sure" instead of being
+   * decided by the model alone.
+   */
+  pointsToProblem: string[];
+  pointsToFine: string[];
   /** The headline numbers (all optional), mirroring Finding.amounts. */
   atStakeCents?: number;
   recoverableCents?: number;
@@ -142,7 +149,15 @@ const monthName = (yearMonth: string) =>
 class Builder {
   readonly out: VerifiedCase;
   constructor(candidate: Candidate) {
-    this.out = { candidateId: candidate.id, names: candidate.names, figures: [], notes: [], warnings: [] };
+    this.out = {
+      candidateId: candidate.id,
+      names: candidate.names,
+      figures: [],
+      notes: [],
+      warnings: [],
+      pointsToProblem: [],
+      pointsToFine: [],
+    };
   }
   figure(f: Figure) {
     this.out.figures.push(f);
@@ -216,7 +231,8 @@ function priceChange(b: Builder, signal: Signal, facts: CaseFacts, series: Serie
       });
       b.out.atStakeCents = atStake;
       b.out.recoverableCents = extra;
-      b.note(`The agreement promised ${money(before)} a month for ${months} months from ${day(startDate)} (until ${day(termEnd)}). The new price started in month ${month} of that term, with ${remaining} more charges due before it ends.`);
+      b.note(`The agreement promised ${money(before)} a month for ${months} months from ${day(startDate)} (until ${day(termEnd)}). The new price started in month ${month} of that term, with ${remaining} more charges due before it ends. So the rise came ${months - month + 1} months before the promised price was due to end.`);
+      b.out.pointsToProblem.push(`The price rose in month ${month} of a ${months}-month fixed-price term.`);
     } else {
       b.note(`A ${months}-month price term from ${day(startDate)} ended on ${day(termEnd)}, before the price changed.`);
     }
@@ -236,6 +252,7 @@ function priceChange(b: Builder, signal: Signal, facts: CaseFacts, series: Serie
       how: `${money(before)} x ${1 + a.value / 100} = ${money(expected)}`,
     });
     const sent = facts.dateOf(a.source);
+    if (matches) b.out.pointsToFine.push(`The new price is exactly the announced ${a.value}% change.`);
     b.note(
       matches
         ? `${sent ? `On ${day(sent)} the business announced` : "The business announced"} a ${a.value}% change; ${money(before)} plus ${a.value}% is exactly ${money(after)}.`
@@ -275,6 +292,7 @@ function duplicateCharges(b: Builder, signal: Signal, facts: CaseFacts, candidat
     );
     const named = receipts.filter((r) => facts.text(r.key).toLowerCase().includes(directName.split(" ")[0].toLowerCase()));
     if (named.length) {
+      b.out.pointsToProblem.push(`${platformName} receipts show the platform charge is for ${directName}, which is also paid directly.`);
       b.note(`${named.length} receipt email${named.length === 1 ? "" : "s"} from ${platformName} show the "${platform.description}" card charge is for ${directName}, the same service already paid by ${direct.accountId === platform.accountId ? "the same account" : "a different account"} directly.`);
     }
     const months = new Set([
@@ -332,6 +350,7 @@ function duplicatePayment(b: Builder, signal: Signal, facts: CaseFacts, corpus: 
   if (f.differentReferences) {
     const refs = [...(f.referencesA as string[]), ...(f.referencesB as string[])];
     b.figure({ id: "different_references", label: "Payments carry different references", value: true, unit: "yes_no", sources: txns });
+    b.out.pointsToFine.push("The two payments carry different references.");
     b.note(`The two ${money(amount)} payments carry different references (${refs.join(" and ")}), which usually means two separate bills.`);
     // Separate notices asking for this amount support that.
     const notices = facts.sources.filter(
@@ -357,6 +376,7 @@ function duplicatePayment(b: Builder, signal: Signal, facts: CaseFacts, corpus: 
   if (receiptRefs.length) b.figure({ id: "receipt_references", label: "Receipts", value: receiptRefs.join(", "), unit: "text", sources: receipts.map((r) => r.key) });
   b.out.recoverableCents = amount;
   b.out.atStakeCents = amount;
+  if (invoiceRef) b.out.pointsToProblem.push(`Invoice ${invoiceRef} was paid twice.`);
   b.note(
     `${invoiceRef ? `Invoice ${invoiceRef} totals ${money(amount)}. ` : ""}It was paid twice: by ${accountName(f.firstDescription as string)} on ${day(f.firstDate as string)} and by ${accountName(f.secondDescription as string)} on ${day(f.secondDate as string)}, ${f.daysApart} days apart.${receipts.length >= 2 ? ` The business sent ${receipts.length} payment receipts${receiptRefs.length ? ` (${receiptRefs.join(", ")})` : ""}.` : ""}`,
   );
@@ -403,6 +423,7 @@ function renewal(b: Builder, facts: CaseFacts, candidate: Candidate, today: stri
       how: `${noticeDays} days before ${day(renewsOn)}`,
     });
     b.figure({ id: "notice_passed", label: "Notice deadline passed", value: passed, unit: "yes_no", sources: notice.map((q) => q.source) });
+    if (passed && fee) b.out.pointsToProblem.push(`The notice deadline has passed and a fee is due on renewal.`);
     b.note(
       passed
         ? `The terms need ${noticeDays} days' notice, so the last day to cancel without the fee was ${day(lastDay)}. That was ${daysBetween(lastDay, today)} days ago.`
@@ -469,6 +490,7 @@ function renewal(b: Builder, facts: CaseFacts, candidate: Candidate, today: stri
             : "Its cover details couldn't be compared."),
     );
     if (!comparable) b.warn("The quote may not be like for like.");
+    else b.out.pointsToProblem.push("A cheaper like-for-like quote exists for the renewal.");
   }
 }
 
@@ -492,6 +514,7 @@ function trial(b: Builder, facts: CaseFacts, candidate: Candidate, today: string
   if (lastUse) {
     b.figure({ id: "last_used", label: "Last used", value: lastUse, unit: "date", sources: facts.dates(/last (session|visit|use|read|login)/i).map((d) => d.source) });
     const unusedCharges = s.charges.filter((t) => t.date > lastUse).length;
+    if (unusedCharges > 0) b.out.pointsToProblem.push(`${unusedCharges} paid charges came after it was last used.`);
     b.note(`It was last used on ${day(lastUse)} (${daysBetween(lastUse, today)} days ago); ${unusedCharges} of the charges came after that.`);
   }
 }
@@ -570,6 +593,7 @@ function estimatedBill(b: Builder, facts: CaseFacts, corpus: Corpus) {
     how: `${used} kWh to the photo, less ${daysAfterEnd} days at ${perDay.toFixed(1)} kWh/day`,
   });
   b.figure({ id: "overbilled_kwh", label: "Billed above actual (approx.)", value: overKwh, unit: "kwh", sources, how: `${billed} - ${actualToEnd}` });
+  if (reading < estimate) b.out.pointsToProblem.push("An actual meter reading is lower than the bill's estimate.");
   b.note(`The bill estimated ${estimate.toLocaleString("en-AU")} kWh on ${day(periodEnd)}. A meter photo on ${day(photoDate)} reads ${reading.toLocaleString("en-AU")} kWh${confirmed ? " (the same number appears in the household's email)" : ""}, ${(estimate - reading).toLocaleString("en-AU")} kWh lower, ${daysAfterEnd} day${daysAfterEnd === 1 ? "" : "s"} later.`);
   b.note(`From the last actual reading (${previous.toLocaleString("en-AU")} kWh, ${day(previousReadDate)}) the household used about ${perDay.toFixed(1)} kWh a day, so roughly ${actualToEnd.toLocaleString("en-AU")} kWh in the bill period against ${billed.toLocaleString("en-AU")} kWh billed: about ${overKwh.toLocaleString("en-AU")} kWh too many.`);
 
