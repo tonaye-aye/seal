@@ -6,6 +6,10 @@
 //
 // Nothing here sends anything. Approving saves an email draft through the
 // email connector, which has no send operation.
+//
+// Maya's decisions and edits are kept in localStorage, so they survive a
+// restart. A background check (startBackgroundChecks) runs the scan again
+// while the palette is hidden, and only swaps in the new results at the end.
 
 import { useSyncExternalStore } from "react";
 import { discardSaved, saveDraft } from "../agent/draft.ts";
@@ -36,6 +40,8 @@ type UndoEntry = {
 
 export type ScanState = {
   phase: "idle" | "scanning" | "done" | "error";
+  /** A background check is running; the last results stay on screen until it finishes. */
+  refreshing: boolean;
   startedAt?: number;
   finishedAt?: number;
   /** The stage running now, and how far through it is. */
@@ -57,27 +63,57 @@ export type ScanState = {
   saved: Record<string, string>;
   /** Draft bodies Maya edited, by finding id. */
   edits: Record<string, string>;
+  /** When each decision was made (real time, for "4 min ago" on the timeline). */
+  decidedAt: Record<string, number>;
   undo: UndoEntry[];
   toast?: Toast;
 };
 
+// ---------- Kept across restarts ----------
+
+const SAVED_KEY = "life.decisions";
+type Saved = Pick<ScanState, "decisions" | "edits" | "decidedAt" | "saved">;
+
+function loadSaved(): Saved {
+  const empty: Saved = { decisions: {}, edits: {}, decidedAt: {}, saved: {} };
+  try {
+    const raw = JSON.parse(localStorage.getItem(SAVED_KEY) ?? "null") as (Saved & { v?: number }) | null;
+    return raw?.v === 1 ? { ...empty, decisions: raw.decisions, edits: raw.edits, decidedAt: raw.decidedAt, saved: raw.saved } : empty;
+  } catch {
+    return empty;
+  }
+}
+
+function persist(s: ScanState) {
+  try {
+    const saved: Saved & { v: number } = { v: 1, decisions: s.decisions, edits: s.edits, decidedAt: s.decidedAt, saved: s.saved };
+    localStorage.setItem(SAVED_KEY, JSON.stringify(saved));
+  } catch {
+    // Storage can be unavailable; decisions then last until the app quits.
+  }
+}
+
+/** True until the first scan after launch has put back the drafts saved before a restart. */
+let restorePending = Object.keys(loadSaved().saved).length > 0;
+
 let state: ScanState = {
   phase: "idle",
+  refreshing: false,
   findings: [],
   cleared: [],
   undecided: [],
   usedReplay: false,
   trace: [],
-  decisions: {},
-  saved: {},
-  edits: {},
+  ...loadSaved(),
   undo: [],
 };
 const listeners = new Set<() => void>();
 let nextId = 1;
+state = { ...state, undo: restoreUndo() };
 
 function set(change: Partial<ScanState>) {
   state = { ...state, ...change };
+  if ("decisions" in change || "edits" in change || "saved" in change || "decidedAt" in change) persist(state);
   for (const listener of listeners) listener();
 }
 
@@ -113,7 +149,13 @@ function trace(text: string, tone: TraceLine["tone"] = "info"): TraceLine[] {
   return [...state.trace, { id: nextId++, t, text, tone }];
 }
 
+/** True while the scan running now is a background one: its findings wait until it finishes. */
+let quiet = false;
+
 function onEvent(event: AgentEvent) {
+  // A background check keeps the last results on screen: only the connector
+  // chips and the trace follow along.
+  if (quiet && (event.type === "corpus" || event.type === "finding" || event.type === "draft" || event.type === "cleared" || event.type === "progress")) return;
   switch (event.type) {
     case "connector":
       setConnectorStatus(event.status);
@@ -127,7 +169,8 @@ function onEvent(event: AgentEvent) {
       if (event.status === "start") {
         // Judging and drafting run together; keep showing "judge" until it's done.
         if (event.stage === "draft") return;
-        set({ stage: event.stage, progress: undefined, trace: trace(STAGE_TEXT[event.stage]) });
+        if (quiet) set({ trace: trace(STAGE_TEXT[event.stage]) });
+        else set({ stage: event.stage, progress: undefined, trace: trace(STAGE_TEXT[event.stage]) });
       } else if (event.detail) {
         set({ trace: trace(sentence(event.detail), event.stage === "draft" ? "good" : "info") });
       }
@@ -170,9 +213,15 @@ function sentence(text: string): string {
 
 // ---------- Running ----------
 
-/** Runs the whole check. Calls made while one is running are ignored. */
-export async function startScan(): Promise<void> {
-  if (state.phase === "scanning") return;
+/**
+ * Runs the whole check. Calls made while one is running are ignored.
+ * `background`: keep showing the last results while it runs (used by the timer).
+ */
+export async function startScan({ background = false } = {}): Promise<void> {
+  if (state.phase === "scanning" || state.refreshing) return;
+  if (background && state.phase === "done") {
+    return runBackground();
+  }
   set({
     phase: "scanning",
     startedAt: Date.now(),
@@ -205,10 +254,110 @@ export async function startScan(): Promise<void> {
       usedReplay: result.usedReplay,
       trace: trace(`Done in ${((Date.now() - (state.startedAt ?? Date.now())) / 1000).toFixed(1)} s. Nothing was sent or changed.`, "good"),
     });
+    await restoreDrafts();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    // Drafts kept from before a restart can't be put back without a scan; stop waiting for them.
+    restorePending = false;
     set({ phase: "error", finishedAt: Date.now(), error: message, trace: trace(message, "bad") });
   }
+}
+
+/** The timer's check: the last results stay put until the new ones are all in. */
+async function runBackground(): Promise<void> {
+  quiet = true;
+  set({ refreshing: true, startedAt: Date.now(), trace: [] });
+  set({ trace: trace("Checking again in the background") });
+  try {
+    if (!(await llmConfigured())) throw new Error("The model endpoint isn't set up.");
+    const result = await runScan(await getConnectors(), createAppLlm("live_with_fallback"), onEvent);
+    set({
+      refreshing: false,
+      finishedAt: Date.now(),
+      stage: undefined,
+      progress: undefined,
+      result,
+      findings: result.findings,
+      cleared: result.cleared,
+      undecided: result.undecided,
+      usedReplay: result.usedReplay,
+      trace: trace(`Checked again in ${((Date.now() - (state.startedAt ?? Date.now())) / 1000).toFixed(1)} s. Nothing was sent or changed.`, "good"),
+    });
+  } catch (error) {
+    // Keep the last good results; just say the background check didn't finish.
+    const message = error instanceof Error ? error.message : String(error);
+    set({ refreshing: false, stage: undefined, progress: undefined, trace: trace(`The background check didn't finish: ${message}`, "bad") });
+  } finally {
+    quiet = false;
+  }
+}
+
+/**
+ * After a restart, the drafts approved last time are put back in the Drafts
+ * folder (the stand-in mailbox only lives in memory; a real one keeps them).
+ * Runs once, after the first scan has drafted everything again.
+ */
+async function restoreDrafts(): Promise<void> {
+  if (!restorePending) return;
+  restorePending = false;
+  const connectors = await getConnectors();
+  const saved: Record<string, string> = {};
+  for (const finding of state.findings) {
+    if (state.decisions[finding.id] !== "approved") continue;
+    const draft = withDecision(finding).draft;
+    if (!draft) continue;
+    try {
+      saved[finding.id] = (await saveDraft(connectors, draft)).id;
+    } catch {
+      // Leave it approved; the draft can be saved again by undoing and approving.
+    }
+  }
+  set({ saved });
+}
+
+/** Rebuilds the undo list from decisions kept across a restart, oldest first, so Cmd+Z still works. */
+function restoreUndo(): UndoEntry[] {
+  const LABEL: Record<Decision, string> = { approved: "Saved to Drafts", snoozed: "Snoozed", dismissed: "Not a leak", new: "" };
+  return Object.entries(loadSaved().decisions)
+    .filter(([, d]) => d !== "new")
+    .sort(([a], [b]) => (state.decidedAt[a] ?? 0) - (state.decidedAt[b] ?? 0))
+    .map(([findingId, d]) => ({
+      findingId,
+      before: "new" as Decision,
+      label: LABEL[d],
+      // The draft id is only known once restoreDrafts has saved it again.
+      saving: d === "approved" ? waitForSaved(findingId) : undefined,
+    }));
+}
+
+/** Resolves to the finding's saved draft id once there is one (or undefined if the first scan ends without one). */
+function waitForSaved(findingId: string): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    const check = () => {
+      if (state.saved[findingId] && !restorePending) return resolve(state.saved[findingId]), true;
+      if (!restorePending && state.phase !== "scanning") return resolve(undefined), true;
+      return false;
+    };
+    if (check()) return;
+    const stop = subscribe(() => {
+      if (check()) stop();
+    });
+  });
+}
+
+/** How often the background check runs while the palette is hidden. */
+export const BACKGROUND_EVERY_MS = 30 * 60 * 1000;
+
+/**
+ * Re-runs the check on a timer while the app sits in the menu bar. It waits
+ * while the palette is open, so results never change under Maya's hands.
+ * Returns a function that stops the timer.
+ */
+export function startBackgroundChecks(isHidden: () => boolean, everyMs = BACKGROUND_EVERY_MS): () => void {
+  const timer = setInterval(() => {
+    if (isHidden() && state.phase === "done") void startScan({ background: true });
+  }, everyMs);
+  return () => clearInterval(timer);
 }
 
 // ---------- What the UI shows ----------
@@ -249,6 +398,7 @@ function decide(findingId: string, status: Decision, entry: Omit<UndoEntry, "fin
   const before = state.decisions[findingId] ?? "new";
   set({
     decisions: { ...state.decisions, [findingId]: status },
+    decidedAt: { ...state.decidedAt, [findingId]: Date.now() },
     undo: [...state.undo, { findingId, before, ...entry }],
   });
 }
@@ -321,9 +471,12 @@ export async function undoLast(): Promise<void> {
     set({ saved });
   }
   const decisions = { ...state.decisions };
-  if (entry.before === "new") delete decisions[entry.findingId];
-  else decisions[entry.findingId] = entry.before;
-  set({ decisions });
+  const decidedAt = { ...state.decidedAt };
+  if (entry.before === "new") {
+    delete decisions[entry.findingId];
+    delete decidedAt[entry.findingId];
+  } else decisions[entry.findingId] = entry.before;
+  set({ decisions, decidedAt });
   const f = state.findings.find((x) => x.id === entry.findingId);
   showToast(savedId ? `Undone: the draft for ${f?.merchant} was removed from Drafts.` : `Undone: ${f?.merchant} is back in the list.`, false);
 }

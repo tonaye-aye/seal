@@ -19,7 +19,8 @@ const GROUPS: { title: string; keys: [string[], string][] }[] = [
   {
     title: "Everywhere",
     keys: [
-      [["/"], "Search findings"],
+      [["⌘", "↵"], "Timeline: what's coming"],
+      [["/"], "Search findings or the timeline"],
       [["Tab"], "Switch pane (in a finding)"],
       [["T"], "Show what the agent did"],
       [["R"], "Check again (reconnects first)"],

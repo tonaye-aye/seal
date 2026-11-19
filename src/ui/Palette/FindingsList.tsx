@@ -6,6 +6,7 @@ import type { ScanState } from "../../lib/scan-store";
 import { KIND_LABEL, SOON_DAYS, daysText, daysUntil, headlineAmount, isUnsure, plural, shortDate } from "../format";
 import { Kbd } from "../Kbd";
 import { TraceLines } from "./Trace";
+import { ViewHeading } from "./ViewHeading";
 
 // The palette's main view: a plain-words headline, then one row per finding,
 // most urgent first. Keyboard first (J/K/Enter/A/S/D); the Palette owns the
@@ -34,13 +35,51 @@ export function listItems(findings: Finding[], scan: ScanState, query: string): 
 
 // ---------- Headline ----------
 
-export function Headline({ findings, scan }: { findings: Finding[]; scan: ScanState }) {
+export function Headline({
+  findings,
+  scan,
+  search,
+  query = "",
+  matches = [],
+}: {
+  findings: Finding[];
+  scan: ScanState;
+  search?: React.ReactNode;
+  /** While searching, the heading describes the matching rows instead of the month. */
+  query?: string;
+  matches?: ListItem[];
+}) {
   const open = findings.filter((f) => f.status === "new");
   const soon = open.filter((f) => f.deadline && daysUntil(f.deadline.date) <= SOON_DAYS);
   const lastSoon = soon.map((f) => f.deadline!.date).sort().pop();
   const back = open.reduce((n, f) => n + (f.amounts.recoverable ?? 0), 0);
   const monthly = open.reduce((n, f) => n + (f.amounts.perMonth ?? 0), 0);
   const scanning = scan.phase === "scanning";
+  const q = query.trim();
+
+  if (q) {
+    const hits = matches.flatMap((i) => (i.type === "finding" && i.finding.status === "new" ? [i.finding] : []));
+    const fine = matches.filter((i) => i.type === "cleared").length;
+    const hitBack = hits.reduce((n, f) => n + (f.amounts.recoverable ?? 0), 0);
+    const hitMonthly = hits.reduce((n, f) => n + (f.amounts.perMonth ?? 0), 0);
+    const words: string[] = [];
+    if (matches.length === 0) words.push("Try a business, like Skylink, or a problem, like price rise. Esc clears the search");
+    else {
+      words.push(`${hits.length} of the ${open.length} that need you`);
+      if (fine) words.push(`${fine} checked and left alone`);
+      if (hitBack > 0) words.push(`up to ${formatAUD(hitBack)} to save or get back`);
+      if (hitMonthly > 0) words.push(`${formatAUD(hitMonthly)} a month`);
+    }
+    return (
+      <ViewHeading
+        view="list"
+        title={matches.length ? `${plural(matches.length, "match", "matches")} for "${q}"` : `No matches for "${q}"`}
+        search={search}
+      >
+        {words.join(", ")}.
+      </ViewHeading>
+    );
+  }
 
   let title: string;
   if (findings.length === 0) title = scanning ? "Nothing needs you so far" : "All clear this month";
@@ -59,14 +98,15 @@ export function Headline({ findings, scan }: { findings: Finding[]; scan: ScanSt
   }
 
   return (
-    <div className="px-4 pt-3.5 pb-2.5">
-      <h1 className="text-[18px] font-medium tracking-[-0.02em]">{title}</h1>
-      <p className="mt-0.5 text-[12.5px] text-muted">
-        {parts.join(", ")}
-        {parts.length > 0 && (open.length > 0 || findings.length === 0) && "."}
-        {scanning && <span className="text-faint"> Still checking the rest.</span>}
-      </p>
-    </div>
+    <ViewHeading
+      view="list"
+      title={title}
+      search={search}
+    >
+      {parts.join(", ")}
+      {parts.length > 0 && (open.length > 0 || findings.length === 0) && "."}
+      {scanning && <span className="text-faint"> Still checking the rest.</span>}
+    </ViewHeading>
   );
 }
 
@@ -141,7 +181,8 @@ function HoverActions({ finding, onAct }: { finding: Finding; onAct: (action: Ro
     <span
       // Clicks here act on the row; they must not also open it.
       onClick={(e) => e.stopPropagation()}
-      className="fade-in absolute inset-y-0 right-1 flex w-[290px] items-center justify-end gap-0.5 bg-[linear-gradient(90deg,transparent,var(--color-raised)_32px)] pr-1 text-[12px]"
+      // Shown only while the pointer is on this row (mouse mode starts on any movement in the palette).
+      className="fade-in absolute inset-y-0 right-1 hidden w-[290px] group-hover/row:flex items-center justify-end gap-0.5 bg-[linear-gradient(90deg,transparent,var(--color-raised)_32px)] pr-1 text-[12px]"
     >
       {button(approve, "approve", "text-amber")}
       {button("Snooze", "snooze", "text-muted hover:text-text")}
@@ -188,7 +229,7 @@ function groupTitle(count: number, title: string) {
 // mouse moves it; so do J/K. There is no separate hover style, so the two
 // can never point at different rows.
 function rowClass(selected: boolean): string {
-  return `relative flex h-9 cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-[13px] ${
+  return `group/row relative flex h-9 cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-[13px] ${
     selected ? "bg-raised before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-amber" : ""
   }`;
 }
@@ -206,6 +247,7 @@ export function FindingsList({
   showHint,
   onDismissHint,
   query,
+  search,
 }: {
   items: ListItem[];
   /** Every finding, before search filters the list (the headline counts these). */
@@ -223,6 +265,8 @@ export function FindingsList({
   showHint: boolean;
   onDismissHint: () => void;
   query: string;
+  /** The search bar, pinned under the heading. */
+  search: React.ReactNode;
 }) {
   const live = useLive();
   const listRef = useRef<HTMLDivElement>(null);
@@ -276,33 +320,35 @@ export function FindingsList({
   };
 
   return (
-    <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto pb-2">
-      {(!query || findings.length > 0) && <Headline findings={allFindings} scan={scan} />}
-      {showHint && findings.length > 0 && <FirstRunHint onDismiss={onDismissHint} />}
-      {scan.phase === "error" && (
-        <p className="mx-3 mb-2 rounded-lg border border-danger/25 bg-danger/[0.07] px-3.5 py-2 text-[12.5px] text-muted">
-          The check stopped early: {scan.error} Press <Kbd keys={["R"]} /> to try again.
-        </p>
-      )}
-      {missing.length > 0 && (
-        <p className="mx-3 mb-2 rounded-lg border border-danger/25 bg-danger/[0.07] px-3.5 py-2 text-[12.5px] text-muted">
-          {missing.map((s) => s!.name).join(" and ")} couldn't be read, so this check is missing what's in it. Press <Kbd keys={["R"]} /> to reconnect and check again.
-        </p>
-      )}
-      <div role="listbox" aria-label="Findings" className="flex flex-col px-1.5">
-        {findings.length > 0 && findings.map((f) => row({ type: "finding", key: f.id, finding: f }))}
-        {remaining !== undefined && remaining > 0 && (
-          <div className="flex h-9 items-center gap-2.5 px-2.5 text-[12.5px] text-faint">
-            <span className="size-1.5 rounded-full bg-amber/60 motion-safe:animate-pulse" aria-hidden="true" />
-            Still deciding on {plural(remaining, "more")}
-            <span className="shimmer ml-1 h-2 flex-1 rounded-full" aria-hidden="true" />
-          </div>
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* Pinned: the heading stays put while the rows scroll. */}
+      <Headline findings={allFindings} scan={scan} search={search} query={query} matches={items} />
+      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto pb-2">
+        {showHint && findings.length > 0 && <FirstRunHint onDismiss={onDismissHint} />}
+        {scan.phase === "error" && (
+          <p className="mx-3 mb-2 rounded-lg border border-danger/25 bg-danger/[0.07] px-3.5 py-2 text-[12.5px] text-muted">
+            The check stopped early: {scan.error} Press <Kbd keys={["R"]} /> to try again.
+          </p>
         )}
-        {groupTitle(rest.filter((i) => i.type === "undecided").length, "Couldn't decide: check these yourself")}
-        {rest.filter((i) => i.type === "undecided").map(row)}
-        {groupTitle(rest.filter((i) => i.type === "cleared").length, "Checked and left alone")}
-        {rest.filter((i) => i.type === "cleared").map(row)}
-        {query && items.length === 0 && <p className="px-2.5 py-6 text-center text-faint">Nothing matches "{query}".</p>}
+        {missing.length > 0 && (
+          <p className="mx-3 mb-2 rounded-lg border border-danger/25 bg-danger/[0.07] px-3.5 py-2 text-[12.5px] text-muted">
+            {missing.map((s) => s!.name).join(" and ")} couldn't be read, so this check is missing what's in it. Press <Kbd keys={["R"]} /> to reconnect and check again.
+          </p>
+        )}
+        <div role="listbox" aria-label="Findings" className="flex flex-col px-1.5">
+          {findings.length > 0 && findings.map((f) => row({ type: "finding", key: f.id, finding: f }))}
+          {remaining !== undefined && remaining > 0 && (
+            <div className="flex h-9 items-center gap-2.5 px-2.5 text-[12.5px] text-faint">
+              <span className="size-1.5 rounded-full bg-amber/60 motion-safe:animate-pulse" aria-hidden="true" />
+              Still deciding on {plural(remaining, "more")}
+              <span className="shimmer ml-1 h-2 flex-1 rounded-full" aria-hidden="true" />
+            </div>
+          )}
+          {groupTitle(rest.filter((i) => i.type === "undecided").length, "Couldn't decide: check these yourself")}
+          {rest.filter((i) => i.type === "undecided").map(row)}
+          {groupTitle(rest.filter((i) => i.type === "cleared").length, "Checked and left alone")}
+          {rest.filter((i) => i.type === "cleared").map(row)}
+          </div>
       </div>
     </div>
   );
