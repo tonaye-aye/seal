@@ -24,3 +24,31 @@ export function KeyHint({ keys, label }: { keys: string[]; label: string }) {
     </span>
   );
 }
+
+/** A key hint that is also a button: same action by key or by click. */
+export function KeyButton({
+  keys,
+  label,
+  onClick,
+  tone = "muted",
+}: {
+  keys: string[];
+  label: string;
+  onClick: () => void;
+  tone?: "muted" | "amber" | "faint";
+}) {
+  const colour = tone === "amber" ? "text-amber" : tone === "faint" ? "text-faint hover:text-muted" : "text-muted hover:text-text";
+  return (
+    <button
+      type="button"
+      tabIndex={-1}
+      // Keep keyboard focus on the palette, so the keys keep working after a click.
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
+      className={`-mx-1.5 inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 transition-colors duration-(--duration-fast) hover:bg-raised ${colour}`}
+    >
+      <Kbd keys={keys} />
+      {label}
+    </button>
+  );
+}

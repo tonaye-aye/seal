@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ConnectorStatus } from "../../connectors";
 import { orderedStatuses, reconnectCalendar, useLive } from "../../connectors/live";
+import { startScan } from "../../lib/scan-store";
 
 // One chip per data source, showing its live state. Short labels keep the
 // strip calm; the full detail is in each chip's tooltip and screen reader text.
@@ -51,7 +52,7 @@ export function StatusStrip() {
   const now = useTick(statuses.some((s) => s.state === "retrying"));
 
   return (
-    <ul aria-label="Connections" className="flex flex-wrap gap-1.5 px-4 pb-3">
+    <ul aria-label="Connections" className="flex min-w-0 gap-1">
       {(["bank", "email", "documents", "calendar"] as const).map((id) => {
         const status = live.statuses[id];
         const text = status ? stateText(status, now) : "Not connected yet";
@@ -61,7 +62,7 @@ export function StatusStrip() {
           <li
             key={id}
             title={status?.detail ?? text}
-            className="flex h-6 items-center gap-1.5 rounded-full border border-hairline px-2.5 text-[11.5px] text-muted"
+            className="flex h-6 shrink-0 items-center gap-1.5 rounded-full border border-hairline px-2.5 text-[11.5px] text-muted"
           >
             <span
               className={`size-1.5 rounded-full ${status ? DOT[status.state] : "border border-faint"}`}
@@ -73,7 +74,7 @@ export function StatusStrip() {
             {status?.state === "needs_reconnect" && (
               <button
                 type="button"
-                onClick={() => void reconnectCalendar()}
+                onClick={() => void reconnectCalendar().then(startScan)}
                 className="-mr-1 ml-0.5 rounded-full bg-raised px-2 text-[11px] text-text hover:bg-hairline"
               >
                 Reconnect

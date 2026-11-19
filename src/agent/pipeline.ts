@@ -18,7 +18,7 @@ import { now } from "../lib/clock.ts";
 import { localDate, toZonedIso } from "../lib/dates.ts";
 import type { LlmClient } from "../lib/llm.ts";
 import { syncAll, type ConnectorStatus, type Connectors } from "../connectors/index.ts";
-import { buildCorpus, mapLimited } from "./corpus.ts";
+import { buildCorpus, mapLimited, type Corpus } from "./corpus.ts";
 import { detect, upcomingCharges, type Candidate, type EvidenceRef } from "./detectors.ts";
 import { draftFinding, loadVoice, type ProposedDraft } from "./draft.ts";
 import { extractAll } from "./extract.ts";
@@ -58,6 +58,8 @@ export type Stage = "sync" | "read" | "detect" | "retrieve" | "extract" | "verif
 export type AgentEvent =
   | { type: "stage"; stage: Stage; status: "start" | "done"; detail?: string; at: number }
   | { type: "connector"; status: ConnectorStatus; at: number }
+  /** Everything that was read, so the UI can show each piece of evidence. */
+  | { type: "corpus"; corpus: Corpus; at: number }
   | { type: "progress"; stage: Stage; done: number; total: number; label?: string; at: number }
   | { type: "finding"; finding: Finding; at: number }
   /** A finding's draft is ready (it arrives after the finding itself). */
@@ -174,6 +176,7 @@ export async function runScan(
 
   stage("read", "start");
   const corpus = await buildCorpus(connectors, snapshot);
+  emit({ type: "corpus", corpus, at: at() });
   stage("read", "done", `${corpus.transactions.length} transactions, ${corpus.emails.length} emails, ${corpus.documents.length} documents, ${corpus.events.length} calendar entries`);
 
   stage("detect", "start");
