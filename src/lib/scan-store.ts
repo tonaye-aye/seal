@@ -149,6 +149,9 @@ function trace(text: string, tone: TraceLine["tone"] = "info"): TraceLine[] {
   return [...state.trace, { id: nextId++, t, text, tone }];
 }
 
+/** Each connector's last state, to notice when a retry starts and ends. */
+const connectorState: Partial<Record<string, string>> = {};
+
 /** True while the scan running now is a background one: its findings wait until it finishes. */
 let quiet = false;
 
@@ -157,11 +160,22 @@ function onEvent(event: AgentEvent) {
   // chips and the trace follow along.
   if (quiet && (event.type === "corpus" || event.type === "finding" || event.type === "draft" || event.type === "cleared" || event.type === "progress")) return;
   switch (event.type) {
-    case "connector":
+    case "connector": {
+      const before = connectorState[event.status.id];
+      connectorState[event.status.id] = event.status.state;
       setConnectorStatus(event.status);
+      // Say so on the checking screen when a source asks us to wait, and when it lets us carry on.
+      if (event.status.state === "retrying" && before !== "retrying") {
+        const seconds = Math.max(1, Math.round(((event.status.retryAt ?? Date.now()) - Date.now()) / 1000));
+        set({ trace: trace(`${event.status.name} asked us to slow down, trying again in ${seconds} s`, "warn") });
+      }
+      if (before === "retrying" && event.status.state !== "retrying" && event.status.state !== "error") {
+        set({ trace: trace(`${event.status.name} answered again, carrying on`) });
+      }
       if (event.status.state === "needs_reconnect") set({ trace: trace(`${event.status.name} needs reconnecting, so it was skipped`, "warn") });
       if (event.status.state === "error") set({ trace: trace(`Couldn't read ${event.status.name}`, "bad") });
       return;
+    }
     case "corpus":
       set({ corpus: event.corpus });
       return;

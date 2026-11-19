@@ -55,7 +55,13 @@ export function StatusStrip() {
     <ul aria-label="Connections" className="flex min-w-0 gap-1">
       {(["bank", "email", "documents", "calendar"] as const).map((id) => {
         const status = live.statuses[id];
-        const text = status ? stateText(status, now) : "Not connected yet";
+        // Documents can be "up to date" yet slow to hand over each file's text.
+        const slow = id === "documents" && live.slowReads;
+        const text = slow
+          ? `Slow to respond, ${live.slowReads!.done} read so far`
+          : status
+            ? stateText(status, now)
+            : "Not connected yet";
         // Only show the state in words when it needs attention or explains a wait.
         const loud = status && (status.state === "retrying" || status.state === "error");
         return (
@@ -65,11 +71,19 @@ export function StatusStrip() {
             className="flex h-6 shrink-0 items-center gap-1.5 rounded-full border border-hairline px-2.5 text-[11.5px] text-muted"
           >
             <span
-              className={`size-1.5 rounded-full ${status ? DOT[status.state] : "border border-faint"}`}
+              className={`size-1.5 rounded-full ${slow ? DOT.syncing : status ? DOT[status.state] : "border border-faint"}`}
               aria-hidden="true"
             />
             {LABELS[id]}
-            {loud && <span className="font-mono text-[10.5px] text-faint">{text}</span>}
+            {loud && (
+              <span className={`font-mono text-[10.5px] ${status.state === "retrying" ? "text-amber" : "text-faint"}`}>{text}</span>
+            )}
+            {slow && (
+              <>
+                <span className="font-mono text-[10.5px] text-faint">Slow</span>
+                <span className="shimmer h-1.5 w-8 rounded-full" aria-hidden="true" />
+              </>
+            )}
             <span className="sr-only">: {text}</span>
             {status?.state === "needs_reconnect" && (
               <button

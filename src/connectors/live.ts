@@ -19,9 +19,13 @@ const ORDER: ConnectorId[] = ["bank", "email", "documents", "calendar"];
 
 export type LiveState = {
   statuses: Partial<Record<ConnectorId, ConnectorStatus>>;
+  /** Scenarios switched on or off since their connector was last synced. */
+  pending: ScenarioId[];
+  /** Document reads that are taking a long time, for the "slow to respond" skeleton. */
+  slowReads?: { done: number; total: number };
 };
 
-let state: LiveState = { statuses: {} };
+let state: LiveState = { statuses: {}, pending: [] };
 const listeners = new Set<() => void>();
 
 function setState(change: Partial<LiveState>) {
@@ -39,23 +43,101 @@ function savedScenarios(): ScenarioId[] {
 }
 
 export const scenarios = new Scenarios(savedScenarios());
+
+/** Which connector each scenario breaks (from the manifest, kept here so the UI needs no async load). */
+export const SCENARIO_CONNECTOR: Record<ScenarioId, ConnectorId> = {
+  calendar_reauth: "calendar",
+  bank_rate_limit: "bank",
+  slow_documents: "documents",
+};
+
+// A stable copy of the switched-on list, so React can tell when it changed.
+let scenarioList: ScenarioId[] = scenarios.list();
+let lastSeen = new Set(scenarioList);
+
 scenarios.subscribe(() => {
   try {
     localStorage.setItem(SCENARIO_KEY, JSON.stringify(scenarios.list()));
   } catch {
     // Storage can be unavailable; the scenario still applies for this session.
   }
+  const next = scenarios.list();
+  // Whatever just flipped only shows once its connector is read again.
+  const flipped = (Object.keys(SCENARIO_CONNECTOR) as ScenarioId[]).filter((id) => lastSeen.has(id) !== next.includes(id));
+  const pending = new Set(state.pending);
+  for (const id of flipped) {
+    // Flipping back before a check cancels out.
+    if (pending.has(id)) pending.delete(id);
+    else pending.add(id);
+  }
+  lastSeen = new Set(next);
+  scenarioList = next;
+  setState({ pending: [...pending] });
 });
+
+/** The scenarios that are switched on, for the demo panel and footer chip. */
+export function useScenarios(): ScenarioId[] {
+  return useSyncExternalStore(scenarios.subscribe.bind(scenarios), () => scenarioList);
+}
+
+/** Turns one simulated failure on or off. It is saved, so it survives a restart. */
+export function toggleScenario(id: ScenarioId): void {
+  scenarios.set(id, !scenarios.has(id));
+}
+
+/** A read longer than this counts as slow and shows the skeleton. */
+const SLOW_READ_MS = 1500;
+
+/**
+ * Watches document reads so the UI can say when the documents source is slow,
+ * the way a real app notices a slow server: by timing the calls, not by
+ * knowing a scenario is on.
+ */
+function watchDocumentReads(c: Connectors): Connectors {
+  const readText = c.documents.readText.bind(c.documents);
+  let inFlight = 0;
+  let done = 0;
+  let slow = 0;
+  const update = () => setState({ slowReads: slow > 0 ? { done, total: done + inFlight } : undefined });
+  c.documents.readText = async (id) => {
+    if (inFlight === 0) {
+      done = 0;
+      slow = 0;
+    }
+    inFlight += 1;
+    let late = false;
+    const timer = setTimeout(() => {
+      late = true;
+      slow += 1;
+      update();
+    }, SLOW_READ_MS);
+    try {
+      return await readText(id);
+    } finally {
+      clearTimeout(timer);
+      inFlight -= 1;
+      done += 1;
+      if (late) slow -= 1;
+      // Once every read is back, the skeleton goes away.
+      if (inFlight === 0) slow = 0;
+      update();
+    }
+  };
+  return c;
+}
 
 let connectors: Promise<Connectors> | undefined;
 export function getConnectors(): Promise<Connectors> {
-  connectors ??= createConnectors({ source: viteSeedSource, scenarios });
+  connectors ??= createConnectors({ source: viteSeedSource, scenarios }).then(watchDocumentReads);
   return connectors;
 }
 
 /** Records one connector's latest state (called by the scan as it syncs). */
 export function setConnectorStatus(status: ConnectorStatus): void {
-  setState({ statuses: { ...state.statuses, [status.id]: status } });
+  // A sync starting on this connector means its scenarios are now in play.
+  const pending =
+    status.state === "connecting" ? state.pending.filter((id) => SCENARIO_CONNECTOR[id] !== status.id) : state.pending;
+  setState({ statuses: { ...state.statuses, [status.id]: status }, pending });
 }
 
 /** Signs the calendar back in. The caller then runs the check again. */
@@ -80,9 +162,9 @@ export function orderedStatuses(live: LiveState): ConnectorStatus[] {
   return ORDER.flatMap((id) => (live.statuses[id] ? [live.statuses[id]] : []));
 }
 
-// In development, expose the scenario switches in the browser console until
-// the hidden settings panel exists, e.g. __life.scenarios.set("bank_rate_limit", true),
-// then __life.scan() to check again.
+// In development, the scenario switches are also in the browser console, e.g.
+// __life.scenarios.set("bank_rate_limit", true), then __life.scan() to check
+// again. The demo panel (Cmd+Shift+D) does the same in every build.
 if (import.meta.env.DEV) {
   // `__life.llm` sends a tiny model request through the Rust command, to check
   // the endpoint from the running app: await __life.llm()
