@@ -26,3 +26,4 @@ dist-ssr
 scripts/spike-out/
 docs/
 CLAUDE.md
+.claude/
