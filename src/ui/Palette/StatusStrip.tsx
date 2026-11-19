@@ -1,20 +1,87 @@
-// One chip per data source. All four are "not connected" until the fake
-// connectors land; later each chip shows syncing, ok, error and last sync.
-const CONNECTORS = ["Bank", "Email", "Documents", "Calendar"] as const;
+import { useEffect, useState } from "react";
+import type { ConnectorStatus } from "../../connectors";
+import { orderedStatuses, reconnectCalendar, useLive } from "../../connectors/live";
+
+// One chip per data source, showing its live state. Short labels keep the
+// strip calm; the full detail is in each chip's tooltip and screen reader text.
+const LABELS = { bank: "Bank", email: "Email", documents: "Documents", calendar: "Calendar" } as const;
+
+const DOT: Record<ConnectorStatus["state"], string> = {
+  connecting: "bg-faint motion-safe:animate-pulse",
+  syncing: "bg-amber motion-safe:animate-pulse",
+  retrying: "bg-amber",
+  ok: "bg-positive",
+  needs_reconnect: "bg-danger",
+  error: "bg-danger",
+};
+
+/** Re-renders every second while `active`, for countdowns. */
+function useTick(active: boolean): number {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!active) return;
+    const timer = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(timer);
+  }, [active]);
+  return now;
+}
+
+function stateText(status: ConnectorStatus, now: number): string {
+  switch (status.state) {
+    case "connecting":
+      return "Connecting";
+    case "syncing":
+      return "Syncing";
+    case "retrying": {
+      const seconds = Math.max(0, Math.ceil(((status.retryAt ?? now) - now) / 1000));
+      return `Retrying in ${seconds}s`;
+    }
+    case "ok":
+      return "Up to date";
+    case "needs_reconnect":
+      return "Needs reconnecting";
+    case "error":
+      return "Couldn't sync";
+  }
+}
 
 export function StatusStrip() {
+  const live = useLive();
+  const statuses = orderedStatuses(live);
+  const now = useTick(statuses.some((s) => s.state === "retrying"));
+
   return (
     <ul aria-label="Connections" className="flex flex-wrap gap-1.5 px-4 pb-3">
-      {CONNECTORS.map((name) => (
-        <li
-          key={name}
-          className="flex h-6 items-center gap-1.5 rounded-full border border-hairline px-2.5 text-[11.5px] text-muted"
-        >
-          <span className="size-1.5 rounded-full border border-faint" aria-hidden="true" />
-          {name}
-          <span className="sr-only">: not connected yet</span>
-        </li>
-      ))}
+      {(["bank", "email", "documents", "calendar"] as const).map((id) => {
+        const status = live.statuses[id];
+        const text = status ? stateText(status, now) : "Not connected yet";
+        // Only show the state in words when it needs attention or explains a wait.
+        const loud = status && (status.state === "retrying" || status.state === "error");
+        return (
+          <li
+            key={id}
+            title={status?.detail ?? text}
+            className="flex h-6 items-center gap-1.5 rounded-full border border-hairline px-2.5 text-[11.5px] text-muted"
+          >
+            <span
+              className={`size-1.5 rounded-full ${status ? DOT[status.state] : "border border-faint"}`}
+              aria-hidden="true"
+            />
+            {LABELS[id]}
+            {loud && <span className="font-mono text-[10.5px] text-faint">{text}</span>}
+            <span className="sr-only">: {text}</span>
+            {status?.state === "needs_reconnect" && (
+              <button
+                type="button"
+                onClick={() => void reconnectCalendar()}
+                className="-mr-1 ml-0.5 rounded-full bg-raised px-2 text-[11px] text-text hover:bg-hairline"
+              >
+                Reconnect
+              </button>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }
