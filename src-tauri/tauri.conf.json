@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "life",
+  "productName": "Life",
   "version": "0.1.0",
   "identifier": "com.life.app",
   "build": {
@@ -12,14 +12,31 @@
   "app": {
     "windows": [
       {
-        "title": "life",
-        "width": 800,
-        "height": 600
+        "label": "palette",
+        "title": "Life",
+        "width": 760,
+        "height": 520,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "center": true,
+        "resizable": false,
+        "visible": false,
+        "skipTaskbar": true,
+        "shadow": true,
+        "windowEffects": {
+          "effects": [
+            "hudWindow"
+          ],
+          "state": "active",
+          "radius": 14
+        }
       }
     ],
     "security": {
       "csp": null
-    }
+    },
+    "macOSPrivateApi": true
   },
   "bundle": {
     "active": true,
