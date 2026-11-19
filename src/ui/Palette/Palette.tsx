@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Cleared, Finding } from "../../agent/pipeline";
-import { reconnectCalendar, useLive } from "../../connectors/live";
+import { reconnectCalendar, toggleScenario, useLive } from "../../connectors/live";
 import { activeHotkey, hidePalette, onPaletteShown } from "../../lib/native";
 import { approve, dismiss, rankedFindings, snooze, startScan, undoLast, useScan } from "../../lib/scan-store";
 import { ActionBar, FindingDetail, evidenceFor, type Command, type Pane } from "./FindingDetail";
@@ -9,8 +9,9 @@ import { CommandBar } from "./CommandBar";
 import { Footer } from "./Footer";
 import { Header } from "./Header";
 import { SwitchButton } from "../Kbd";
-import { ListIcon, TimelineIcon } from "./ViewHeading";
+import { BackIcon, ListIcon, TimelineIcon } from "./ViewHeading";
 import { ShortcutSheet } from "./ShortcutSheet";
+import { SCENARIOS, ScenariosSheet } from "./ScenariosSheet";
 import { Toast } from "./Toast";
 import { TraceDrawer } from "./Trace";
 import { Timeline, TimelineBar } from "./Timeline";
@@ -24,6 +25,7 @@ import { buildTimeline, filterTimeline, nowIndex } from "../timeline";
 //   detail  J/K move through evidence (or scroll the draft), Tab switch pane
 //   timeline  J/K move through time, Enter opens the line's finding
 //   always  Cmd+Enter timeline, Cmd+Z undo, / search, T trace, R check again, ? keys, Esc back
+//   hidden  Cmd+Shift+D demo panel: 1/2/3 switch a simulated failure, R check again, Esc close
 
 const HINT_KEY = "life.hintSeen";
 
@@ -65,6 +67,8 @@ export function Palette() {
   const [editing, setEditing] = useState(false);
   const [traceOpen, setTraceOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  // The hidden demo panel for simulated connector failures.
+  const [scenariosOpen, setScenariosOpen] = useState(false);
   const [showHint, setShowHint] = useState(!hintSeen());
 
   const findings = rankedFindings(scan);
@@ -225,6 +229,38 @@ export function Palette() {
       const typing = typingIn(event.target);
       const key = event.key;
       const lower = key.toLowerCase();
+
+      // Cmd+Shift+D opens and closes the demo panel from anywhere.
+      if (event.metaKey && event.shiftKey && lower === "d") {
+        event.preventDefault();
+        setScenariosOpen((o) => !o);
+        setSheetOpen(false);
+        panelRef.current?.focus();
+        return;
+      }
+
+      // While the demo panel is open, it owns the keys.
+      if (scenariosOpen) {
+        if (key === "Escape") {
+          event.preventDefault();
+          setScenariosOpen(false);
+          return;
+        }
+        if (event.metaKey || event.ctrlKey || event.altKey) return;
+        const scenario = SCENARIOS.find((s) => s.key === key);
+        if (scenario) {
+          event.preventDefault();
+          toggleScenario(scenario.id);
+        } else if (lower === "r") {
+          // Close first, so the check and its failures are in plain view.
+          // While a check is running, R does nothing here (the button says so).
+          event.preventDefault();
+          if (scan.phase === "scanning" || scan.refreshing) return;
+          setScenariosOpen(false);
+          run("rescan");
+        }
+        return;
+      }
 
       if (key === "Escape") {
         event.preventDefault();
@@ -455,11 +491,8 @@ export function Palette() {
           ) : view === "timeline" ? (
             <SwitchButton keys={["Esc"]} label="View list" icon={<ListIcon />} mouse={mouse} onClick={back} />
           ) : view === "detail" ? (
-            <SwitchButton keys={["Esc"]} label={detailFrom === "timeline" ? "Back to timeline" : "Back to list"}
-              icon={detailFrom === "timeline" ? <TimelineIcon /> : <ListIcon />}
-              mouse={mouse}
-              onClick={back}
-            />
+            // "Back", not a view name: it returns to wherever the finding was opened from.
+            <SwitchButton keys={["Esc"]} label="Back" icon={<BackIcon />} mouse={mouse} onClick={back} />
           ) : undefined
         }
       />
@@ -478,9 +511,22 @@ export function Palette() {
       ) : (
         !nothingYet && <ActionBar item={actionItem} detail={inDetail} pane={pane} mouse={mouse} onCommand={run} />
       )}
-      <Footer hotkey={hotkey} mouse={mouse} onTrace={() => setTraceOpen((o) => !o)} onKeys={() => setSheetOpen(true)} />
+      <Footer
+        hotkey={hotkey}
+        mouse={mouse}
+        onTrace={() => setTraceOpen((o) => !o)}
+        onKeys={() => setSheetOpen(true)}
+        onScenarios={() => setScenariosOpen(true)}
+      />
       <Toast />
       {sheetOpen && <ShortcutSheet onClose={() => setSheetOpen(false)} />}
+      {scenariosOpen && (
+        <ScenariosSheet mouse={mouse} onClose={() => setScenariosOpen(false)} onCheck={() => {
+            setScenariosOpen(false);
+            run("rescan");
+          }}
+        />
+      )}
     </div>
   );
 }

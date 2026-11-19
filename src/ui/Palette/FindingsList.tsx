@@ -381,8 +381,26 @@ export function Scanning({ scan }: { scan: ScanState }) {
       </div>
       <div className="min-h-0 flex-1 overflow-hidden pl-1">
         <TraceLines lines={scan.trace} limit={9} />
+        <SlowDocuments />
       </div>
     </section>
+  );
+}
+
+/** A loading skeleton while document reads are taking a long time. */
+function SlowDocuments() {
+  const { slowReads } = useLive();
+  if (!slowReads) return null;
+  return (
+    <div role="status" className="fade-in mt-3 max-w-[420px] rounded-lg border border-hairline px-3 py-2.5">
+      <p className="text-[12px] text-muted">
+        Documents are slow to respond. {slowReads.done > 0 ? `${slowReads.done} read so far, ` : ""}still waiting on the rest.
+      </p>
+      <div className="mt-2 flex flex-col gap-1.5" aria-hidden="true">
+        <span className="shimmer h-2 w-3/4 rounded-full" />
+        <span className="shimmer h-2 w-1/2 rounded-full" />
+      </div>
+    </div>
   );
 }
 

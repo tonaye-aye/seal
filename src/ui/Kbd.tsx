@@ -32,6 +32,7 @@ export function KeyButton({
   onClick,
   tone = "muted",
   mouse = false,
+  disabled = false,
 }: {
   keys: string[];
   label: string;
@@ -39,16 +40,25 @@ export function KeyButton({
   tone?: "muted" | "amber" | "faint";
   /** In mouse mode the key caps are hidden: it's just a button to click. */
   mouse?: boolean;
+  /** Greyed out and not clickable (the caller also ignores its key). */
+  disabled?: boolean;
 }) {
-  const colour = tone === "amber" ? "text-amber" : tone === "faint" ? "text-faint hover:text-muted" : "text-muted hover:text-text";
+  const colour = disabled
+    ? "text-faint"
+    : tone === "amber"
+      ? "text-amber"
+      : tone === "faint"
+        ? "text-faint hover:text-muted"
+        : "text-muted hover:text-text";
   return (
     <button
       type="button"
       tabIndex={-1}
+      disabled={disabled}
       // Keep keyboard focus on the palette, so the keys keep working after a click.
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
-      className={`-mx-1.5 inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 transition-colors duration-(--duration-fast) hover:bg-raised ${colour}`}
+      className={`-mx-1.5 inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 transition-colors duration-(--duration-fast) ${disabled ? "cursor-default opacity-60" : "cursor-pointer hover:bg-raised"} ${colour}`}
     >
       {!mouse && <Kbd keys={keys} />}
       {label}
