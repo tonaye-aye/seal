@@ -1,6 +1,7 @@
 // The native shell. It stays thin on purpose: window, hotkey and menu bar icon.
 // Everything the user sees is built in React (see src/).
 
+mod llm;
 mod palette;
 
 use tauri::{
@@ -100,6 +101,7 @@ pub fn run() {
             let hotkey = register_hotkey(app.handle());
             build_tray(app.handle(), &hotkey)?;
             app.manage(ActiveHotkey(hotkey));
+            app.manage(llm::LlmConfig::load());
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -110,7 +112,12 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![hide_palette, active_hotkey])
+        .invoke_handler(tauri::generate_handler![
+            hide_palette,
+            active_hotkey,
+            llm::llm_request,
+            llm::llm_configured
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

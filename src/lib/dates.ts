@@ -78,3 +78,20 @@ export function daysBetween(from: string, to: string): number {
 export function weekday(date: string): number {
   return new Date(`${date}T00:00:00Z`).getUTCDay();
 }
+
+/** Same day of the month, `months` later; clamped to the month's last day. */
+export function addMonths(date: string, months: number): string {
+  const [y, m, d] = date.split("-").map(Number);
+  const total = y * 12 + (m - 1) + months;
+  const year = Math.floor(total / 12);
+  const month = (total % 12) + 1;
+  const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return `${year}-${String(month).padStart(2, "0")}-${String(Math.min(d, last)).padStart(2, "0")}`;
+}
+
+/** "2026-11-28" to "28 Nov 2026" (for people and for prompts; never for logic). */
+export function formatDate(date: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  const month = new Date(Date.UTC(y, m - 1, 1)).toLocaleString("en-AU", { month: "short", timeZone: "UTC" });
+  return `${d} ${month} ${y}`;
+}
