@@ -57,6 +57,15 @@ function FindingIcon() {
 }
 
 /** Three rows with a dot each: the findings list. */
+/** A left arrow: go back to wherever the finding was opened from. */
+export function BackIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M13 8H3.5M7.5 4 3.5 8l4 4" />
+    </svg>
+  );
+}
+
 export function ListIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
