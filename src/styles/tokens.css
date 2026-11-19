@@ -95,3 +95,106 @@ input {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Small entrances for the trace, drawer, toast and shortcut sheet. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.trace-in,
+.toast-in,
+.sheet-in {
+  animation: rise-in var(--duration-base) var(--ease-out);
+}
+
+/* The toast is centred with a transform, so it only fades. */
+.toast-in {
+  animation-name: fade-in;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes drawer-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+.drawer-in {
+  animation: drawer-up var(--duration-base) var(--ease-out);
+}
+
+/* The Undo countdown: a hairline that empties over the toast's lifetime. */
+@keyframes drain {
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.toast-timer {
+  animation: drain linear forwards;
+}
+
+/* Placeholder for something still loading. */
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, var(--color-surface) 30%, var(--color-raised) 50%, var(--color-surface) 70%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+/* The scanning ring: a slow amber sweep while the agent works. */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.scan-ring {
+  border-top-color: var(--color-amber);
+  animation: spin 1.4s linear infinite;
+}
+
+/* The pane that J/K and Tab act on, in an open finding. */
+.pane-focus {
+  box-shadow: inset 0 0 0 1px var(--color-hairline);
+  background: color-mix(in srgb, var(--color-surface) 55%, transparent);
+}
+
+textarea {
+  user-select: text;
+}
+
+/* Evidence and draft text can be selected and copied. */
+.whitespace-pre-wrap {
+  user-select: text;
+}
+
+/* With reduced motion, looping animations stop on a still frame instead of
+   running at the near-zero duration set above. */
+@media (prefers-reduced-motion: reduce) {
+  .shimmer,
+  .scan-ring,
+  .toast-timer {
+    animation: none !important;
+  }
+}
+
+.fade-in {
+  animation: fade-in var(--duration-fast) var(--ease-out);
+}
