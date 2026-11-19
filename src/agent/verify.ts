@@ -513,9 +513,15 @@ function trial(b: Builder, facts: CaseFacts, candidate: Candidate, today: string
   const lastUse = facts.dates(/last (session|visit|use|read|login)/i).map((d) => d.date).sort().pop();
   if (lastUse) {
     b.figure({ id: "last_used", label: "Last used", value: lastUse, unit: "date", sources: facts.dates(/last (session|visit|use|read|login)/i).map((d) => d.source) });
-    const unusedCharges = s.charges.filter((t) => t.date > lastUse).length;
-    if (unusedCharges > 0) b.out.pointsToProblem.push(`${unusedCharges} paid charges came after it was last used.`);
-    b.note(`It was last used on ${day(lastUse)} (${daysBetween(lastUse, today)} days ago); ${unusedCharges} of the charges came after that.`);
+    const unused = s.charges.filter((t) => t.date > lastUse);
+    const unusedCharges = unused.length;
+    // Worked out here so a drafter asking for these back never adds them up itself.
+    const unusedTotal = unused.reduce((sum, t) => sum - t.amountCents, 0);
+    if (unusedCharges > 0) {
+      b.out.pointsToProblem.push(`${unusedCharges} paid charges came after it was last used.`);
+      b.figure({ id: "paid_after_last_use", label: "Paid after it was last used", value: unusedTotal, unit: "cents", sources: unused.map((t) => `txn:${t.id}`), how: `${unusedCharges} x ${money(s.latestCents)}` });
+    }
+    b.note(`It was last used on ${day(lastUse)} (${daysBetween(lastUse, today)} days ago); ${unusedCharges} of the charges came after that${unusedCharges > 0 ? ` (${money(unusedTotal)})` : ""}.`);
   }
 }
 
