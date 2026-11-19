@@ -88,6 +88,7 @@ export interface LlmTransport {
 export type LlmMode =
   | "live" // always call the endpoint
   | "live_with_fallback" // call it; if that fails, use the saved reply
+  | "cache_first" // use a saved reply if there is one, else call (re-runs, evals)
   | "replay"; // saved replies only (demo without a connection)
 
 export type LlmClient = {
@@ -214,6 +215,14 @@ export function createLlm(
   return {
     async chat<T>(request: ChatRequest) {
       if (mode === "replay") return once<T>(request, "replay");
+      if (mode === "cache_first") {
+        try {
+          return await once<T>(request, "replay");
+        } catch (error) {
+          if (!(error instanceof LlmError && error.kind === "not_cached")) throw error;
+          return live<T>(request);
+        }
+      }
       try {
         return await live<T>(request);
       } catch (error) {
