@@ -97,5 +97,18 @@ export function orderedStatuses(live: LiveState): ConnectorStatus[] {
 // In development, expose the scenario switches in the browser console until
 // the hidden settings panel exists, e.g. __life.scenarios.set("bank_rate_limit", true).
 if (import.meta.env.DEV) {
-  (window as unknown as { __life: object }).__life = { scenarios, sync };
+  // `__life.llm` sends a tiny model request through the Rust command, to check
+  // the endpoint from the running app: await __life.llm()
+  const llm = async (mode: "live" | "replay" = "live") => {
+    const { createAppLlm, llmConfigured } = await import("../lib/llm-tauri.ts");
+    if (!(await llmConfigured())) return "Endpoint or key missing on the native side.";
+    const r = await createAppLlm(mode).chat({
+      model: "fast",
+      think: false,
+      maxTokens: 50,
+      messages: [{ role: "user", content: "Reply with the single word: ready" }],
+    });
+    return `${r.text} (${r.source}, ${r.ms} ms)`;
+  };
+  (window as unknown as { __life: object }).__life = { scenarios, sync, llm };
 }
