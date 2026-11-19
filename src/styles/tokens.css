@@ -196,7 +196,8 @@ textarea {
 @media (prefers-reduced-motion: reduce) {
   .shimmer,
   .scan-ring,
-  .toast-timer {
+  .toast-timer,
+  .now-fallback {
     animation: none !important;
   }
 }
@@ -208,4 +209,33 @@ textarea {
 /* The case view: the timeline fades and lifts in as the window grows. */
 .timeline-in {
   animation: rise-in var(--duration-base) var(--ease-out);
+}
+
+/* The "now" mark when WebGL is not available: the plain SVG mark, with the
+   same three states done in CSS (dim and still, pulsing, glowing). */
+.now-fallback {
+  display: grid;
+  transition:
+    opacity var(--duration-base) var(--ease-out),
+    filter var(--duration-base) var(--ease-out);
+}
+.now-fallback.now-idle {
+  opacity: 0.65;
+}
+.now-fallback.now-working {
+  animation: now-pulse 1.2s ease-in-out infinite;
+}
+.now-fallback.now-needs-you {
+  filter: drop-shadow(0 0 5px var(--color-amber));
+  animation: now-breathe 2.8s ease-in-out infinite;
+}
+@keyframes now-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+@keyframes now-breathe {
+  50% {
+    filter: drop-shadow(0 0 2px var(--color-amber-glow));
+  }
 }

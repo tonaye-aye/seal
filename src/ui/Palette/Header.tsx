@@ -3,7 +3,7 @@ import { formatDay, now } from "../../lib/clock";
 import { useScan, type ScanState } from "../../lib/scan-store";
 import { clockTime } from "../format";
 import { centerWindow, startWindowDrag } from "../../lib/native";
-import { Mark } from "./Mark";
+import { NowVisual } from "./NowVisual";
 
 // Top bar: who we are, what day it is, and what the agent is doing (or when
 // it last checked). It is also the window's handle: drag it to move the
@@ -52,10 +52,10 @@ export function Header({ action }: { action?: React.ReactNode }) {
       }}
     >
       <div className="flex items-center gap-2">
-        <span className="text-amber">
-          <Mark />
-        </span>
-        <span className="font-medium tracking-[-0.01em]">{APP_NAME}</span>
+        {/* The mark is the "now" visual: it shows what the agent is doing. */}
+        <NowVisual />
+        {/* relative: paints the name above the glow that spills behind it. */}
+        <span className="relative font-medium tracking-[-0.01em]">{APP_NAME}</span>
         {/* Switches between the list and the timeline. */}
         {action && <span className="ml-2">{action}</span>}
       </div>
