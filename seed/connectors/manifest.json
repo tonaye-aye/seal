@@ -1,0 +1,108 @@
+{
+  "asOf": "2026-11-19T09:30+11:00",
+  "connectors": [
+    {
+      "id": "bank",
+      "name": "Harbour Bank",
+      "kind": "banking",
+      "status": "connected",
+      "access": "read-only",
+      "scopes": [
+        "accounts.read",
+        "transactions.read"
+      ],
+      "source": "bank/accounts.json",
+      "lastSyncedAt": "2026-11-19T06:00+11:00",
+      "pageSize": 50,
+      "latencyMs": {
+        "p50": 260,
+        "p95": 900
+      },
+      "operations": [
+        "listAccounts",
+        "listTransactions"
+      ]
+    },
+    {
+      "id": "email",
+      "name": "Mailbox (Maya)",
+      "kind": "email",
+      "status": "connected",
+      "access": "read + draft",
+      "scopes": [
+        "mail.read",
+        "mail.compose"
+      ],
+      "source": "email/inbox.json",
+      "pageSize": 25,
+      "lastSyncedAt": "2026-11-19T09:25+11:00",
+      "latencyMs": {
+        "p50": 180,
+        "p95": 650
+      },
+      "operations": [
+        "search",
+        "getMessage",
+        "createDraft"
+      ],
+      "notes": "Sending is never exposed; the agent can only create drafts."
+    },
+    {
+      "id": "documents",
+      "name": "Household Admin folder",
+      "kind": "documents",
+      "status": "connected",
+      "access": "read-only",
+      "source": "documents/index.json",
+      "pageSize": 20,
+      "lastSyncedAt": "2026-11-19T09:00+11:00",
+      "latencyMs": {
+        "p50": 120,
+        "p95": 400
+      },
+      "operations": [
+        "list",
+        "read",
+        "readText"
+      ],
+      "notes": "Images need a vision-capable model."
+    },
+    {
+      "id": "calendar",
+      "name": "Family calendar",
+      "kind": "calendar",
+      "status": "connected",
+      "access": "read + create",
+      "source": "calendar/events.json",
+      "lastSyncedAt": "2026-11-19T09:20+11:00",
+      "latencyMs": {
+        "p50": 150,
+        "p95": 500
+      },
+      "operations": [
+        "listEvents",
+        "createEvent"
+      ]
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "calendar_reauth",
+      "default": false,
+      "connector": "calendar",
+      "behaviour": "Calls fail with 401 'token expired'. UI should offer a reconnect."
+    },
+    {
+      "id": "bank_rate_limit",
+      "default": false,
+      "connector": "bank",
+      "behaviour": "Every 4th listTransactions call returns 429 with retryAfterSeconds=3."
+    },
+    {
+      "id": "slow_documents",
+      "default": false,
+      "connector": "documents",
+      "behaviour": "readText takes 4-6 seconds (tests waiting states)."
+    }
+  ]
+}

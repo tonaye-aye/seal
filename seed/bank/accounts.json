@@ -1,0 +1,39 @@
+{
+  "institution": "Harbour Bank",
+  "accounts": [
+    {
+      "id": "acc_joint_everyday",
+      "code": "JE",
+      "name": "Joint Everyday",
+      "type": "transaction",
+      "currency": "AUD",
+      "owners": [
+        "Maya Whitlock",
+        "Ben Whitlock"
+      ],
+      "statementFile": "joint-everyday.csv",
+      "openingBalance": 4210.37,
+      "openingBalanceDate": "2026-08-19",
+      "currentBalance": 14342.37,
+      "currentBalanceDate": "2026-11-18"
+    },
+    {
+      "id": "acc_maya_visa",
+      "code": "MC",
+      "name": "Maya Visa",
+      "type": "credit_card",
+      "currency": "AUD",
+      "owners": [
+        "Maya Whitlock"
+      ],
+      "statementFile": "maya-visa.csv",
+      "openingBalance": -812.46,
+      "openingBalanceDate": "2026-08-19",
+      "currentBalance": -33.12,
+      "currentBalanceDate": "2026-11-18",
+      "creditLimit": 8000.0,
+      "note": "Negative balance = amount owed. Paid in full on the 12th."
+    }
+  ],
+  "conventions": "Dates ISO-8601 (Australia/Melbourne). Debit/Credit are positive numbers. Descriptors are raw bank text, deliberately messy. Statement history starts 2026-08-20."
+}

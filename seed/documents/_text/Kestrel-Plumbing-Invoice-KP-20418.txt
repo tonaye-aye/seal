@@ -1,0 +1,19 @@
+KESTREL PLUMBING
+================
+Tax invoice KP-20418
+
+Invoice number : KP-20418
+Invoice date   : 24 September 2026
+Due date       : 8 October 2026
+Customer       : Maya Whitlock
+Site           : 14 Albion Lane, Brunswick VIC 3056
+
+Description                                          Amount
+---------------------------------------------------  -------
+Replace hot water heating element (2.0 h x $120.00)  $240.00
+Parts: element and thermostat                        $110.00
+Call-out fee                                         $35.00
+Total (incl. GST)                                    $385.00
+
+Pay by card online, or by bank transfer (BSB 000-000, account 0000 0000) quoting the invoice
+number.

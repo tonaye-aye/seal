@@ -1,0 +1,30 @@
+REDGUM ENERGY
+=============
+Tax invoice - electricity
+
+Account number : 7782-0145-3
+Bill number    : RG-2610-88413
+Issued         : 27 October 2026
+Due            : 10 November 2026
+Supply address : 14 Albion Lane, Brunswick VIC 3056
+
+
+BILLING PERIOD 28 JUL 2026 - 26 OCT 2026 (91 DAYS)
+--------------------------------------------------
+Meter reading        Date         Reading (kWh)
+-------------------  -----------  -------------
+Previous (actual)    27 Jul 2026  45,880
+Current (ESTIMATED)  26 Oct 2026  47,570
+Usage                             1,690
+
+Charge             Quantity x rate         Amount
+-----------------  ----------------------  -------
+Usage              1,690.00 kWh x $0.2850  $481.65
+Supply charge      91 days x $1.0500       $95.55
+Total (incl. GST)                          $577.20
+
+Average daily usage this bill: 18.6 kWh. Previous bill: 12.1 kWh.
+
+NOTE: Your reading for this bill is estimated. We could not read your meter on 26 October (access
+      restricted). If you think an estimate is wrong, send us a recent meter reading and we
+      will correct your bill. Any overpayment is credited to your account or refunded.

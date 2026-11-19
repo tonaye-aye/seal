@@ -1,0 +1,46 @@
+{
+  "household": "The Whitlocks",
+  "location": "Brunswick, Victoria, Australia",
+  "asOf": "2026-11-19T09:30+11:00",
+  "people": [
+    {
+      "name": "Maya Whitlock",
+      "role": "primary user, does most household admin",
+      "email": "maya.whitlock@mailbox.example",
+      "work": "designer at Cobalt Studio"
+    },
+    {
+      "name": "Ben Whitlock",
+      "role": "partner",
+      "email": "ben.whitlock@mailbox.example",
+      "work": "operations at Tidewater Logistics"
+    },
+    {
+      "name": "Ollie Whitlock",
+      "role": "child, age 8, Year 3"
+    },
+    {
+      "name": "Pia Whitlock",
+      "role": "child, age 5, Prep"
+    }
+  ],
+  "sharedMailbox": "home@whitlock.example",
+  "housing": {
+    "type": "renting",
+    "address": "14 Albion Lane, Brunswick VIC 3056",
+    "rentPerMonth": 2420.0
+  },
+  "userNeeds": "Maya wants a quiet monthly check: anything quietly costing the household money, with the evidence gathered and the fix drafted, so she only has to approve.",
+  "agentPreferences": {
+    "neverActWithoutApproval": [
+      "send email",
+      "cancel subscription",
+      "create calendar event",
+      "move money"
+    ],
+    "tone": "friendly but firm; plain Australian English; no legalese",
+    "signOff": "Thanks, Maya",
+    "flagThresholdPerMonthAud": 10.0,
+    "sendFrom": "maya.whitlock@mailbox.example"
+  }
+}

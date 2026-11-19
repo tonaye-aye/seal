@@ -1,0 +1,1852 @@
+{
+  "account": "maya.whitlock@mailbox.example",
+  "alsoReads": "home@whitlock.example",
+  "count": 75,
+  "messages": [
+    {
+      "id": "msg_0001",
+      "threadId": "thr_msg_0001",
+      "date": "2024-11-28T18:05+11:00",
+      "from": {
+        "name": "IronWorks Fitness",
+        "address": "memberships@ironworks.example"
+      },
+      "to": [
+        {
+          "name": "Ben Whitlock",
+          "address": "ben.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Welcome to IronWorks",
+      "snippet": "Hi Ben, Welcome to IronWorks Brunswick. Your membership agreement is attached. See you at the club, IronWorks Fitness",
+      "body": "Hi Ben,\n\nWelcome to IronWorks Brunswick. Your membership agreement is attached.\n\nSee you at the club,\nIronWorks Fitness\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": [
+        {
+          "id": "msg_0001_att1",
+          "filename": "IronWorks-Membership-Agreement-2024-11.pdf",
+          "mimeType": "application/pdf",
+          "sizeBytes": 2561,
+          "documentId": "doc_008"
+        }
+      ]
+    },
+    {
+      "id": "msg_0002",
+      "threadId": "thr_msg_0002",
+      "date": "2025-10-14T10:12+11:00",
+      "from": {
+        "name": "Skylink Internet",
+        "address": "billing@skylink.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "Welcome to Skylink - your Fibre 100 plan is confirmed",
+      "snippet": "Hi Maya, Thanks for choosing Skylink. Here is a summary of your new plan. Plan: Fibre 100 Price: $79.00 per month for your first 24 months (",
+      "body": "Hi Maya,\n\nThanks for choosing Skylink. Here is a summary of your new plan.\n\nPlan: Fibre 100\nPrice: $79.00 per month for your first 24 months (Bonus Saver price), then $99.00 per month\nBilling: monthly in advance by direct debit on the 14th\nConnection date: 14 October 2025\n\nYour Customer Agreement Summary is attached for your records.\n\nWelcome aboard,\nThe Skylink team\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": [
+        {
+          "id": "msg_0002_att1",
+          "filename": "Skylink-Customer-Agreement-Summary-2025-10.pdf",
+          "mimeType": "application/pdf",
+          "sizeBytes": 2917,
+          "documentId": "doc_001"
+        }
+      ]
+    },
+    {
+      "id": "msg_0003",
+      "threadId": "thr_msg_0003",
+      "date": "2025-11-01T09:00+11:00",
+      "from": {
+        "name": "Kookaburra Mobile",
+        "address": "hello@kookaburramobile.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Welcome to Kookaburra Mobile",
+      "snippet": "Hi Maya, Welcome! Your Everyday 40GB plan is $55.00 per month. Your plan terms are attached.",
+      "body": "Hi Maya,\n\nWelcome! Your Everyday 40GB plan is $55.00 per month. Your plan terms are attached.\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": [
+        {
+          "id": "msg_0003_att1",
+          "filename": "Kookaburra-Mobile-Plan-Terms-2025-11.pdf",
+          "mimeType": "application/pdf",
+          "sizeBytes": 2320,
+          "documentId": "doc_010"
+        }
+      ]
+    },
+    {
+      "id": "msg_0004",
+      "threadId": "thr_msg_0004",
+      "date": "2026-06-21T11:02+10:00",
+      "from": {
+        "name": "Apple",
+        "address": "no_reply@email.apple.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Your receipt from Apple.",
+      "snippet": "Receipt Order ID: MZ745878734 Date: 21 Jun 2026 Apple ID: maya.whitlock@mailbox.example StreamBox - Premium (1 month) Renews 21 Jul 2026 $17",
+      "body": "Receipt\nOrder ID: MZ745878734\nDate: 21 Jun 2026\nApple ID: maya.whitlock@mailbox.example\n\nStreamBox - Premium (1 month)\nRenews 21 Jul 2026\n$17.99 AUD\nBilled to: Maya's Visa\n\nTotal: $17.99 AUD\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0005",
+      "threadId": "thr_msg_0005",
+      "date": "2026-07-21T11:02+10:00",
+      "from": {
+        "name": "Apple",
+        "address": "no_reply@email.apple.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Your receipt from Apple.",
+      "snippet": "Receipt Order ID: MZ623945051 Date: 21 Jul 2026 Apple ID: maya.whitlock@mailbox.example StreamBox - Premium (1 month) Renews 21 Aug 2026 $17",
+      "body": "Receipt\nOrder ID: MZ623945051\nDate: 21 Jul 2026\nApple ID: maya.whitlock@mailbox.example\n\nStreamBox - Premium (1 month)\nRenews 21 Aug 2026\n$17.99 AUD\nBilled to: Maya's Visa\n\nTotal: $17.99 AUD\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0006",
+      "threadId": "thr_msg_0006",
+      "date": "2026-07-29T07:00+10:00",
+      "from": {
+        "name": "Redgum Energy",
+        "address": "bills@redgumenergy.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "Your Redgum Energy bill is ready",
+      "snippet": "Hi Maya, Your bill for 28 April to 27 July is ready. Amount due: $405.72 by 12 August 2026. This bill is based on an actual meter reading. R",
+      "body": "Hi Maya,\n\nYour bill for 28 April to 27 July is ready. Amount due: $405.72 by 12 August 2026.\nThis bill is based on an actual meter reading.\n\nRedgum Energy\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": [
+        {
+          "id": "msg_0006_att1",
+          "filename": "Redgum-Energy-Bill-2026-07-29.pdf",
+          "mimeType": "application/pdf",
+          "sizeBytes": 2636,
+          "documentId": "doc_002"
+        }
+      ]
+    },
+    {
+      "id": "msg_0007",
+      "threadId": "thr_msg_0007",
+      "date": "2026-08-03T05:10+10:00",
+      "from": {
+        "name": "StreamBox",
+        "address": "receipts@streambox.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "Your StreamBox receipt",
+      "snippet": "Hi Ben, Thanks for being a StreamBox member. StreamBox Premium (monthly): $17.99 Charged to your bank account on 3 August 2026. Account emai",
+      "body": "Hi Ben,\n\nThanks for being a StreamBox member.\n\nStreamBox Premium (monthly): $17.99\nCharged to your bank account on 3 August 2026.\nAccount email: ben.whitlock@mailbox.example\n\nHappy watching,\nStreamBox\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0008",
+      "threadId": "thr_msg_0008",
+      "date": "2026-08-03T09:00+10:00",
+      "from": {
+        "name": "Northern City Council",
+        "address": "rates@northerncity.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "Your 2026/27 rates notice",
+      "snippet": "Your rates notice is attached. Total $1,649.20, payable in four instalments of $412.30.",
+      "body": "Your rates notice is attached. Total $1,649.20, payable in four instalments of $412.30.\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": [
+        {
+          "id": "msg_0008_att1",
+          "filename": "Council-Rates-Notice-2026-27.pdf",
+          "mimeType": "application/pdf",
+          "sizeBytes": 2318,
+          "documentId": "doc_005"
+        }
+      ]
+    },
+    {
+      "id": "msg_0009",
+      "threadId": "thr_msg_0009",
+      "date": "2026-08-09T06:00+10:00",
+      "from": {
+        "name": "TuneBox",
+        "address": "billing@tunebox.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "Your TuneBox receipt",
+      "snippet": "TuneBox Family: $20.99. Thanks for listening.",
+      "body": "TuneBox Family: $20.99. Thanks for listening.\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0010",
+      "threadId": "thr_msg_0010",
+      "date": "2026-08-14T06:30+10:00",
+      "from": {
+        "name": "Skylink Internet",
+        "address": "billing@skylink.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "Your Skylink tax invoice for August",
+      "snippet": "Hi Maya, Your invoice is ready. Fibre 100 monthly charge (Bonus Saver price): $79.00 Total: $79.00 This amount will be debited on 14 August ",
+      "body": "Hi Maya,\n\nYour invoice is ready.\n\nFibre 100 monthly charge (Bonus Saver price): $79.00\nTotal: $79.00\nThis amount will be debited on 14 August 2026.\n\nSkylink Internet\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0011",
+      "threadId": "thr_msg_0011",
+      "date": "2026-08-20T06:30+10:00",
+      "from": {
+        "name": "Harvest Market",
+        "address": "specials@harvestmarket.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "This week's specials",
+      "snippet": "This week: Barramundi fillets. Plus more in store.",
+      "body": "This week: Barramundi fillets. Plus more in store.\n",
+      "labels": [
+        "INBOX",
+        "PROMOTIONS"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0012",
+      "threadId": "thr_msg_0012",
+      "date": "2026-08-21T11:02+10:00",
+      "from": {
+        "name": "Apple",
+        "address": "no_reply@email.apple.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Your receipt from Apple.",
+      "snippet": "Receipt Order ID: MZ241101751 Date: 21 Aug 2026 Apple ID: maya.whitlock@mailbox.example StreamBox - Premium (1 month) Renews 21 Sep 2026 $17",
+      "body": "Receipt\nOrder ID: MZ241101751\nDate: 21 Aug 2026\nApple ID: maya.whitlock@mailbox.example\n\nStreamBox - Premium (1 month)\nRenews 21 Sep 2026\n$17.99 AUD\nBilled to: Maya's Visa\n\nTotal: $17.99 AUD\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0013",
+      "threadId": "thr_msg_0013",
+      "date": "2026-08-27T06:30+10:00",
+      "from": {
+        "name": "Harvest Market",
+        "address": "specials@harvestmarket.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "This week's specials",
+      "snippet": "This week: Barramundi fillets. Plus more in store.",
+      "body": "This week: Barramundi fillets. Plus more in store.\n",
+      "labels": [
+        "INBOX",
+        "PROMOTIONS"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0014",
+      "threadId": "thr_msg_0014",
+      "date": "2026-09-01T05:00+10:00",
+      "from": {
+        "name": "Harbour Bank",
+        "address": "noreply@harbourbank.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Your statement is ready",
+      "snippet": "Your latest statement for Joint Everyday is ready to view in the app.",
+      "body": "Your latest statement for Joint Everyday is ready to view in the app.\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0015",
+      "threadId": "thr_msg_0015",
+      "date": "2026-09-01T06:00+10:00",
+      "from": {
+        "name": "Kookaburra Mobile",
+        "address": "hello@kookaburramobile.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Your Kookaburra bill",
+      "snippet": "Hi Maya, Everyday 40GB: $55.00. Debited today. Thanks!",
+      "body": "Hi Maya,\n\nEveryday 40GB: $55.00. Debited today. Thanks!\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0016",
+      "threadId": "thr_msg_0016",
+      "date": "2026-09-01T08:30+10:00",
+      "from": {
+        "name": "Brunswick Hill Primary",
+        "address": "office@brunswickhillps.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        },
+        {
+          "name": "Ben Whitlock",
+          "address": "ben.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Year 3 excursion: Melbourne Museum, Tue 15 Sept",
+      "snippet": "Dear families, Year 3 will visit Melbourne Museum on Tuesday 15 September. Cost: $38.00 per student. Please pay via SchoolPay by 8 September",
+      "body": "Dear families,\n\nYear 3 will visit Melbourne Museum on Tuesday 15 September. Cost: $38.00 per student.\nPlease pay via SchoolPay by 8 September. Student: Ollie Whitlock (3B).\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0017",
+      "threadId": "thr_msg_0017",
+      "date": "2026-09-01T08:40+10:00",
+      "from": {
+        "name": "Brunswick Hill Primary",
+        "address": "office@brunswickhillps.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        },
+        {
+          "name": "Ben Whitlock",
+          "address": "ben.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Prep excursion: Children's Farm, Wed 16 Sept",
+      "snippet": "Dear families, Prep will visit the Children's Farm on Wednesday 16 September. Cost: $38.00 per student. Please pay via SchoolPay by 8 Septem",
+      "body": "Dear families,\n\nPrep will visit the Children's Farm on Wednesday 16 September. Cost: $38.00 per student.\nPlease pay via SchoolPay by 8 September. Student: Pia Whitlock (Prep C).\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0018",
+      "threadId": "thr_msg_0018",
+      "date": "2026-09-03T05:10+10:00",
+      "from": {
+        "name": "StreamBox",
+        "address": "receipts@streambox.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "Your StreamBox receipt",
+      "snippet": "Hi Ben, Thanks for being a StreamBox member. StreamBox Premium (monthly): $17.99 Charged to your bank account on 3 September 2026. Account e",
+      "body": "Hi Ben,\n\nThanks for being a StreamBox member.\n\nStreamBox Premium (monthly): $17.99\nCharged to your bank account on 3 September 2026.\nAccount email: ben.whitlock@mailbox.example\n\nHappy watching,\nStreamBox\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0019",
+      "threadId": "thr_msg_0019",
+      "date": "2026-09-03T06:30+10:00",
+      "from": {
+        "name": "Harvest Market",
+        "address": "specials@harvestmarket.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "This week's specials",
+      "snippet": "This week: Sourdough 2 for $9. Plus more in store.",
+      "body": "This week: Sourdough 2 for $9. Plus more in store.\n",
+      "labels": [
+        "INBOX",
+        "PROMOTIONS"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0020",
+      "threadId": "thr_msg_0020",
+      "date": "2026-09-04T15:00+10:00",
+      "from": {
+        "name": "Brunswick Hill Primary",
+        "address": "office@brunswickhillps.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        },
+        {
+          "name": "Ben Whitlock",
+          "address": "ben.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "School newsletter: Term 3 wrap-up",
+      "snippet": "Dear families, this fortnight's news is below. Please see the school calendar for dates.",
+      "body": "Dear families, this fortnight's news is below. Please see the school calendar for dates.\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0021",
+      "threadId": "thr_msg_0021",
+      "date": "2026-09-08T07:45+10:00",
+      "from": {
+        "name": "Brunswick Hill Primary",
+        "address": "office@brunswickhillps.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "SchoolPay receipt",
+      "snippet": "Thanks, we've received $38.00 for Ollie Whitlock (3B). Reference: OH-Y3-0908.",
+      "body": "Thanks, we've received $38.00 for Ollie Whitlock (3B). Reference: OH-Y3-0908.\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0022",
+      "threadId": "thr_msg_0022",
+      "date": "2026-09-08T07:46+10:00",
+      "from": {
+        "name": "Brunswick Hill Primary",
+        "address": "office@brunswickhillps.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "SchoolPay receipt",
+      "snippet": "Thanks, we've received $38.00 for Pia Whitlock (Prep C). Reference: PI-PR-0908.",
+      "body": "Thanks, we've received $38.00 for Pia Whitlock (Prep C). Reference: PI-PR-0908.\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0023",
+      "threadId": "thr_msg_0023",
+      "date": "2026-09-09T06:00+10:00",
+      "from": {
+        "name": "TuneBox",
+        "address": "billing@tunebox.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "Your TuneBox receipt",
+      "snippet": "TuneBox Family: $20.99. Thanks for listening.",
+      "body": "TuneBox Family: $20.99. Thanks for listening.\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0024",
+      "threadId": "thr_msg_0024",
+      "date": "2026-09-09T08:03+10:00",
+      "from": {
+        "name": "Skylink Internet",
+        "address": "billing@skylink.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "Changes to your Skylink plan",
+      "snippet": "Hi Maya, We're writing about a change to your Fibre 100 plan. From your next bill (14 October 2026), your monthly price will move to our sta",
+      "body": "Hi Maya,\n\nWe're writing about a change to your Fibre 100 plan.\n\nFrom your next bill (14 October 2026), your monthly price will move to our standard rate of $99.00 per month.\nWhy? Your Bonus Saver price has now finished.\n\nYou don't need to do anything. If you have questions, call 1300 000 000.\n\nThanks for being with Skylink,\nThe Skylink team\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": true,
+      "attachments": []
+    },
+    {
+      "id": "msg_0025",
+      "threadId": "thr_msg_0025",
+      "date": "2026-09-10T06:30+10:00",
+      "from": {
+        "name": "Harvest Market",
+        "address": "specials@harvestmarket.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "This week's specials",
+      "snippet": "This week: Barramundi fillets. Plus more in store.",
+      "body": "This week: Barramundi fillets. Plus more in store.\n",
+      "labels": [
+        "INBOX",
+        "PROMOTIONS"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0026",
+      "threadId": "thr_msg_0026",
+      "date": "2026-09-11T19:40+10:00",
+      "from": {
+        "name": "BrightPage Kids",
+        "address": "hello@brightpage.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Your 7-day free trial has started",
+      "snippet": "Hi Maya, Pia's free trial of BrightPage Kids Premium is under way. After your 7-day trial, BrightPage Kids Premium continues at $14.99 per m",
+      "body": "Hi Maya,\n\nPia's free trial of BrightPage Kids Premium is under way.\n\nAfter your 7-day trial, BrightPage Kids Premium continues at $14.99 per month.\nCancel any time before the trial ends in Settings > Subscription.\n\nHappy reading!\nThe BrightPage team\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0027",
+      "threadId": "thr_msg_0027",
+      "date": "2026-09-14T06:30+10:00",
+      "from": {
+        "name": "Skylink Internet",
+        "address": "billing@skylink.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "Your Skylink tax invoice for September",
+      "snippet": "Hi Maya, Your invoice is ready. Fibre 100 monthly charge (Bonus Saver price): $79.00 Total: $79.00 This amount will be debited on 14 Septemb",
+      "body": "Hi Maya,\n\nYour invoice is ready.\n\nFibre 100 monthly charge (Bonus Saver price): $79.00\nTotal: $79.00\nThis amount will be debited on 14 September 2026.\n\nSkylink Internet\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0028",
+      "threadId": "thr_msg_0028",
+      "date": "2026-09-17T06:30+10:00",
+      "from": {
+        "name": "Harvest Market",
+        "address": "specials@harvestmarket.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "This week's specials",
+      "snippet": "This week: Sourdough 2 for $9. Plus more in store.",
+      "body": "This week: Sourdough 2 for $9. Plus more in store.\n",
+      "labels": [
+        "INBOX",
+        "PROMOTIONS"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0029",
+      "threadId": "thr_msg_0029",
+      "date": "2026-09-17T08:00+10:00",
+      "from": {
+        "name": "BrightPage Kids",
+        "address": "hello@brightpage.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Your free trial ends tomorrow",
+      "snippet": "Hi Maya, Your free trial ends on 18 September. Your first payment of $14.99 will be taken then. Not for you? Cancel in Settings > Subscripti",
+      "body": "Hi Maya,\n\nYour free trial ends on 18 September. Your first payment of $14.99 will be taken then.\nNot for you? Cancel in Settings > Subscription.\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": true,
+      "attachments": []
+    },
+    {
+      "id": "msg_0030",
+      "threadId": "thr_msg_0030",
+      "date": "2026-09-18T07:15+10:00",
+      "from": {
+        "name": "BrightPage Kids",
+        "address": "hello@brightpage.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Your BrightPage Kids receipt",
+      "snippet": "Hi Maya, Thanks for subscribing. BrightPage Kids Premium - $14.99 for September 2026. Your plan renews on 18 October 2026.",
+      "body": "Hi Maya,\n\nThanks for subscribing. BrightPage Kids Premium - $14.99 for September 2026.\nYour plan renews on 18 October 2026.\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0031",
+      "threadId": "thr_msg_0031",
+      "date": "2026-09-18T09:20+10:00",
+      "from": {
+        "name": "Kestrel Plumbing",
+        "address": "accounts@kestrelplumbing.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Booking confirmed: hot water repair Tue 22 Sep",
+      "snippet": "Hi Maya, Your booking is confirmed for Tuesday 22 September, 8am-12pm. Our plumber will check your hot water unit. Kestrel Plumbing",
+      "body": "Hi Maya,\n\nYour booking is confirmed for Tuesday 22 September, 8am-12pm. Our plumber will check your hot water unit.\n\nKestrel Plumbing\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0032",
+      "threadId": "thr_msg_0032",
+      "date": "2026-09-21T11:02+10:00",
+      "from": {
+        "name": "Apple",
+        "address": "no_reply@email.apple.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Your receipt from Apple.",
+      "snippet": "Receipt Order ID: MZ504108599 Date: 21 Sep 2026 Apple ID: maya.whitlock@mailbox.example StreamBox - Premium (1 month) Renews 21 Oct 2026 $17",
+      "body": "Receipt\nOrder ID: MZ504108599\nDate: 21 Sep 2026\nApple ID: maya.whitlock@mailbox.example\n\nStreamBox - Premium (1 month)\nRenews 21 Oct 2026\n$17.99 AUD\nBilled to: Maya's Visa\n\nTotal: $17.99 AUD\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0033",
+      "threadId": "thr_msg_0033",
+      "date": "2026-09-24T06:30+10:00",
+      "from": {
+        "name": "Harvest Market",
+        "address": "specials@harvestmarket.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "This week's specials",
+      "snippet": "This week: Avocados 3 for $5. Plus more in store.",
+      "body": "This week: Avocados 3 for $5. Plus more in store.\n",
+      "labels": [
+        "INBOX",
+        "PROMOTIONS"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0034",
+      "threadId": "thr_msg_0034",
+      "date": "2026-09-24T15:30+10:00",
+      "from": {
+        "name": "Kestrel Plumbing",
+        "address": "accounts@kestrelplumbing.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Invoice KP-20418 from Kestrel Plumbing",
+      "snippet": "Hi Maya, Thanks for choosing Kestrel Plumbing. Invoice KP-20418 for $385.00 is attached and due on 8 October 2026. Pay online by card, or by",
+      "body": "Hi Maya,\n\nThanks for choosing Kestrel Plumbing. Invoice KP-20418 for $385.00 is attached and due on 8 October 2026.\nPay online by card, or by bank transfer quoting the invoice number.\n\nKestrel Plumbing\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": [
+        {
+          "id": "msg_0034_att1",
+          "filename": "Kestrel-Plumbing-Invoice-KP-20418.pdf",
+          "mimeType": "application/pdf",
+          "sizeBytes": 2462,
+          "documentId": "doc_009"
+        }
+      ]
+    },
+    {
+      "id": "msg_0035",
+      "threadId": "thr_msg_0035",
+      "date": "2026-09-30T12:11+10:00",
+      "from": {
+        "name": "Kestrel Plumbing",
+        "address": "accounts@kestrelplumbing.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Payment received - thank you",
+      "snippet": "Hi Maya, We've received your card payment of $385.00 for invoice KP-20418. Receipt: R-77311 Kestrel Plumbing",
+      "body": "Hi Maya,\n\nWe've received your card payment of $385.00 for invoice KP-20418.\nReceipt: R-77311\n\nKestrel Plumbing\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0036",
+      "threadId": "thr_msg_0036",
+      "date": "2026-10-01T05:00+10:00",
+      "from": {
+        "name": "Harbour Bank",
+        "address": "noreply@harbourbank.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Your statement is ready",
+      "snippet": "Your latest statement for Joint Everyday is ready to view in the app.",
+      "body": "Your latest statement for Joint Everyday is ready to view in the app.\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0037",
+      "threadId": "thr_msg_0037",
+      "date": "2026-10-01T06:00+10:00",
+      "from": {
+        "name": "Kookaburra Mobile",
+        "address": "hello@kookaburramobile.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Your Kookaburra bill",
+      "snippet": "Hi Maya, Everyday 40GB: $55.00. Debited today. Thanks!",
+      "body": "Hi Maya,\n\nEveryday 40GB: $55.00. Debited today. Thanks!\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0038",
+      "threadId": "thr_msg_0038",
+      "date": "2026-10-01T06:30+10:00",
+      "from": {
+        "name": "Harvest Market",
+        "address": "specials@harvestmarket.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "This week's specials",
+      "snippet": "This week: Greek yoghurt 1kg. Plus more in store.",
+      "body": "This week: Greek yoghurt 1kg. Plus more in store.\n",
+      "labels": [
+        "INBOX",
+        "PROMOTIONS"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0039",
+      "threadId": "thr_msg_0039",
+      "date": "2026-10-02T17:05+10:00",
+      "from": {
+        "name": "BrightPage Kids",
+        "address": "hello@brightpage.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Pia's reading streak has paused",
+      "snippet": "Hi Maya, Pia hasn't read on BrightPage for 11 days (last session: 21 September). Open the app to restart her streak!",
+      "body": "Hi Maya,\n\nPia hasn't read on BrightPage for 11 days (last session: 21 September). Open the app to restart her streak!\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": true,
+      "attachments": []
+    },
+    {
+      "id": "msg_0040",
+      "threadId": "thr_kestrel",
+      "date": "2026-10-02T20:14+10:00",
+      "from": {
+        "name": "Ben Whitlock",
+        "address": "ben.whitlock@mailbox.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Plumber sorted",
+      "snippet": "Hey, just paid the Kestrel invoice by bank transfer from the joint account. All done, one less thing! B",
+      "body": "Hey, just paid the Kestrel invoice by bank transfer from the joint account. All done, one less thing!\nB\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0041",
+      "threadId": "thr_msg_0041",
+      "date": "2026-10-03T05:10+10:00",
+      "from": {
+        "name": "StreamBox",
+        "address": "receipts@streambox.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "Your StreamBox receipt",
+      "snippet": "Hi Ben, Thanks for being a StreamBox member. StreamBox Premium (monthly): $17.99 Charged to your bank account on 3 October 2026. Account ema",
+      "body": "Hi Ben,\n\nThanks for being a StreamBox member.\n\nStreamBox Premium (monthly): $17.99\nCharged to your bank account on 3 October 2026.\nAccount email: ben.whitlock@mailbox.example\n\nHappy watching,\nStreamBox\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0042",
+      "threadId": "thr_msg_0042",
+      "date": "2026-10-03T09:02+10:00",
+      "from": {
+        "name": "Kestrel Plumbing",
+        "address": "accounts@kestrelplumbing.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Payment received - thank you",
+      "snippet": "Hi Maya, We've received your bank transfer of $385.00 for invoice KP-20418. Receipt: R-77402 Kestrel Plumbing",
+      "body": "Hi Maya,\n\nWe've received your bank transfer of $385.00 for invoice KP-20418.\nReceipt: R-77402\n\nKestrel Plumbing\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0043",
+      "threadId": "thr_msg_0043",
+      "date": "2026-10-08T06:30+11:00",
+      "from": {
+        "name": "Harvest Market",
+        "address": "specials@harvestmarket.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "This week's specials",
+      "snippet": "This week: Sourdough 2 for $9. Plus more in store.",
+      "body": "This week: Sourdough 2 for $9. Plus more in store.\n",
+      "labels": [
+        "INBOX",
+        "PROMOTIONS"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0044",
+      "threadId": "thr_msg_0044",
+      "date": "2026-10-09T06:00+11:00",
+      "from": {
+        "name": "TuneBox",
+        "address": "billing@tunebox.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "Your TuneBox receipt",
+      "snippet": "TuneBox Family: $20.99. Thanks for listening.",
+      "body": "TuneBox Family: $20.99. Thanks for listening.\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0045",
+      "threadId": "thr_msg_0045",
+      "date": "2026-10-09T15:00+11:00",
+      "from": {
+        "name": "Brunswick Hill Primary",
+        "address": "office@brunswickhillps.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        },
+        {
+          "name": "Ben Whitlock",
+          "address": "ben.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "School newsletter: Term 4 starts",
+      "snippet": "Dear families, this fortnight's news is below. Please see the school calendar for dates.",
+      "body": "Dear families, this fortnight's news is below. Please see the school calendar for dates.\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0046",
+      "threadId": "thr_msg_0046",
+      "date": "2026-10-12T09:00+11:00",
+      "from": {
+        "name": "Aquastart Swim School",
+        "address": "hello@aquastart.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Term 4 lessons: Pia, Saturdays 9am",
+      "snippet": "Lessons run each Saturday until 12 December. Monthly fee $168.00.",
+      "body": "Lessons run each Saturday until 12 December. Monthly fee $168.00.\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0047",
+      "threadId": "thr_msg_0047",
+      "date": "2026-10-14T06:30+11:00",
+      "from": {
+        "name": "Skylink Internet",
+        "address": "billing@skylink.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "Your Skylink tax invoice for October",
+      "snippet": "Hi Maya, Your invoice is ready. Fibre 100 monthly charge (standard rate): $99.00 Total: $99.00 This amount will be debited on 14 October 202",
+      "body": "Hi Maya,\n\nYour invoice is ready.\n\nFibre 100 monthly charge (standard rate): $99.00\nTotal: $99.00\nThis amount will be debited on 14 October 2026.\n\nSkylink Internet\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0048",
+      "threadId": "thr_msg_0048",
+      "date": "2026-10-14T10:00+11:00",
+      "from": {
+        "name": "IronWorks Fitness",
+        "address": "memberships@ironworks.example"
+      },
+      "to": [
+        {
+          "name": "Ben Whitlock",
+          "address": "ben.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "We miss you!",
+      "snippet": "Hi Ben, It's been 6 weeks since your last visit (3 September). Come in this week and bring a friend for free! IronWorks Fitness",
+      "body": "Hi Ben,\n\nIt's been 6 weeks since your last visit (3 September). Come in this week and bring a friend for free!\n\nIronWorks Fitness\n",
+      "labels": [
+        "INBOX",
+        "PROMOTIONS"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0049",
+      "threadId": "thr_msg_0049",
+      "date": "2026-10-15T06:30+11:00",
+      "from": {
+        "name": "Harvest Market",
+        "address": "specials@harvestmarket.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "This week's specials",
+      "snippet": "This week: Avocados 3 for $5. Plus more in store.",
+      "body": "This week: Avocados 3 for $5. Plus more in store.\n",
+      "labels": [
+        "INBOX",
+        "PROMOTIONS"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0050",
+      "threadId": "thr_msg_0050",
+      "date": "2026-10-15T09:15+11:00",
+      "from": {
+        "name": "Kookaburra Mobile",
+        "address": "hello@kookaburramobile.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Your plan price is changing on 1 November",
+      "snippet": "Hi Maya, As set out in your plan terms, your plan price is indexed each November by CPI. The September quarter CPI figure is 4.0%, so from 1",
+      "body": "Hi Maya,\n\nAs set out in your plan terms, your plan price is indexed each November by CPI. The September quarter CPI\nfigure is 4.0%, so from 1 November 2026 your Everyday 40GB plan will be $57.20 per month (currently $55.00).\n\nKookaburra Mobile\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0051",
+      "threadId": "thr_msg_0051",
+      "date": "2026-10-18T07:15+11:00",
+      "from": {
+        "name": "BrightPage Kids",
+        "address": "hello@brightpage.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Your BrightPage Kids receipt",
+      "snippet": "Hi Maya, Thanks for subscribing. BrightPage Kids Premium - $14.99 for October 2026. Your plan renews on 18 November 2026.",
+      "body": "Hi Maya,\n\nThanks for subscribing. BrightPage Kids Premium - $14.99 for October 2026.\nYour plan renews on 18 November 2026.\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0052",
+      "threadId": "thr_msg_0052",
+      "date": "2026-10-21T11:02+11:00",
+      "from": {
+        "name": "Apple",
+        "address": "no_reply@email.apple.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Your receipt from Apple.",
+      "snippet": "Receipt Order ID: MZ269812930 Date: 21 Oct 2026 Apple ID: maya.whitlock@mailbox.example StreamBox - Premium (1 month) Renews 21 Nov 2026 $17",
+      "body": "Receipt\nOrder ID: MZ269812930\nDate: 21 Oct 2026\nApple ID: maya.whitlock@mailbox.example\n\nStreamBox - Premium (1 month)\nRenews 21 Nov 2026\n$17.99 AUD\nBilled to: Maya's Visa\n\nTotal: $17.99 AUD\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0053",
+      "threadId": "thr_msg_0053",
+      "date": "2026-10-22T06:30+11:00",
+      "from": {
+        "name": "Harvest Market",
+        "address": "specials@harvestmarket.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "This week's specials",
+      "snippet": "This week: Avocados 3 for $5. Plus more in store.",
+      "body": "This week: Avocados 3 for $5. Plus more in store.\n",
+      "labels": [
+        "INBOX",
+        "PROMOTIONS"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0054",
+      "threadId": "thr_msg_0054",
+      "date": "2026-10-22T13:05+11:00",
+      "from": {
+        "name": "Courier Hub",
+        "address": "tracking@courierhub.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Your parcel is on its way",
+      "snippet": "Your parcel arrives today between 1pm and 5pm.",
+      "body": "Your parcel arrives today between 1pm and 5pm.\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0055",
+      "threadId": "thr_msg_0055",
+      "date": "2026-10-27T07:00+11:00",
+      "from": {
+        "name": "Redgum Energy",
+        "address": "bills@redgumenergy.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "Your Redgum Energy bill is ready",
+      "snippet": "Hi Maya, Your bill for 28 July to 26 October is ready. Amount due: $577.20 by 10 November 2026. This bill is based on an estimated meter rea",
+      "body": "Hi Maya,\n\nYour bill for 28 July to 26 October is ready. Amount due: $577.20 by 10 November 2026.\nThis bill is based on an estimated meter reading.\n\nRedgum Energy\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": [
+        {
+          "id": "msg_0055_att1",
+          "filename": "Redgum-Energy-Bill-2026-10-27.pdf",
+          "mimeType": "application/pdf",
+          "sizeBytes": 2900,
+          "documentId": "doc_003"
+        }
+      ]
+    },
+    {
+      "id": "msg_0056",
+      "threadId": "thr_msg_0056",
+      "date": "2026-10-28T08:30+11:00",
+      "from": {
+        "name": "IronWorks Fitness",
+        "address": "memberships@ironworks.example"
+      },
+      "to": [
+        {
+          "name": "Ben Whitlock",
+          "address": "ben.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Your annual membership fee is coming up",
+      "snippet": "Hi Ben, A quick reminder: your annual membership fee of $89.00 will be charged on 28 November 2026. If you'd like to cancel your membership,",
+      "body": "Hi Ben,\n\nA quick reminder: your annual membership fee of $89.00 will be charged on 28 November 2026.\n\nIf you'd like to cancel your membership, you must give written notice at least 14 days before your\nanniversary date (by 14 November 2026).\n\nIronWorks Fitness\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": true,
+      "attachments": []
+    },
+    {
+      "id": "msg_0057",
+      "threadId": "thr_msg_0057",
+      "date": "2026-10-29T06:30+11:00",
+      "from": {
+        "name": "Harvest Market",
+        "address": "specials@harvestmarket.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "This week's specials",
+      "snippet": "This week: Free-range chicken thighs. Plus more in store.",
+      "body": "This week: Free-range chicken thighs. Plus more in store.\n",
+      "labels": [
+        "INBOX",
+        "PROMOTIONS"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0058",
+      "threadId": "thr_meter",
+      "date": "2026-10-30T16:50+11:00",
+      "from": {
+        "name": "Ben Whitlock",
+        "address": "ben.whitlock@mailbox.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Meter reading",
+      "snippet": "Just took a photo of the meter in the cupboard. It says 47006. The bill says they estimated 47570?? That seems way off, we haven't used that",
+      "body": "Just took a photo of the meter in the cupboard. It says 47006. The bill says they estimated 47570?? That\nseems way off, we haven't used that much. Can you look at it?\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": [
+        {
+          "id": "msg_0058_att1",
+          "filename": "Meter-Photo-2026-10-30.jpg",
+          "mimeType": "image/jpeg",
+          "sizeBytes": 87719,
+          "documentId": "doc_004"
+        }
+      ]
+    },
+    {
+      "id": "msg_0059",
+      "threadId": "thr_msg_0059",
+      "date": "2026-11-01T05:00+11:00",
+      "from": {
+        "name": "Harbour Bank",
+        "address": "noreply@harbourbank.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Your statement is ready",
+      "snippet": "Your latest statement for Joint Everyday is ready to view in the app.",
+      "body": "Your latest statement for Joint Everyday is ready to view in the app.\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0060",
+      "threadId": "thr_msg_0060",
+      "date": "2026-11-01T06:00+11:00",
+      "from": {
+        "name": "Kookaburra Mobile",
+        "address": "hello@kookaburramobile.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Your Kookaburra bill",
+      "snippet": "Hi Maya, Everyday 40GB: $57.20. Debited today. Thanks!",
+      "body": "Hi Maya,\n\nEveryday 40GB: $57.20. Debited today. Thanks!\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0061",
+      "threadId": "thr_gym",
+      "date": "2026-11-02T21:30+11:00",
+      "from": {
+        "name": "Ben Whitlock",
+        "address": "ben.whitlock@mailbox.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Gym",
+      "snippet": "Remind me to cancel the gym before the 14th or it's another $89. I haven't been since September anyway.",
+      "body": "Remind me to cancel the gym before the 14th or it's another $89. I haven't been since September anyway.\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0062",
+      "threadId": "thr_msg_0062",
+      "date": "2026-11-03T05:10+11:00",
+      "from": {
+        "name": "StreamBox",
+        "address": "receipts@streambox.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "Your StreamBox receipt",
+      "snippet": "Hi Ben, Thanks for being a StreamBox member. StreamBox Premium (monthly): $17.99 Charged to your bank account on 3 November 2026. Account em",
+      "body": "Hi Ben,\n\nThanks for being a StreamBox member.\n\nStreamBox Premium (monthly): $17.99\nCharged to your bank account on 3 November 2026.\nAccount email: ben.whitlock@mailbox.example\n\nHappy watching,\nStreamBox\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0063",
+      "threadId": "thr_msg_0063",
+      "date": "2026-11-03T09:44+11:00",
+      "from": {
+        "name": "Wattle Insurance",
+        "address": "renewals@wattleinsurance.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Your car insurance renewal",
+      "snippet": "Hi Maya, Your comprehensive car insurance (policy WI-CAR-5521908) renews on 7 December 2026. Your renewal notice is attached. Your renewal p",
+      "body": "Hi Maya,\n\nYour comprehensive car insurance (policy WI-CAR-5521908) renews on 7 December 2026.\nYour renewal notice is attached. Your renewal premium is $1,485.54.\nIf you'd like to make changes, call us before the renewal date.\n\nWattle Insurance\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": [
+        {
+          "id": "msg_0063_att1",
+          "filename": "Wattle-Renewal-Notice-2026-11-03.pdf",
+          "mimeType": "application/pdf",
+          "sizeBytes": 2824,
+          "documentId": "doc_006"
+        }
+      ]
+    },
+    {
+      "id": "msg_0064",
+      "threadId": "thr_msg_0064",
+      "date": "2026-11-05T06:30+11:00",
+      "from": {
+        "name": "Harvest Market",
+        "address": "specials@harvestmarket.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "This week's specials",
+      "snippet": "This week: Avocados 3 for $5. Plus more in store.",
+      "body": "This week: Avocados 3 for $5. Plus more in store.\n",
+      "labels": [
+        "INBOX",
+        "PROMOTIONS"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0065",
+      "threadId": "thr_msg_0065",
+      "date": "2026-11-06T15:00+11:00",
+      "from": {
+        "name": "Brunswick Hill Primary",
+        "address": "office@brunswickhillps.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        },
+        {
+          "name": "Ben Whitlock",
+          "address": "ben.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "School newsletter: Parent-teacher interviews",
+      "snippet": "Dear families, this fortnight's news is below. Please see the school calendar for dates.",
+      "body": "Dear families, this fortnight's news is below. Please see the school calendar for dates.\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0066",
+      "threadId": "thr_msg_0066",
+      "date": "2026-11-06T18:20+11:00",
+      "from": {
+        "name": "Banksia Direct",
+        "address": "quotes@banksiadirect.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Your Banksia Direct quote",
+      "snippet": "Hi Maya, Thanks for getting a quote. Your quote BD-8830214 is attached: comprehensive cover, agreed value $14,500, excess $650, $1,109.00 fo",
+      "body": "Hi Maya,\n\nThanks for getting a quote. Your quote BD-8830214 is attached: comprehensive cover, agreed value $14,500,\nexcess $650, $1,109.00 for the year. It's valid until 4 December 2026.\n\nBanksia Direct\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": [
+        {
+          "id": "msg_0066_att1",
+          "filename": "Banksia-Direct-Quote-2026-11-06.pdf",
+          "mimeType": "application/pdf",
+          "sizeBytes": 2359,
+          "documentId": "doc_007"
+        }
+      ]
+    },
+    {
+      "id": "msg_0067",
+      "threadId": "thr_insurance",
+      "date": "2026-11-06T19:02+11:00",
+      "from": {
+        "name": "Maya Whitlock",
+        "address": "maya.whitlock@mailbox.example"
+      },
+      "to": [
+        {
+          "name": "Ben Whitlock",
+          "address": "ben.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Car insurance went up a lot",
+      "snippet": "Ben, the Wattle renewal is $1,485 (was $1,134!). I just got a quote from Banksia for the same cover, $1,109. Can you have a look this weeken",
+      "body": "Ben, the Wattle renewal is $1,485 (was $1,134!). I just got a quote from Banksia for the same cover,\n$1,109. Can you have a look this weekend?\nM\n",
+      "labels": [
+        "SENT"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0068",
+      "threadId": "thr_msg_0068",
+      "date": "2026-11-09T06:00+11:00",
+      "from": {
+        "name": "TuneBox",
+        "address": "billing@tunebox.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "Your TuneBox receipt",
+      "snippet": "TuneBox Family: $20.99. Thanks for listening.",
+      "body": "TuneBox Family: $20.99. Thanks for listening.\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0069",
+      "threadId": "thr_msg_0069",
+      "date": "2026-11-10T07:00+11:00",
+      "from": {
+        "name": "Redgum Energy",
+        "address": "bills@redgumenergy.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "Payment received",
+      "snippet": "Hi Maya, We've received your payment of $577.20. Thanks! Redgum Energy",
+      "body": "Hi Maya,\n\nWe've received your payment of $577.20. Thanks!\n\nRedgum Energy\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0070",
+      "threadId": "thr_msg_0070",
+      "date": "2026-11-12T06:30+11:00",
+      "from": {
+        "name": "Harvest Market",
+        "address": "specials@harvestmarket.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "This week's specials",
+      "snippet": "This week: Sourdough 2 for $9. Plus more in store.",
+      "body": "This week: Sourdough 2 for $9. Plus more in store.\n",
+      "labels": [
+        "INBOX",
+        "PROMOTIONS"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0071",
+      "threadId": "thr_msg_0071",
+      "date": "2026-11-13T15:00+11:00",
+      "from": {
+        "name": "Brunswick Hill Primary",
+        "address": "office@brunswickhillps.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        },
+        {
+          "name": "Ben Whitlock",
+          "address": "ben.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "School newsletter: End-of-year events",
+      "snippet": "Dear families, this fortnight's news is below. Please see the school calendar for dates.",
+      "body": "Dear families, this fortnight's news is below. Please see the school calendar for dates.\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0072",
+      "threadId": "thr_msg_0072",
+      "date": "2026-11-14T06:30+11:00",
+      "from": {
+        "name": "Skylink Internet",
+        "address": "billing@skylink.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "Your Skylink tax invoice for November",
+      "snippet": "Hi Maya, Your invoice is ready. Fibre 100 monthly charge (standard rate): $99.00 Total: $99.00 This amount will be debited on 14 November 20",
+      "body": "Hi Maya,\n\nYour invoice is ready.\n\nFibre 100 monthly charge (standard rate): $99.00\nTotal: $99.00\nThis amount will be debited on 14 November 2026.\n\nSkylink Internet\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0073",
+      "threadId": "thr_msg_0073",
+      "date": "2026-11-16T09:00+11:00",
+      "from": {
+        "name": "Northern City Council",
+        "address": "rates@northerncity.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "Rates instalment due 30 November",
+      "snippet": "Reminder: instalment 2 of 4 ($412.30) is due on 30 November 2026.",
+      "body": "Reminder: instalment 2 of 4 ($412.30) is due on 30 November 2026.\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0074",
+      "threadId": "thr_msg_0074",
+      "date": "2026-11-18T07:15+11:00",
+      "from": {
+        "name": "BrightPage Kids",
+        "address": "hello@brightpage.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Your BrightPage Kids receipt",
+      "snippet": "Hi Maya, Thanks for subscribing. BrightPage Kids Premium - $14.99 for November 2026. Your plan renews on 18 December 2026.",
+      "body": "Hi Maya,\n\nThanks for subscribing. BrightPage Kids Premium - $14.99 for November 2026.\nYour plan renews on 18 December 2026.\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0075",
+      "threadId": "thr_msg_0075",
+      "date": "2026-11-19T06:30+11:00",
+      "from": {
+        "name": "Harvest Market",
+        "address": "specials@harvestmarket.example"
+      },
+      "to": [
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "This week's specials",
+      "snippet": "This week: Avocados 3 for $5. Plus more in store.",
+      "body": "This week: Avocados 3 for $5. Plus more in store.\n",
+      "labels": [
+        "INBOX",
+        "PROMOTIONS"
+      ],
+      "unread": false,
+      "attachments": []
+    }
+  ],
+  "note": "Maya's mailbox. It also receives the shared household address (home@whitlock.example). Emails from Ben appear because he sends household admin to Maya."
+}

@@ -1,0 +1,204 @@
+{
+  "timezone": "Australia/Melbourne",
+  "calendars": [
+    {
+      "id": "Family",
+      "owners": [
+        "Maya",
+        "Ben"
+      ]
+    },
+    {
+      "id": "Maya"
+    },
+    {
+      "id": "Ben"
+    }
+  ],
+  "count": 14,
+  "events": [
+    {
+      "calendar": "Family",
+      "title": "Kestrel Plumbing: hot water repair",
+      "start": "2026-09-22T08:00+10:00",
+      "end": "2026-09-22T12:00+10:00",
+      "allDay": false,
+      "notes": "",
+      "createdAt": "2026-09-18T09:22+10:00",
+      "createdBy": "Ben",
+      "recurrence": null,
+      "location": "",
+      "id": "evt_001"
+    },
+    {
+      "calendar": "Family",
+      "title": "Ollie: Year 3 excursion, Melbourne Museum",
+      "start": "2026-09-15",
+      "end": null,
+      "allDay": true,
+      "notes": "",
+      "createdAt": "2026-09-01T09:00+10:00",
+      "createdBy": "Maya",
+      "recurrence": null,
+      "location": "",
+      "id": "evt_002"
+    },
+    {
+      "calendar": "Family",
+      "title": "Pia: Prep excursion, Children's Farm",
+      "start": "2026-09-16",
+      "end": null,
+      "allDay": true,
+      "notes": "",
+      "createdAt": "2026-09-01T09:00+10:00",
+      "createdBy": "Maya",
+      "recurrence": null,
+      "location": "",
+      "id": "evt_003"
+    },
+    {
+      "calendar": "Ben",
+      "title": "Cancel gym membership (deadline tomorrow!)",
+      "start": "2026-11-13T09:00+11:00",
+      "end": "2026-11-13T09:15+11:00",
+      "allDay": false,
+      "notes": "Need 14 days notice before the 28th or it's another $89.",
+      "createdAt": "2026-11-02T21:35+11:00",
+      "createdBy": "Ben",
+      "recurrence": null,
+      "location": "",
+      "id": "evt_004"
+    },
+    {
+      "calendar": "Family",
+      "title": "Council rates due: $412.30",
+      "start": "2026-11-30",
+      "end": null,
+      "allDay": true,
+      "notes": "",
+      "createdAt": "2026-11-16T09:05+11:00",
+      "createdBy": "Maya",
+      "recurrence": null,
+      "location": "",
+      "id": "evt_005"
+    },
+    {
+      "calendar": "Family",
+      "title": "Car insurance renews (Wattle)",
+      "start": "2026-12-07",
+      "end": null,
+      "allDay": true,
+      "notes": "Banksia quote BD-8830214 valid until 4 Dec.",
+      "createdAt": "2026-11-03T09:50+11:00",
+      "createdBy": "Maya",
+      "recurrence": null,
+      "location": "",
+      "id": "evt_006"
+    },
+    {
+      "calendar": "Maya",
+      "title": "Car service",
+      "start": "2026-12-02T08:30+11:00",
+      "end": "2026-12-02T10:00+11:00",
+      "allDay": false,
+      "notes": "",
+      "createdAt": "2026-11-01T10:00+11:00",
+      "createdBy": "Maya",
+      "recurrence": null,
+      "location": "Brunswick Auto Care",
+      "id": "evt_007"
+    },
+    {
+      "calendar": "Family",
+      "title": "Parent-teacher interviews",
+      "start": "2026-11-24T16:00+11:00",
+      "end": "2026-11-24T16:30+11:00",
+      "allDay": false,
+      "notes": "",
+      "createdAt": "2026-11-06T15:10+11:00",
+      "createdBy": "Maya",
+      "recurrence": null,
+      "location": "",
+      "id": "evt_008"
+    },
+    {
+      "calendar": "Maya",
+      "title": "Maya: dentist",
+      "start": "2026-11-26T12:30+11:00",
+      "end": "2026-11-26T13:15+11:00",
+      "allDay": false,
+      "notes": "",
+      "createdAt": "2026-08-25T12:00+10:00",
+      "createdBy": "Maya",
+      "recurrence": null,
+      "location": "",
+      "id": "evt_009"
+    },
+    {
+      "calendar": "Family",
+      "title": "Ollie's birthday party",
+      "start": "2026-12-05T14:00+11:00",
+      "end": "2026-12-05T17:00+11:00",
+      "allDay": false,
+      "notes": "",
+      "createdAt": "2026-10-20T18:00+11:00",
+      "createdBy": "Maya",
+      "recurrence": null,
+      "location": "Brunswick Pool",
+      "id": "evt_010"
+    },
+    {
+      "calendar": "Family",
+      "title": "Last day of Term 4",
+      "start": "2026-12-18",
+      "end": null,
+      "allDay": true,
+      "notes": "",
+      "createdAt": "2026-10-09T15:05+11:00",
+      "createdBy": "Maya",
+      "recurrence": null,
+      "location": "",
+      "id": "evt_011"
+    },
+    {
+      "calendar": "Family",
+      "title": "Pia: swimming",
+      "start": "2026-10-17T09:00+11:00",
+      "end": "2026-10-17T09:45+11:00",
+      "allDay": false,
+      "notes": "",
+      "createdAt": "2026-10-12T09:10+11:00",
+      "createdBy": "Maya",
+      "recurrence": "RRULE:FREQ=WEEKLY;BYDAY=SA;UNTIL=20261212T000000Z",
+      "location": "Aquastart Brunswick",
+      "id": "evt_012"
+    },
+    {
+      "calendar": "Family",
+      "title": "Bins out (recycling)",
+      "start": "2026-11-22T19:00+11:00",
+      "end": "2026-11-22T19:10+11:00",
+      "allDay": false,
+      "notes": "",
+      "createdAt": "2026-08-01T10:00+10:00",
+      "createdBy": "Ben",
+      "recurrence": "RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=SU",
+      "location": "",
+      "id": "evt_013"
+    },
+    {
+      "calendar": "Family",
+      "title": "Family holiday (Lorne)",
+      "start": "2026-12-26",
+      "end": null,
+      "allDay": true,
+      "notes": "Through 2 Jan.",
+      "createdAt": "2026-09-14T20:00+10:00",
+      "createdBy": "Maya",
+      "recurrence": null,
+      "location": "",
+      "id": "evt_014"
+    }
+  ],
+  "note": "Recurring events carry an RRULE; the connector expands instances for a requested range."
+}

@@ -1,0 +1,371 @@
+{
+  "WARNING": "Evaluation only. The running app must not read this folder.",
+  "asOf": "2026-11-19T09:30+11:00",
+  "leaks": [
+    {
+      "id": "L1",
+      "slug": "skylink-promo-ended-early",
+      "title": "Internet price rose after 12 months, but the agreement promised 24",
+      "kind": "price_increase_vs_contract",
+      "merchant": "Skylink Internet",
+      "severity": "medium",
+      "evidence": {
+        "transactions": [
+          "JE-00024",
+          "JE-00051",
+          "JE-00077"
+        ],
+        "emails": [
+          "msg_0002",
+          "msg_0024",
+          "msg_0010",
+          "msg_0027",
+          "msg_0047",
+          "msg_0072"
+        ],
+        "documents": [
+          "doc_001"
+        ],
+        "calendar": []
+      },
+      "amounts": {
+        "recoverable_to_date": 40.0,
+        "ongoing_per_month": 20.0,
+        "remaining_charges_in_promo": 10,
+        "total_at_stake": 240.0
+      },
+      "deadlines": [
+        {
+          "date": "2026-12-14",
+          "what": "next $99 charge"
+        }
+      ],
+      "expected_action": "Draft a message to Skylink citing the 24-month Bonus Saver term; ask to restore $79 and credit the $40 overcharged to date.",
+      "draft_should_mention": [
+        "24 months",
+        "$79.00",
+        "14 October 2025",
+        "Oct and Nov charges"
+      ]
+    },
+    {
+      "id": "L2",
+      "slug": "streambox-duplicate",
+      "title": "StreamBox is paid twice: directly (Ben) and through Apple (Maya)",
+      "kind": "duplicate_subscription",
+      "merchant": "StreamBox",
+      "severity": "medium",
+      "evidence": {
+        "transactions": [
+          "JE-00013",
+          "JE-00041",
+          "JE-00065",
+          "MC-00002",
+          "MC-00024",
+          "MC-00038"
+        ],
+        "emails": [
+          "msg_0007",
+          "msg_0018",
+          "msg_0041",
+          "msg_0062",
+          "msg_0004",
+          "msg_0005",
+          "msg_0012",
+          "msg_0032",
+          "msg_0052"
+        ],
+        "documents": [],
+        "calendar": []
+      },
+      "amounts": {
+        "charges_visible_in_statements": 3,
+        "charges_since_june_per_emails": 5,
+        "duplicate_total_since_june": 89.95,
+        "ongoing_per_month": 17.99
+      },
+      "deadlines": [
+        {
+          "date": "2026-11-21",
+          "what": "next Apple renewal; cancel at least a day before (by 2026-11-20)"
+        }
+      ],
+      "expected_action": "Recommend cancelling one (the Apple-billed subscription, started 21 June); explain how. Optionally draft a refund request for duplicate months.",
+      "difficulty_notes": "The card descriptor says only APPLE.COM/BILL; the product is revealed only in the Apple receipt emails."
+    },
+    {
+      "id": "L3",
+      "slug": "gym-annual-fee-missed-notice",
+      "title": "Gym annual fee renews in 9 days; the 14-day cancellation deadline passed on 14 Nov",
+      "kind": "renewal_trap",
+      "merchant": "IronWorks Fitness",
+      "severity": "medium",
+      "evidence": {
+        "transactions": [
+          "JE-00016",
+          "JE-00043",
+          "JE-00066"
+        ],
+        "emails": [
+          "msg_0001",
+          "msg_0048",
+          "msg_0056",
+          "msg_0061"
+        ],
+        "documents": [
+          "doc_008"
+        ],
+        "calendar": [
+          "evt_004"
+        ]
+      },
+      "amounts": {
+        "annual_fee_at_risk": 89.0,
+        "monthly_fee": 29.95,
+        "last_visit": "2026-09-03"
+      },
+      "deadlines": [
+        {
+          "date": "2026-11-14",
+          "what": "notice deadline (already missed)"
+        },
+        {
+          "date": "2026-11-28",
+          "what": "annual fee charged"
+        }
+      ],
+      "expected_action": "Draft a cancellation notice plus a goodwill request to waive the annual fee: no visits since 3 Sep, Ben tried to cancel (calendar reminder). Be honest that the notice period was missed.",
+      "difficulty_notes": "Requires date arithmetic (14 days before 28 Nov) against 'today' = 19 Nov."
+    },
+    {
+      "id": "L4",
+      "slug": "brightpage-trial-converted",
+      "title": "Kids' reading app trial converted to $14.99/month and is unused",
+      "kind": "trial_converted",
+      "merchant": "BrightPage Kids",
+      "severity": "low",
+      "evidence": {
+        "transactions": [
+          "MC-00021",
+          "MC-00034",
+          "MC-00052"
+        ],
+        "emails": [
+          "msg_0026",
+          "msg_0029",
+          "msg_0039",
+          "msg_0030",
+          "msg_0051",
+          "msg_0074"
+        ],
+        "documents": [],
+        "calendar": []
+      },
+      "amounts": {
+        "paid_to_date": 44.97,
+        "ongoing_per_month": 14.99
+      },
+      "deadlines": [
+        {
+          "date": "2026-12-18",
+          "what": "next charge"
+        }
+      ],
+      "expected_action": "Recommend cancelling; optionally ask for a refund of the most recent month."
+    },
+    {
+      "id": "L5",
+      "slug": "kestrel-double-payment",
+      "title": "Plumber invoice KP-20418 paid twice (card and bank transfer)",
+      "kind": "duplicate_payment",
+      "merchant": "Kestrel Plumbing",
+      "severity": "high",
+      "evidence": {
+        "transactions": [
+          "MC-00027",
+          "JE-00039"
+        ],
+        "emails": [
+          "msg_0034",
+          "msg_0035",
+          "msg_0040",
+          "msg_0042"
+        ],
+        "documents": [
+          "doc_009"
+        ],
+        "calendar": []
+      },
+      "amounts": {
+        "refund_due": 385.0
+      },
+      "deadlines": [],
+      "expected_action": "Draft a refund request quoting invoice KP-20418 and both receipts (R-77311, R-77402); ask for $385.00 back to the card or account of their choice."
+    },
+    {
+      "id": "L6",
+      "slug": "wattle-renewal-31pct",
+      "title": "Car insurance renewal up 31%, with a cheaper like-for-like quote in hand",
+      "kind": "renewal_price_creep",
+      "merchant": "Wattle Insurance",
+      "severity": "high",
+      "evidence": {
+        "transactions": [],
+        "emails": [
+          "msg_0063",
+          "msg_0067",
+          "msg_0066"
+        ],
+        "documents": [
+          "doc_006",
+          "doc_007"
+        ],
+        "calendar": [
+          "evt_006"
+        ]
+      },
+      "amounts": {
+        "renewal_premium": 1485.54,
+        "last_year": 1134.0,
+        "increase": 351.54,
+        "increase_pct": 31.0,
+        "competitor_quote": 1109.0,
+        "potential_saving": 376.54
+      },
+      "deadlines": [
+        {
+          "date": "2026-12-04",
+          "what": "Banksia quote expires"
+        },
+        {
+          "date": "2026-12-07",
+          "what": "Wattle charges the renewal"
+        }
+      ],
+      "expected_action": "Draft a retention request to Wattle referencing the loyalty discount drop and the $1,109 quote; surface the decision (switch vs retain) before 4 Dec.",
+      "difficulty_notes": "Same cover, same agreed value and excess: the agent should verify the quote is comparable."
+    },
+    {
+      "id": "L7",
+      "slug": "redgum-estimated-read",
+      "title": "Electricity bill based on an inflated estimated reading",
+      "kind": "billing_error",
+      "merchant": "Redgum Energy",
+      "severity": "high",
+      "evidence": {
+        "transactions": [
+          "JE-00072"
+        ],
+        "emails": [
+          "msg_0006",
+          "msg_0055",
+          "msg_0058",
+          "msg_0069"
+        ],
+        "documents": [
+          "doc_002",
+          "doc_003",
+          "doc_004"
+        ],
+        "calendar": []
+      },
+      "amounts": {
+        "billed": 577.2,
+        "estimated_overbilling_aud": 175.0,
+        "tolerance": 15.0,
+        "method": "Photo reads 47,006 kWh on 30 Oct. Back out ~4 days at 12.1 kWh/day (~49 kWh) to 26 Oct: ~46,957. Actual usage ~1,077 kWh vs billed 1,690 kWh: ~613 kWh x $0.285 = ~$175."
+      },
+      "deadlines": [],
+      "expected_action": "Draft a bill-correction request attaching the meter photo and asking for a credit or refund of roughly $175 (already paid on 10 Nov).",
+      "difficulty_notes": "Needs the image model to read the odometer, then arithmetic done in code. The red digit is the tenths: the reading is 47,006 kWh, not 470,060 (a realistic misread to guard against)."
+    }
+  ],
+  "decoys": [
+    {
+      "id": "D1",
+      "slug": "kookaburra-cpi",
+      "title": "Mobile plan rose $55.00 to $57.20 (4.0%)",
+      "why_not_a_leak": "Plan terms provide for annual CPI indexation, the 4.0% notice was sent in advance, and 55.00 x 1.04 = 57.20 exactly.",
+      "evidence": {
+        "transactions": [
+          "JE-00011",
+          "JE-00037",
+          "JE-00064"
+        ],
+        "emails": [
+          "msg_0003",
+          "msg_0050"
+        ],
+        "documents": [
+          "doc_010"
+        ]
+      }
+    },
+    {
+      "id": "D2",
+      "slug": "school-excursions",
+      "title": "Two $38.00 SchoolPay charges on the same day",
+      "why_not_a_leak": "Different children, different references (OH-Y3-0908 vs PI-PR-0908), two separate excursion notices.",
+      "evidence": {
+        "transactions": [
+          "MC-00015",
+          "MC-00016"
+        ],
+        "emails": [
+          "msg_0016",
+          "msg_0017",
+          "msg_0021",
+          "msg_0022"
+        ]
+      }
+    }
+  ],
+  "upcoming_charges": [
+    {
+      "date": "2026-11-21",
+      "what": "StreamBox renewal via Apple ($17.99)",
+      "leak": "L2"
+    },
+    {
+      "date": "2026-11-28",
+      "what": "IronWorks annual fee ($89.00)",
+      "leak": "L3"
+    },
+    {
+      "date": "2026-11-30",
+      "what": "Council rates instalment 2 of 4 ($412.30)",
+      "leak": null
+    },
+    {
+      "date": "2026-12-03",
+      "what": "StreamBox direct debit ($17.99)",
+      "leak": "L2"
+    },
+    {
+      "date": "2026-12-05",
+      "what": "IronWorks monthly ($29.95)",
+      "leak": "L3"
+    },
+    {
+      "date": "2026-12-07",
+      "what": "Wattle renewal charged ($1,485.54)",
+      "leak": "L6"
+    },
+    {
+      "date": "2026-12-14",
+      "what": "Skylink direct debit ($99.00)",
+      "leak": "L1"
+    },
+    {
+      "date": "2026-12-18",
+      "what": "BrightPage renewal ($14.99)",
+      "leak": "L4"
+    }
+  ],
+  "scoring": {
+    "recall": "found leaks / 7",
+    "precision": "true leaks / flagged items (D1 and D2 must not be flagged)",
+    "amounts": "correct to the cent unless a tolerance is given",
+    "drafts": "must cite real evidence (ids/amounts/dates) and not invent facts"
+  }
+}

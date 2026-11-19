@@ -1,0 +1,23 @@
+IRONWORKS FITNESS
+=================
+Membership agreement
+
+Member     : Ben Whitlock
+Club       : IronWorks Brunswick
+Join date  : 28 November 2024
+Membership : Standard Monthly
+
+Fee                    Amount
+---------------------  ---------------------------------------------------------------------
+Monthly membership     $29.95 per month, direct debit on the 5th
+Annual membership fee  $89.00, charged each year on your join-date anniversary (28 November)
+
+
+CANCELLING
+----------
+To cancel, give written notice by email to memberships@ironworks.example. Notice must be
+received at least 14 days before the date you want the cancellation to take effect.
+
+To avoid the annual membership fee, written notice must be received at least 14 days before
+your anniversary date. Fees already charged are not refundable except at the club's
+discretion.

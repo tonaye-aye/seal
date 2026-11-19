@@ -1,0 +1,16 @@
+BANKSIA DIRECT
+==============
+Comprehensive car insurance - quote
+
+Quote number : BD-8830214
+Prepared for : Maya Whitlock
+Vehicle      : 2019 Mazda3 Pure hatch
+Quote date   : 6 November 2026
+Valid until  : 4 December 2026
+
+Item            Detail
+--------------  ------------------------------------
+Cover           Comprehensive, agreed value $14,500
+Excess          $650
+Start date      7 December 2026
+Annual premium  $1,109.00 (incl. GST and stamp duty)
