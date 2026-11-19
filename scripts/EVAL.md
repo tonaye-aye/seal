@@ -1,14 +1,15 @@
-# Pipeline eval results (19 Nov 2026)
+# Pipeline eval results (19-20 Nov 2026)
 
-**What this is:** the whole scan the app runs (sync, detect, retrieve, extract, verify, judge) scored end to
-end against `seed/eval/ground_truth.json`. Unlike the spike (`SPIKE.md`), nothing is handed the right
-evidence: the agent has to find it. Drafting is not built yet and is not scored here.
+**What this is:** the whole scan the app runs (sync, detect, retrieve, extract, verify, judge, draft) scored
+end to end against `seed/eval/ground_truth.json`. Unlike the spike (`SPIKE.md`), nothing is handed the right
+evidence or figures: the agent has to find them.
 
 **How to run** (scripts may read `seed/eval/`; the app never does):
 
 ```bash
 node --env-file=.env scripts/eval.ts --verbose                          # saved replies where available
 node --env-file=.env scripts/eval.ts --fresh-judge --repeat 3 --verbose # judge called fresh each run
+node --env-file=.env scripts/eval.ts --fresh-draft --repeat 3 --verbose # drafting called fresh each run
 node --env-file=.env scripts/eval.ts --live                             # every model call fresh
 ```
 
@@ -19,6 +20,12 @@ Stage checks (each runs in seconds): `connectors-check.ts` (33 checks), `detecto
 expected amounts (to the cent, or within the stated tolerance: ±$15 for the meter); the deadline equal to an
 expected date (or none when none is expected); and at least one cited id in the expected evidence. **Per
 decoy:** not flagged. Plus any other false alarm.
+
+**Per draft:** it passes the code claim check (every amount, date, reference, kWh value, count and percentage
+is found in the verified figures or the evidence the drafter was given, and no internal ids); it signs off
+"Thanks, Maya"; and it mentions the facts a reader needs (e.g. L5: KP-20418, both receipt numbers, $385.00).
+Each run also saves every draft through the email connector and discards them again (approve, then undo);
+the connector has no send operation.
 
 ## Results
 
@@ -32,6 +39,28 @@ Extraction from saved replies, judge called fresh each run (temperature 0.1), 3 
 | Other false alarms | 0 | 0 |
 | Scan time (extraction cached, 9 cases judged 6 at a time) | 84-112 s | 40-82 s |
 
+### Drafting (20 Nov)
+
+Extraction and judge from saved replies, drafting called fresh each run (Flash, thinking off, temperature 0.2;
+on a failed claim check the 35B, thinking off, rewrites it once). Each row is the code after that change, in
+the order they were made. Stricter checks made the score drop before the fix that followed.
+
+| Change | Runs | Fully correct | Pass claim check | 35B rewrites (fixed) |
+| --- | --- | --- | --- | --- |
+| First version | 1 | 6/7 (L4 left out the price) | 7/7 | 0 |
+| No-reply filter, attachment rule, "quote key amounts" | 3 | 18/21 | 18/21 (L7 x3: checker bug) | 4 (1) |
+| Fix the checker for "$0.285" | 3 | 21/21 | 21/21 | 3 (3) |
+| Per-kind guidance (L2 reasoning) | 3 | 21/21 | 21/21 | 1 (1) |
+| Attachments must be real files | 3 | 18/21 | 18/21 | 4 (1) |
+| "No files to attach" prompt, code fixes the sign-off | 3 | 20/21 | 20/21 | 2 (1) |
+| **Final: verify works out "paid after last use"** | **3** | **21/21** | **21/21** | **0** |
+
+Flash took 3.0-6.6 s per draft in the final runs (35B rewrites 4.4-8.6 s when needed).
+
+The scan's other scores were unchanged in every run: 21/21 leaks with the right kind, amount, deadline and
+citations, 0/6 decoys, 0 false alarms. Each case is drafted as soon as it is judged: the finding shows straight
+away and its draft follows about 5 s later, while other cases are still being judged.
+
 Stage by stage (deterministic stages run every time; model stages from the extract run):
 
 | Stage | Who | Result | Time |
@@ -41,6 +70,7 @@ Stage by stage (deterministic stages run every time; model stages from the extra
 | Extract facts | 9B, thinking off | 55 sources, 0 failures, 0 escalations; 12/12 key facts | 21 s live (median 2.5 s per source, 8 at a time) |
 | Verify figures | code | 37/37 expected figures | ~7 ms |
 | Judge | 35B, thinking on | see above | 14-100 s per case |
+| Draft | Flash, thinking off (35B fallback) | 21/21 grounded and complete | 3-7 s per draft, run alongside judging |
 
 ## What went wrong, and what the design does about it
 
@@ -75,7 +105,36 @@ These are real failures seen while building, for the report.
    *Response:* it runs in the background scan, 6 cases at a time, and each finding is shown as soon as its
    case is judged. Thinking off is ~3 s but missed L1 every run in the spike, so the trade is deliberate.
 
-5. **Embeddings were not needed on this data.** Exact links (sender, attachment, references, amount near
+5. **Drafters still do sums (L4).** Asked to request a refund of "the 2 charges after it was last used", both
+   Flash and the 35B wrote "$29.98" (2 x $14.99) themselves (Flash in 6 of 15 runs), despite being told never to
+   calculate. The sum was right, but it wasn't a checked figure, so the claim check rejected it; when the 35B
+   rewrite did the same (once), the draft was kept and marked "check before sending".
+   *Response:* the claim check caught every one. The real fix was upstream: verify now works out "paid after
+   it was last used" ($29.98) itself, so the number the drafter wants is a checked one. After that, 0 rewrites.
+
+6. **Right facts, wrong reasoning (L2).** Every StreamBox draft passed the claim check, but early ones asked
+   StreamBox (or Apple's no-reply address) to "cancel the subscription in my Apple settings" and called it "a
+   billing error on your end". Only Maya can cancel an App Store subscription, and nobody made an error. A claim
+   check verifies facts, not logic.
+   *Response:* no-reply addresses are only offered as a recipient when nothing else exists; the prompt carries
+   short per-kind guidance (for a platform-billed duplicate: "we are cancelling that copy ourselves; please
+   refund the duplicates or say how to claim them"); and the draft is always shown to Maya before anything is
+   saved. A reasoning check by a second model is a possible next step.
+
+7. **Promising attachments that aren't there.** Drafts said "I have attached the receipts" when the case had no
+   files (receipts are emails), and the model filled the attach list with made-up names.
+   *Response:* code accepts only real files from the evidence. A draft that mentions an attachment but has none
+   fails the check, and when a case has no files the prompt says so outright.
+
+8. **The claim check had a bug of its own.** It read "$0.285 per kWh" as "$0.28" and failed every L7 draft
+   (3/3) for a number the model had copied correctly. Fixed: amounts with more than two decimals are checked as
+   plain numbers. It is a reminder that a strict checker needs its own tests: a false alarm costs a rewrite
+   (about 5 s), a missed invention costs trust.
+
+9. **Sign-off drift.** Both models sometimes wrote "Thanks,\nMaya" or left the sign-off out (about 1 draft in
+   10 across the runs, each one costing a rewrite). That is a preference, not a claim, so code now fixes it instead of asking for a rewrite.
+
+10. **Embeddings were not needed on this data.** Exact links (sender, attachment, references, amount near
    the charge date, household mail by kind of business, same folder) found 76/76 evidence items, so the
    scan makes no embedding calls. On real mail, where names don't line up, embeddings are the fallback.
 
@@ -86,3 +145,8 @@ These are real failures seen while building, for the report.
 - Verify finds facts by the labels the 9B gave them (e.g. "Promotional period duration"). Labels vary between
   runs; a production version would fix them in the extraction schema.
 - Results above reuse saved extraction replies. A full `--live` run re-extracts every source (~21 s more).
+- The draft "key facts" list (`MUST` in `scripts/eval.ts`) is short and hand-picked from the spike. It checks a
+  draft says what matters, not that it is well written; that was judged by reading the drafts (all 21 final
+  drafts read as plain, polite and specific; one says "we have now cancelled" for something Maya has yet to do).
+- The fallback path (35B rewrite) ran 14 times across the earlier runs: it fixed 7; the other 7 (3 caused by
+  the checker bug) were kept but marked "check before sending". It was not needed in the final runs.
