@@ -1,16 +1,15 @@
-// The app's live connectors: built once over the bundled seed, synced at
-// launch, and shared with the UI through a tiny store (React reads it with
-// useSyncExternalStore, so no state library is needed).
+// The app's live connectors: built once over the bundled seed and shared with
+// the UI through a tiny store (React reads it with useSyncExternalStore, so no
+// state library is needed). The scan (src/lib/scan-store.ts) syncs them and
+// reports each connector's state here.
 
 import { useSyncExternalStore } from "react";
 import {
   createConnectors,
   Scenarios,
-  syncAll,
   type ConnectorStatus,
   type Connectors,
   type ScenarioId,
-  type SyncSnapshot,
 } from "./index.ts";
 import type { ConnectorId } from "./types.ts";
 import { viteSeedSource } from "./source.vite.ts";
@@ -20,11 +19,9 @@ const ORDER: ConnectorId[] = ["bank", "email", "documents", "calendar"];
 
 export type LiveState = {
   statuses: Partial<Record<ConnectorId, ConnectorStatus>>;
-  snapshot?: SyncSnapshot;
-  syncing: boolean;
 };
 
-let state: LiveState = { statuses: {}, syncing: false };
+let state: LiveState = { statuses: {} };
 const listeners = new Set<() => void>();
 
 function setState(change: Partial<LiveState>) {
@@ -56,28 +53,17 @@ export function getConnectors(): Promise<Connectors> {
   return connectors;
 }
 
-/** Syncs all four connectors. Calls made while a sync is running are ignored. */
-export async function sync(): Promise<void> {
-  if (state.syncing) return;
-  setState({ syncing: true });
-  const c = await getConnectors();
-  const snapshot = await syncAll(c, (status) =>
-    setState({ statuses: { ...state.statuses, [status.id]: status } }),
-  );
-  setState({ snapshot, syncing: false });
+/** Records one connector's latest state (called by the scan as it syncs). */
+export function setConnectorStatus(status: ConnectorStatus): void {
+  setState({ statuses: { ...state.statuses, [status.id]: status } });
 }
 
-/** Signs the calendar back in, then syncs again. */
+/** Signs the calendar back in. The caller then runs the check again. */
 export async function reconnectCalendar(): Promise<void> {
   const c = await getConnectors();
-  setState({
-    statuses: {
-      ...state.statuses,
-      calendar: state.statuses.calendar && { ...state.statuses.calendar, state: "connecting", detail: undefined },
-    },
-  });
+  const calendar = state.statuses.calendar;
+  if (calendar) setConnectorStatus({ ...calendar, state: "connecting", detail: undefined });
   await c.calendar.reconnect();
-  await sync();
 }
 
 function subscribe(listener: () => void) {
@@ -95,7 +81,8 @@ export function orderedStatuses(live: LiveState): ConnectorStatus[] {
 }
 
 // In development, expose the scenario switches in the browser console until
-// the hidden settings panel exists, e.g. __life.scenarios.set("bank_rate_limit", true).
+// the hidden settings panel exists, e.g. __life.scenarios.set("bank_rate_limit", true),
+// then __life.scan() to check again.
 if (import.meta.env.DEV) {
   // `__life.llm` sends a tiny model request through the Rust command, to check
   // the endpoint from the running app: await __life.llm()
@@ -110,5 +97,6 @@ if (import.meta.env.DEV) {
     });
     return `${r.text} (${r.source}, ${r.ms} ms)`;
   };
-  (window as unknown as { __life: object }).__life = { scenarios, sync, llm };
+  const scan = async () => (await import("../lib/scan-store.ts")).startScan();
+  (window as unknown as { __life: object }).__life = { scenarios, scan, llm };
 }

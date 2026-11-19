@@ -10,7 +10,11 @@ type Failure = { kind: LlmErrorKind; message: string };
 export const tauriTransport: LlmTransport = {
   async post(path, body, cacheKey, mode) {
     if (!isTauri()) {
-      // A plain browser tab (pnpm dev) has no native side and so no key.
+      // A plain browser tab (pnpm dev) has no native side and so no key. In
+      // development only, it replays the replies the eval scripts saved in
+      // .cache/llm/, so the UI can be checked in a browser. These count as
+      // replay, so the replay banner shows. Production builds leave this out.
+      if (import.meta.env.DEV) return devReplay(cacheKey);
       throw new LlmError("not_configured", "Model calls need the desktop app (pnpm tauri dev).");
     }
     try {
@@ -22,9 +26,20 @@ export const tauriTransport: LlmTransport = {
   },
 };
 
+async function devReplay(cacheKey: string): Promise<TransportReply> {
+  const response = await fetch(`/.cache/llm/${cacheKey}.json`);
+  const body = await response.text();
+  // Vite answers a missing file with the app's own page, so check it is JSON.
+  if (!response.ok || !body.trimStart().startsWith("{")) {
+    throw new LlmError("not_cached", "No saved reply for this request (browser dev replay).");
+  }
+  return { status: 200, body, source: "cache" };
+}
+
 /** Whether the native side has an endpoint and key (never the key itself). */
 export async function llmConfigured(): Promise<boolean> {
-  return isTauri() ? invoke<boolean>("llm_configured") : false;
+  if (!isTauri()) return import.meta.env.DEV;
+  return invoke<boolean>("llm_configured");
 }
 
 export function createAppLlm(mode: LlmMode = "live_with_fallback") {
