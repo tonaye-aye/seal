@@ -24,6 +24,9 @@ export interface CalendarConnector {
   reconnect(): Promise<void>;
 }
 
+/** Who an event the agent added is from. Checks leave these out (see connectors/index.ts). */
+export const AGENT_CREATOR = "Agent (approved by Maya)";
+
 type RawEvent = {
   id: string;
   calendar: string;
@@ -213,7 +216,7 @@ export function createCalendarConnector(runtime: ConnectorRuntime): CalendarConn
         allDay: input.allDay,
         notes: input.notes ?? "",
         location: "",
-        createdBy: "Agent (approved by Maya)",
+        createdBy: AGENT_CREATOR,
         createdAt: toZonedIso(now()),
         recurrence: null,
       };

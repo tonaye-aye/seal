@@ -612,11 +612,20 @@ export function Gallery() {
               <Shot title="Findings, first run" note="Compact rows: name, kind, amount, date. Couldn't decide stays open; Checked and left alone is closed (the first-run hint is under Onboarding)">
                 <PaletteFrame scan={s.done} />
               </Shot>
+              <Shot title="Approved group, selected" note="Approved rows leave the main list for an open Approved · n group (a title, not a J/K stop); snoozed rows stay at the end of the main list. ⋯ on an approved row has Remind me">
+                <PaletteFrame scan={s.decided} selected="f-skylink" />
+              </Shot>
               <Shot title="After some decisions" note="Approved and snoozed rows, mouse mode">
                 <PaletteFrame scan={s.decided} mouse selected="f-ironworks" />
               </Shot>
-              <Shot title="Row quick menu open" note="The selected row's ⋯ menu: Approve, Snooze, Not a leak">
+              <Shot title="Row quick menu open" note="The selected row's ⋯ menu: Approve, Snooze, Not a leak, Remind me (L)">
                 <PaletteFrame scan={s.done} mouse holdHover selected="f-ironworks" />
+              </Shot>
+              <Shot title="Quick menu, reminder already set" note="Remind me is greyed out and says the date, so L can't add a second one">
+                <PaletteFrame scan={s.reminded} mouse holdHover selected="f-streambox" />
+              </Shot>
+              <Shot title="Quick menu on an approved row" note="Only Remind me: to check for a reply">
+                <PaletteFrame scan={s.decided} mouse holdHover selected="f-skylink" />
               </Shot>
               <Shot title="Couldn't decide, selected" note="The action bar for a case the model couldn't settle">
                 <PaletteFrame scan={s.done} selected="u-council" />
@@ -632,6 +641,9 @@ export function Gallery() {
               </Shot>
               <Shot title="Not a leak goes in the group" note="D: Maya says it's fine, so it joins the cases the agent left alone (⌘Z brings it back)">
                 <PaletteFrame scan={dismissedTop} group selected={top.id} />
+              </Shot>
+              <Shot title="All approved" note="Ready to send on drafted ones, Handled when there's nothing to send">
+                <PaletteFrame scan={s.approved} />
               </Shot>
               <Shot title="Everything dealt with" note="Every finding approved or snoozed">
                 <PaletteFrame scan={s.handled} />
@@ -744,6 +756,21 @@ export function Gallery() {
               <Shot title="Nothing to send" note="The fix is a step Maya takes herself">
                 <PaletteFrame scan={s.done} view="detail" selected="f-streambox" />
               </Shot>
+              <Shot title="Approved: what happens next" note="The Next block above the draft: saved in Drafts, send it from your mail app, then what to expect (written by code from the checked figures)">
+                <PaletteFrame scan={s.approved} view="detail" selected="f-skylink" pane="draft" />
+              </Shot>
+              <Shot title="Approved, with a reminder" note="L added an all-day reminder to check for a reply; the Next block says when. The L key leaves the action bar once it's set">
+                <PaletteFrame scan={s.reminded} view="detail" selected="f-skylink" pane="draft" />
+              </Shot>
+              <Shot title="Reminder on an open finding" note="Two days before the deadline, never before tomorrow: here 20 Nov. The header's next-date line says it">
+                <PaletteFrame scan={s.reminded} view="detail" selected="f-streambox" />
+              </Shot>
+              <Shot title="Approved, a refund to expect" note="Redgum: the credit is an estimate, so it says about">
+                <PaletteFrame scan={s.approved} view="detail" selected="f-redgum" pane="draft" />
+              </Shot>
+              <Shot title="Approved, nothing to send" note="Marked as handled, and what to expect once Maya cancels it herself">
+                <PaletteFrame scan={s.approved} view="detail" selected="f-streambox" />
+              </Shot>
               <Shot title="Finding, mouse mode" note="Plain action buttons, no selection highlight; click any evidence line to open it">
                 <PaletteFrame scan={s.done} view="detail" selected="f-skylink" mouse />
               </Shot>
@@ -758,6 +785,12 @@ export function Gallery() {
             <Section id="timeline" title="Timeline">
               <Shot title="Timeline" note="Past dates, today's activity, NOW, upcoming with amber deadlines (within 7 days)">
                 <PaletteFrame scan={s.decided} view="timeline" />
+              </Shot>
+              <Shot title="Timeline, all approved" note="Today's lines say Ready to send and what to expect; each finding's next line says what should happen once it's sent">
+                <PaletteFrame scan={s.approved} view="timeline" />
+              </Shot>
+              <Shot title="Timeline, with reminders" note="Today: Added a reminder; each one also sits on its own date as Reminder in your calendar">
+                <PaletteFrame scan={s.reminded} view="timeline" />
               </Shot>
               <Shot title="Timeline, mouse mode">
                 <PaletteFrame scan={s.done} view="timeline" mouse />
@@ -847,6 +880,9 @@ export function Gallery() {
               </Shot>
               <Shot title="Toast with undo" note="Replays every 5 s">
                 <PaletteFrame scan={s.toast} selected="f-ironworks" />
+              </Shot>
+              <Shot title="Reminder couldn't be added" note="Calendar signed out (⌘⇧D, 1): nothing is stored, and R signs it back in">
+                <PaletteFrame scan={s.reminderFailed} />
               </Shot>
               <Shot title="Toast without undo">
                 <PaletteFrame scan={s.toastNoUndo} />

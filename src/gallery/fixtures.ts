@@ -84,8 +84,8 @@ const skylink: Finding = {
     ev("email", "msg_0072", false),
   ],
   figures: [
-    fig("promised_price", "Promised price", 7900, "cents", ["doc:doc_001"]),
-    fig("charged_price", "Charged since October", 9900, "cents", ["txn:JE-00051", "txn:JE-00077"]),
+    fig("previous_price", "Promised price", 7900, "cents", ["doc:doc_001"]),
+    fig("new_price", "Charged since October", 9900, "cents", ["txn:JE-00051", "txn:JE-00077"]),
     fig("overcharged_so_far", "Overcharged so far", 4000, "cents", ["txn:JE-00051", "txn:JE-00077"], "($99.00 - $79.00) x 2 charges"),
     fig("next_charge", "Next debit", "2026-12-14", "date", ["txn:JE-00077"]),
   ],
@@ -115,8 +115,8 @@ const streambox: Finding = {
   confidence: "high",
   evidence: [ev("email", "msg_0052"), ev("txn", "MC-00038"), ev("txn", "JE-00065"), ev("email", "msg_0062"), ev("txn", "MC-00024", false)],
   figures: [
-    fig("monthly_price", "Each subscription", 1799, "cents", ["txn:MC-00038", "txn:JE-00065"]),
-    fig("apple_renews", "Apple renews", "2026-11-21", "date", ["email:msg_0052"]),
+    fig("duplicate_amount", "Each subscription", 1799, "cents", ["txn:MC-00038", "txn:JE-00065"]),
+    fig("platform_renews", "Apple renews", "2026-11-21", "date", ["email:msg_0052"]),
   ],
   notes: [],
   doubts: [],
@@ -138,7 +138,8 @@ const ironworks: Finding = {
   confidence: "medium",
   evidence: [ev("doc", "doc_008"), ev("email", "msg_0056"), ev("email", "msg_0048"), ev("txn", "JE-00066", false)],
   figures: [
-    fig("annual_fee", "Annual fee", 8900, "cents", ["email:msg_0056"]),
+    fig("renewal_amount", "Annual fee", 8900, "cents", ["email:msg_0056"]),
+    fig("renews_on", "Renews", "2026-11-28", "date", ["email:msg_0056"]),
     fig("notice_by", "Notice was due", "2026-11-14", "date", ["doc:doc_008"], "14 days before 28 Nov"),
   ],
   notes: [],
@@ -165,7 +166,7 @@ const brightpage: Finding = {
   deadline: { date: "2026-12-18", label: "Next charge" },
   confidence: "high",
   evidence: [ev("txn", "MC-00052"), ev("txn", "MC-00034"), ev("txn", "MC-00021")],
-  figures: [fig("monthly_price", "Monthly price", 1499, "cents", ["txn:MC-00052"])],
+  figures: [fig("monthly_price", "Monthly price", 1499, "cents", ["txn:MC-00052"]), fig("next_charge", "Next charge", "2026-12-18", "date", ["txn:MC-00052"])],
   notes: [],
   doubts: [],
   status: "new",
@@ -191,7 +192,7 @@ const redgum: Finding = {
   amounts: { recoverable: 17500 },
   confidence: "medium",
   evidence: [ev("doc", "doc_003"), ev("doc", "doc_004"), ev("email", "msg_0058"), ev("doc", "doc_002", false)],
-  figures: [fig("meter_reading", "Meter photo reading", 47006, "kwh", ["doc:doc_004"])],
+  figures: [fig("meter_reading", "Meter photo reading", 47006, "kwh", ["doc:doc_004"]), fig("overcharge_estimate", "Overcharged (approx.)", 17414, "cents", ["doc:doc_004"])],
   notes: [],
   doubts: [],
   status: "new",
@@ -298,6 +299,7 @@ function base(corpus: Corpus | undefined): ScanState {
     saved: {},
     edits: {},
     decidedAt: {},
+    reminders: {},
     undo: [],
   };
 }
@@ -340,6 +342,26 @@ export function scanSamples(corpus: Corpus | undefined) {
       ...done,
       decisions: { "f-skylink": "approved", "f-brightpage": "snoozed" },
       decidedAt: { "f-skylink": mins(4), "f-brightpage": mins(2) },
+    } satisfies ScanState,
+    /** Every finding approved: the Next block on each, "Ready to send" and "Handled" chips, expectation lines on the timeline. */
+    approved: {
+      ...done,
+      decisions: Object.fromEntries(findings.map((f) => [f.id, "approved"])),
+      decidedAt: Object.fromEntries(findings.map((f, i) => [f.id, mins(i + 1)])),
+    } satisfies ScanState,
+    /** Remind me (L): Skylink approved with a reminder to check for a reply; StreamBox still open, reminded before its deadline. */
+    reminded: {
+      ...done,
+      decisions: { "f-skylink": "approved" },
+      decidedAt: { "f-skylink": mins(6) },
+      reminders: {
+        "f-skylink": { eventId: "evt_new_001", date: "2026-12-12", title: "Check Skylink Internet replied (Life)", at: mins(5) },
+        "f-streambox": { eventId: "evt_new_002", date: "2026-11-20", title: "StreamBox: Cancel the Apple one before it renews, 20 Nov (Life)", at: mins(2) },
+      },
+    } satisfies ScanState,
+    reminderFailed: {
+      ...done,
+      toast: { id: 1, text: "Couldn't add the reminder: Calendar needs reconnecting. Press R to reconnect.", undoable: false },
     } satisfies ScanState,
     edited: { ...done, edits: { "f-skylink": skylink.draft!.body.replace("Could you please", "Can you") } } satisfies ScanState,
     scanning: {
@@ -443,7 +465,7 @@ export function scanSamples(corpus: Corpus | undefined) {
       ...done,
       decisions: { "f-skylink": "approved" },
       decidedAt: { "f-skylink": mins(0) },
-      toast: { id: 1, text: "Saved to Drafts for Skylink Internet. Nothing was sent.", undoable: true },
+      toast: { id: 1, text: "Saved to Drafts for Skylink Internet. Send it from your mail app when you're ready.", undoable: true },
     } satisfies ScanState,
   };
 }

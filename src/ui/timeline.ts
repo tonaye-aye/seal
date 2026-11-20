@@ -10,6 +10,7 @@ import { parseCents } from "../lib/money.ts";
 import { withDecision, type ScanState } from "../lib/scan-store.ts";
 import { SOON_DAYS, daysUntil, shortDate } from "./format.ts";
 import { copy } from "../copy.ts";
+import { expectation, linkCharge, norm } from "./next-steps.ts";
 
 export type TimelineTone =
   /** Linked to something that needs Maya, and soon: amber. */
@@ -42,6 +43,8 @@ export type TimelineEntry = {
   at?: number;
   findingId?: string;
   clearedId?: string;
+  /** An approved finding with nothing to send: its chip says "Handled". */
+  handled?: boolean;
   tone: TimelineTone;
 };
 
@@ -62,16 +65,6 @@ const AMOUNT_FOR_DATE: Record<string, string> = {
 
 /** Calendar entries worth showing even when no finding cites them. */
 const MONEY_WORDS = /\$\d|\b(rates|renews?|renewal|bill|due|insurance|payment|invoice)\b/i;
-
-const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
-
-/** The finding a recurring charge belongs to, if any, and the business name as the finding spells it. */
-function linkCharge(key: string, findings: Finding[]): { finding?: Finding; name?: string } {
-  const finding = findings.find((f) => f.keys.includes(key));
-  if (!finding) return {};
-  const name = finding.merchant.split(" + ").find((n) => norm(n).startsWith(norm(key)));
-  return { finding, name };
-}
 
 /** "Saved a draft to Apple Support", or just "Saved a draft" when the line already names who it goes to. */
 function draftedTo(to: string, merchant: string): string {
@@ -108,6 +101,7 @@ export function buildTimeline(scan: ScanState): TimelineEntry[] {
         return;
       }
       const full = { ...entry, side, tone, findingId: finding.id, title: finding.title } as TimelineEntry;
+      if (finding.status === "approved" && !finding.draft) full.handled = true;
       byFindingDay.set(slot, full);
       entries.push(full);
       return;
@@ -209,10 +203,39 @@ export function buildTimeline(scan: ScanState): TimelineEntry[] {
       date: today,
       side: "past",
       who: f.merchant,
-      what: f.status === "approved" && f.draft ? draftedTo(f.draft.to.name, f.merchant) : DID[f.status],
-      detail: f.status === "approved" ? copy.timeline.waitingInDrafts : f.title,
+      what: f.status === "approved" ? (f.draft ? draftedTo(f.draft.to.name, f.merchant) : copy.next.handled) : DID[f.status],
+      detail: f.status !== "approved" ? f.title : f.draft ? copy.timeline.readyToSend(expectation(f, scan)) : handledDetail(f, scan),
       at: scan.decidedAt[f.id],
       findingId: f.id,
+      tone: "agent",
+    });
+  }
+
+  // 5. Reminders Maya asked for (L): a line on the day, and today's "Added a reminder".
+  for (const [findingId, r] of Object.entries(scan.reminders)) {
+    const f = findings.find((x) => x.id === findingId);
+    if (!f) continue;
+    if (inRange(r.date)) {
+      entries.push({
+        key: `reminder:${findingId}`,
+        date: r.date,
+        side: r.date <= today ? "past" : "future",
+        who: f.merchant,
+        what: copy.timeline.reminder,
+        detail: r.title,
+        findingId,
+        tone: r.date <= today ? "past" : "upcoming",
+      });
+    }
+    entries.push({
+      key: `reminder-added:${findingId}`,
+      date: today,
+      side: "past",
+      who: f.merchant,
+      what: copy.timeline.addedReminder(shortDate(r.date)),
+      detail: copy.timeline.addedReminderDetail,
+      at: r.at,
+      findingId,
       tone: "agent",
     });
   }
@@ -224,7 +247,15 @@ export function buildTimeline(scan: ScanState): TimelineEntry[] {
       Number(a.tone === "agent") - Number(b.tone === "agent") ||
       (a.at ?? 0) - (b.at ?? 0),
   );
-  return titleOnce(entries);
+  // An approved finding's coming line says what should happen once the draft is sent, instead of its title.
+  const expected = new Map(findings.filter((f) => f.status === "approved").map((f) => [f.id, expectation(f, scan)]));
+  return titleOnce(entries, expected);
+}
+
+/** A handled finding (nothing to send): what to expect, or its title when code can't say. */
+function handledDetail(f: Finding, scan: ScanState): string {
+  const expect = expectation(f, scan);
+  return expect ? copy.next.thenExpect(expect) : f.title;
 }
 
 /**
@@ -232,17 +263,25 @@ export function buildTimeline(scan: ScanState): TimelineEntry[] {
  * Its title would repeat under each one, so it shows under one line only: the
  * next one still to come, or the latest one if they have all passed.
  */
-function titleOnce(entries: TimelineEntry[]): TimelineEntry[] {
+function titleOnce(entries: TimelineEntry[], expected = new Map<string, string | undefined>()): TimelineEntry[] {
+  // A reminder line keeps its own words (the event's title) and never carries the finding's title.
+  const own = (e: TimelineEntry) => !e.findingId || e.tone === "agent" || e.key.startsWith("reminder:");
   const keeper = new Map<string, TimelineEntry>();
   for (const e of entries) {
-    if (!e.findingId || e.tone === "agent") continue;
-    const kept = keeper.get(e.findingId);
-    if (!kept || kept.side === "past") keeper.set(e.findingId, e);
+    if (own(e)) continue;
+    const kept = keeper.get(e.findingId!);
+    if (!kept || kept.side === "past") keeper.set(e.findingId!, e);
   }
   for (const e of entries) {
-    if (!e.findingId || e.tone === "agent") continue;
+    if (own(e)) continue;
+    const kept = keeper.get(e.findingId!) === e;
+    const expect = expected.get(e.findingId!);
+    if (kept && e.side === "future" && expect) {
+      e.detail = e.handled ? copy.next.thenExpect(expect) : copy.timeline.onceSent(expect);
+      continue;
+    }
     // A calendar line still says where it came from.
-    const shown = keeper.get(e.findingId) === e ? e.detail : e.key.startsWith("event:") ? copy.timeline.fromCalendar : undefined;
+    const shown = kept ? e.detail : e.key.startsWith("event:") ? copy.timeline.fromCalendar : undefined;
     e.detail = shown;
   }
   return entries;

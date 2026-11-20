@@ -12,7 +12,7 @@ import {
 } from "../../lib/onboarding";
 import { ListHint, TimelineHint } from "./FooterHint";
 import { PrimaryButton, SetupScreen } from "../Onboarding/SetupScreen";
-import { approve, dismiss, rankedFindings, snooze, startScan, undoLast, useScan } from "../../lib/scan-store";
+import { approve, dismiss, rankedFindings, remind, snooze, startScan, undoLast, useScan } from "../../lib/scan-store";
 import { ActionBar, FindingDetail, sidebarStops, type Command, type Pane } from "./FindingDetail";
 import {
   AllClear,
@@ -51,7 +51,7 @@ import { changeView, nativeViewTransitions } from "../motion";
 // transparent with a macOS blur behind, so this panel adds the warm tint.
 //
 // It owns every key, in one handler, so nothing else can fight over them:
-//   list    J/K move, Enter opens, A approve, E edit, S snooze, D not a leak,
+//   list    J/K move, Enter opens, A approve, E edit, S snooze, D not a leak, L remind me,
 //           Enter or Space on "Checked and left alone" opens or closes it
 //   detail  J/K move through the sidebar (or scroll the draft), Enter or Space
 //           opens or closes the selected line, C "Checked by code", Tab draft/sidebar
@@ -336,6 +336,8 @@ export function Palette() {
    */
   function act(kind: RowAction, key = selected?.key) {
     const item = rows.find((i) => i.key === key);
+    // Remind me works on approved findings too, and leaves the selection where it is.
+    if (item?.type === "finding" && kind === "remind") return void remind(item.finding.id);
     if (item?.type !== "finding" || item.finding.status !== "new") return;
     const id = item.finding.id;
     if (kind === "approve" && (item.finding.draft || item.finding.action.kind === "none")) dismissHint();
@@ -360,6 +362,8 @@ export function Palette() {
         return act("snooze");
       case "dismiss":
         return act("dismiss");
+      case "remind":
+        return act("remind");
       case "undo":
         return void undoLast();
       case "open":
@@ -581,7 +585,7 @@ export function Palette() {
           return;
       }
 
-      const byLetter: Record<string, Command> = { a: "approve", s: "snooze", d: "dismiss", e: "edit", r: "rescan" };
+      const byLetter: Record<string, Command> = { a: "approve", s: "snooze", d: "dismiss", e: "edit", l: "remind", r: "rescan" };
       if (byLetter[lower]) {
         event.preventDefault();
         run(byLetter[lower]);

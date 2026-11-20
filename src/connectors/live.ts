@@ -149,6 +149,15 @@ export function setConnectorStatus(status: ConnectorStatus): void {
 }
 
 /**
+ * A write outside a sync found the sign-in expired (adding a reminder): the
+ * chip says so, and R signs it back in before checking again.
+ */
+export function markNeedsReconnect(id: ConnectorId, detail: string): void {
+  const current = state.statuses[id];
+  if (current) setConnectorStatus({ ...current, state: "needs_reconnect", detail, retryAt: undefined });
+}
+
+/**
  * Connects one source on first run: a real read of that connector (real
  * delays, and any failure switched on in the demo panel), shown on its chip.
  * Resolves with how it ended.

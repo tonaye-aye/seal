@@ -8,6 +8,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   Ban,
+  BellPlus,
   CalendarDays,
   Check,
   Clock,
@@ -35,6 +36,7 @@ function icon(Icon: LucideIcon) {
 
 export const ApproveIcon = icon(Check);
 export const SnoozeIcon = icon(Clock);
+export const RemindIcon = icon(BellPlus);
 export const DismissIcon = icon(Ban);
 export const EditIcon = icon(Pencil);
 export const OpenIcon = icon(ArrowUpRight);
