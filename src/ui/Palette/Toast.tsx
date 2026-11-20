@@ -12,14 +12,14 @@ export function Toast() {
     <div
       key={toast.id}
       role="status"
-      className={`toast-in absolute bottom-[88px] left-1/2 z-20 flex w-max max-w-[560px] -translate-x-1/2 items-center gap-3 overflow-hidden rounded-lg border border-hairline bg-raised py-2 pr-2 pl-3.5 shadow-[0_8px_24px_rgb(0_0_0/0.35)]`}
+      className={`toast-in absolute bottom-[88px] left-1/2 z-20 flex w-max max-w-[560px] -translate-x-1/2 items-center gap-3 overflow-hidden rounded-lg border border-hairline bg-raised py-2 pr-2 pl-3.5 shadow-(--shadow-toast)`}
     >
       <span className="text-small">{toast.text}</span>
       {toast.undoable ? (
         <button
           type="button"
           onClick={() => void undoLast()}
-          className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-meta text-amber hover:bg-hairline"
+          className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-meta text-accent hover:bg-hairline"
         >
           <UndoIcon />
           {copy.toasts.undo} <Kbd keys={["⌘", "Z"]} />

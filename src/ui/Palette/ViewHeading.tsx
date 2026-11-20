@@ -84,7 +84,7 @@ export function TimelineIcon() {
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
       <path d="M4 1.5v13" />
       <circle cx="4" cy="4" r="1.3" fill="var(--color-raised)" />
-      <circle cx="4" cy="8" r="1.8" fill="var(--color-amber)" stroke="var(--color-amber)" />
+      <circle cx="4" cy="8" r="1.8" fill="var(--color-accent)" stroke="var(--color-accent)" />
       <circle cx="4" cy="12" r="1.3" fill="var(--color-raised)" />
       <path d="M8 4h5.5M8 8h5.5M8 12h3.5" />
     </svg>

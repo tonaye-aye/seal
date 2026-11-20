@@ -9,7 +9,7 @@ import { copy } from "../../copy";
 import { ViewHeading } from "./ViewHeading";
 
 // The case view: one vertical line through time. What already happened sits
-// above the amber "now" marker, what is coming sits below it, and today's
+// above the violet "now" marker, what is coming sits below it, and today's
 // agent activity sits just above the marker. Keyboard first (J/K, Enter,
 // Esc); the Palette owns the keys, this only draws.
 
@@ -73,12 +73,12 @@ function NowMarker() {
   const today = now();
   return (
     <li className="relative flex h-10 items-center gap-3 px-3" aria-label={copy.timeline.nowLabel(formatDay(today))}>
-      <span className="w-12 shrink-0 text-right label font-medium text-amber">{copy.timeline.now}</span>
+      <span className="w-12 shrink-0 text-right label font-medium text-accent">{copy.timeline.now}</span>
       <span className={RAIL}>
-        <span className="size-3 rounded-full bg-amber shadow-[0_0_0_5px_var(--color-amber-glow),0_0_18px_var(--color-amber-glow)]" />
+        <span className="size-3 rounded-full bg-accent shadow-[0_0_0_5px_var(--color-accent-glow),0_0_18px_var(--color-accent-glow)]" />
       </span>
-      <span className="h-px flex-1 bg-[linear-gradient(90deg,var(--color-amber),transparent)] opacity-60" aria-hidden="true" />
-      <span className="shrink-0 figure text-label text-amber">
+      <span className="h-px flex-1 bg-[linear-gradient(90deg,var(--color-accent),transparent)] opacity-60" aria-hidden="true" />
+      <span className="shrink-0 figure text-label text-accent">
         {formatDay(today)}, {clockTime(toZonedIso(today))}
       </span>
     </li>

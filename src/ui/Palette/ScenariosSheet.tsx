@@ -45,11 +45,11 @@ export function ScenariosSheet({
   const checking = scan.phase === "scanning" || scan.refreshing;
 
   return (
-    <div className="absolute inset-0 z-30 grid place-items-center bg-bg/70 backdrop-blur-sm" onClick={onClose}>
+    <div className="absolute inset-0 z-30 grid place-items-center bg-scrim backdrop-blur-sm" onClick={onClose}>
       <section
         role="dialog"
         aria-label={DEMO.label}
-        className="sheet-in max-h-[calc(100%-32px)] w-[640px] overflow-y-auto rounded-xl border border-hairline bg-surface p-5 shadow-[0_16px_48px_rgb(0_0_0/0.45)]"
+        className="sheet-in max-h-[calc(100%-32px)] w-[640px] overflow-y-auto rounded-xl border border-hairline bg-surface p-5 shadow-(--shadow-sheet)"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="mb-4 flex items-start justify-between gap-4">

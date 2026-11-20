@@ -10,14 +10,15 @@ import { Mark } from "./Mark";
 //
 // - idle: the ring breathes slowly and dimly.
 // - working: a bright spark sweeps round the ring, like a radar.
-// - needs-you: a warm amber glow that grows and breathes faster as urgency rises.
+// - needs-you: a violet glow that grows and breathes faster as urgency rises.
 //
 // It is drawn by a tiny WebGL shader (a program that runs on the graphics chip
 // and colours every pixel of a small canvas). The canvas is bigger than the
 // mark so the glow can spill softly behind the app name. Rendering stops
 // whenever the palette is hidden or the page is in the background, and with
 // "reduce motion" on it draws one still frame per state change. If WebGL is not
-// available the plain SVG mark shows instead, with a CSS glow.
+// available the plain SVG mark shows instead, with a CSS glow. Its colours
+// come from tokens.css and follow the light or dark theme.
 
 /** The canvas size in CSS pixels. The mark (18 px) sits in the middle. */
 const SIZE = 56;
@@ -37,10 +38,11 @@ uniform float u_time;    // seconds
 uniform vec3 u_mix;      // how much of idle, working, needs-you (sums to 1)
 uniform float u_urgency; // 0 to 1
 uniform float u_phase;   // breathing phase, advanced on the CPU so speed changes stay smooth
+uniform vec3 u_accent;    // the theme's colours, read from the CSS variables (see readTheme)
+uniform vec3 u_ember;
+uniform vec3 u_muted;
+uniform float u_halo;    // how strong the glow is: 1 on dark, softer on light
 
-const vec3 AMBER = vec3(0.949, 0.651, 0.353);
-const vec3 EMBER = vec3(0.898, 0.451, 0.420);
-const vec3 MUTED = vec3(0.639, 0.592, 0.529);
 const float TAU = 6.2831853;
 const float R = 6.3;
 
@@ -65,10 +67,10 @@ void main() {
   float reach = mix(3.0, 3.5 + 5.0 * u_urgency, need) + 2.0 * work;
   // Fades to nothing well before the canvas edge, so no square shows.
   float halo = exp(-max(d - R, 0.0) / reach) * (1.0 - smoothstep(R + 4.0, 0.5 * u_res.x / u_dpr, d));
-  float glowStrength =
+  float glowStrength = u_halo * (
       idle * (0.10 + 0.08 * breath) +
       work * 0.22 +
-      need * (0.18 + 0.24 * u_urgency) * (0.6 + 0.4 * breath);
+      need * (0.18 + 0.24 * u_urgency) * (0.6 + 0.4 * breath));
 
   // How bright the mark itself is in each state.
   float markAlpha = idle * (0.55 + 0.20 * breath) + work * 0.55 + need * 1.0;
@@ -78,9 +80,9 @@ void main() {
   a = max(a, halo * glowStrength * (1.0 - ring));
 
   // Very urgent findings warm the glow towards ember red, never further.
-  // Idle leans towards the muted text colour, so amber means "something is waiting".
-  vec3 col = mix(AMBER, MUTED, idle * 0.6);
-  col = mix(col, EMBER, need * smoothstep(0.6, 1.0, u_urgency) * 0.25 * (1.0 - ring));
+  // Idle leans towards the muted text colour, so the accent means "something is waiting".
+  vec3 col = mix(u_accent, u_muted, idle * 0.6);
+  col = mix(col, u_ember, need * smoothstep(0.6, 1.0, u_urgency) * 0.25 * (1.0 - ring));
   col += work * spark * 0.25; // the spark is a little whiter than the ring
 
   gl_FragColor = vec4(col * a, a); // premultiplied alpha over a transparent canvas
@@ -126,6 +128,18 @@ export function NowVisual({ still: forceStill = false, fallback = false }: { sti
     const uRes = u("u_res"), uDpr = u("u_dpr"), uTime = u("u_time"), uMix = u("u_mix"), uUrg = u("u_urgency"), uPhase = u("u_phase");
     gl.uniform2f(uRes, el.width, el.height);
     gl.uniform1f(uDpr, dpr);
+
+    // The colours come from tokens.css, and are read again when macOS
+    // switches between light and dark.
+    const applyTheme = () => {
+      const theme = readTheme();
+      gl.uniform3f(u("u_accent"), ...theme.accent);
+      gl.uniform3f(u("u_ember"), ...theme.ember);
+      gl.uniform3f(u("u_muted"), ...theme.muted);
+      gl.uniform1f(u("u_halo"), theme.halo);
+    };
+    applyTheme();
+    const scheme = window.matchMedia("(prefers-color-scheme: dark)");
 
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     const reduced = { get matches() { return forceStill || media.matches; } };
@@ -184,6 +198,11 @@ export function NowVisual({ still: forceStill = false, fallback = false }: { sti
       if (reduced.matches && !isPaletteHidden()) still();
     };
 
+    const themeChanged = () => {
+      applyTheme();
+      kick.current(); // the still frame needs redrawing; a running loop picks it up next frame
+    };
+
     const lost = (e: Event) => {
       e.preventDefault();
       cancelAnimationFrame(frame);
@@ -194,12 +213,14 @@ export function NowVisual({ still: forceStill = false, fallback = false }: { sti
     const stopVisibility = onPaletteVisibility(update);
     document.addEventListener("visibilitychange", update);
     media.addEventListener("change", update);
+    scheme.addEventListener("change", themeChanged);
     el.addEventListener("webglcontextlost", lost);
     return () => {
       cancelAnimationFrame(frame);
       stopVisibility();
       document.removeEventListener("visibilitychange", update);
       media.removeEventListener("change", update);
+      scheme.removeEventListener("change", themeChanged);
       el.removeEventListener("webglcontextlost", lost);
       kick.current = () => {};
     };
@@ -222,7 +243,7 @@ export function NowVisual({ still: forceStill = false, fallback = false }: { sti
       data-urgency={now.urgency}
     >
       {failed ? (
-        <span className={`now-fallback text-amber now-${now.state}`}>
+        <span className={`now-fallback text-accent now-${now.state}`}>
           <Mark />
         </span>
       ) : (
@@ -235,6 +256,41 @@ export function NowVisual({ still: forceStill = false, fallback = false }: { sti
       )}
     </span>
   );
+}
+
+type Rgb = [number, number, number];
+
+/** The shader's colours for the current theme, from the CSS variables in tokens.css. */
+function readTheme(): { accent: Rgb; ember: Rgb; muted: Rgb; halo: number } {
+  const css = getComputedStyle(document.documentElement);
+  const halo = parseFloat(css.getPropertyValue("--now-halo"));
+  return {
+    accent: toRgb(css.getPropertyValue("--color-accent")),
+    ember: toRgb(css.getPropertyValue("--color-danger")),
+    muted: toRgb(css.getPropertyValue("--color-muted")),
+    halo: Number.isFinite(halo) ? halo : 1,
+  };
+}
+
+let probe: CanvasRenderingContext2D | null | undefined;
+
+/**
+ * Turns any CSS colour (hex, rgb(), oklch() and so on) into 0-1 RGB for the
+ * shader: the browser paints it into one pixel and we read that pixel back.
+ */
+function toRgb(value: string): Rgb {
+  if (probe === undefined) {
+    const c = document.createElement("canvas");
+    c.width = c.height = 1;
+    probe = c.getContext("2d", { willReadFrequently: true });
+  }
+  if (!probe) return [1, 1, 1];
+  probe.clearRect(0, 0, 1, 1);
+  probe.fillStyle = "#fff";
+  probe.fillStyle = value.trim() || "#fff"; // an invalid colour leaves the white
+  probe.fillRect(0, 0, 1, 1);
+  const [r, g, b] = probe.getImageData(0, 0, 1, 1).data;
+  return [r / 255, g / 255, b / 255];
 }
 
 /**

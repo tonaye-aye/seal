@@ -244,7 +244,7 @@ function DraftPane({
                 aria-label={copy.detail.draftBody}
                 value={draft.body}
                 onChange={(e) => setEdit(finding.id, e.target.value)}
-                className="h-56 w-full resize-none rounded-md border border-muted/50 bg-bg/70 p-2.5 text-small text-text outline-none"
+                className="h-56 w-full resize-none rounded-md border border-muted/50 bg-inset p-2.5 text-small text-text outline-none"
               />
               <div className="mt-1.5 flex items-center justify-between text-meta">
                 <span className="text-faint">{copy.detail.editsNotChecked}</span>
@@ -254,14 +254,14 @@ function DraftPane({
                       {copy.detail.revert}
                     </button>
                   )}
-                  <button type="button" className="flex items-center gap-1.5 text-amber" onClick={onStopEditing}>
+                  <button type="button" className="flex items-center gap-1.5 text-accent" onClick={onStopEditing}>
                     {copy.detail.doneEditing} <Kbd keys={["Esc"]} />
                   </button>
                 </span>
               </div>
             </>
           ) : (
-            <p className="rounded-md border border-hairline bg-bg/40 p-2.5 text-small whitespace-pre-wrap">{draft.body}</p>
+            <p className="rounded-md border border-hairline bg-inset p-2.5 text-small whitespace-pre-wrap">{draft.body}</p>
           )}
         </div>
       ) : finding.action.kind === "none" ? (

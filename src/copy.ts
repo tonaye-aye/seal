@@ -408,7 +408,7 @@ export const copy = {
 
   // ---------- Replay mode (saved answers) ----------
   replay: {
-    /** The banner under the top bar starts with this, in amber. */
+    /** The banner under the top bar starts with this. */
     lead: "Replay mode.",
     youChose: "You chose saved answers",
     forced: (who: string) => `${who}: everything here is from an earlier run, not live from the model.`,

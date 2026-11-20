@@ -7,11 +7,11 @@ const GROUPS = copy.shortcuts.groups;
 
 export function ShortcutSheet({ onClose }: { onClose: () => void }) {
   return (
-    <div className="absolute inset-0 z-30 grid place-items-center bg-bg/70 backdrop-blur-sm" onClick={onClose}>
+    <div className="absolute inset-0 z-30 grid place-items-center bg-scrim backdrop-blur-sm" onClick={onClose}>
       <section
         role="dialog"
         aria-label={copy.shortcuts.label}
-        className="sheet-in w-[520px] rounded-xl border border-hairline bg-surface p-5 shadow-[0_16px_48px_rgb(0_0_0/0.45)]"
+        className="sheet-in w-[520px] rounded-xl border border-hairline bg-surface p-5 shadow-(--shadow-sheet)"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="grid grid-cols-2 gap-6">
