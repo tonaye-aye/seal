@@ -17,7 +17,9 @@
 import { now } from "../lib/clock.ts";
 import { localDate, toZonedIso } from "../lib/dates.ts";
 import type { LlmClient } from "../lib/llm.ts";
-import { syncAll, type ConnectorStatus, type Connectors } from "../connectors/index.ts";
+import { syncSome, type ConnectorId, type ConnectorStatus, type Connectors } from "../connectors/index.ts";
+
+const ALL_CONNECTORS: ConnectorId[] = ["bank", "email", "documents", "calendar"];
 import { buildCorpus, mapLimited, type Corpus } from "./corpus.ts";
 import { detect, upcomingCharges, type Candidate, type EvidenceRef } from "./detectors.ts";
 import { draftFinding, loadVoice, type ProposedDraft } from "./draft.ts";
@@ -77,6 +79,8 @@ export type ScanResult = {
   upcoming: ReturnType<typeof upcomingCharges>;
   /** What couldn't be read (e.g. calendar needs reconnecting). */
   missing: string[];
+  /** Sources the user hasn't connected, so this check didn't read them. */
+  notConnected?: ConnectorId[];
   checkedAt: string;
   /** True if any model answer came from saved replies (replay). */
   usedReplay: boolean;
@@ -167,13 +171,17 @@ export async function runScan(
   connectors: Connectors,
   llm: LlmClient,
   emit: (event: AgentEvent) => void = () => {},
+  /** `only`: read just these sources (the ones the user has connected). Default: all four. */
+  options: { only?: ConnectorId[] } = {},
 ): Promise<ScanResult> {
   const at = () => Date.now();
   const stage = (s: Stage, status: "start" | "done", detail?: string) => emit({ type: "stage", stage: s, status, detail, at: at() });
   let usedReplay = false;
 
   stage("sync", "start");
-  const snapshot = await syncAll(connectors, (status) => emit({ type: "connector", status, at: at() }));
+  const only = options.only ?? ALL_CONNECTORS;
+  const notConnected = ALL_CONNECTORS.filter((id) => !only.includes(id));
+  const snapshot = await syncSome(connectors, only, (status) => emit({ type: "connector", status, at: at() }));
   const missing = Object.keys(snapshot.failed);
   stage("sync", "done", missing.length ? `Couldn't read: ${missing.join(", ")}` : undefined);
 
@@ -264,6 +272,7 @@ export async function runScan(
     undecided,
     upcoming: upcomingCharges(detection.series, 45, localDate(now())),
     missing,
+    notConnected: notConnected.length ? notConnected : undefined,
     checkedAt: toZonedIso(now()),
     usedReplay,
   };
