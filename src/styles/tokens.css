@@ -1,9 +1,17 @@
-/* The visual system: "warm night". Every colour, font, type size and timing
-   the UI uses is defined here once. Tailwind turns each --color-* into
-   utilities such as bg-surface or text-muted, each --font-* into font-sans /
-   font-display / font-mono, and each --text-* into a size such as text-body.
-   Tailwind's own sizes and fonts are switched off ("initial"), so nothing
-   outside this list can creep back in. */
+/* The visual system. Every colour, font, type size and timing the UI uses is
+   defined here once. Tailwind turns each --color-* into utilities such as
+   bg-surface or text-muted, each --font-* into font-sans / font-display /
+   font-mono, and each --text-* into a size such as text-body. Tailwind's own
+   sizes and fonts are switched off ("initial"), so nothing outside this list
+   can creep back in.
+
+   Two themes, following the macOS setting (prefers-color-scheme): the values
+   in @theme are the dark theme, and the block after it swaps in the light
+   one. Greys carry a faint violet tint (hue 292.6, the accent's), and the
+   accent is Tony's violet scale (Radix steps 9-11). Contrast, measured on
+   bg / surface / raised, is noted beside each text colour; all pass WCAG AA
+   (4.5:1). The panel is 86% opaque over the window blur, so real contrast
+   moves a little with the desktop behind it. */
 
 @import "tailwindcss";
 @import "@fontsource-variable/nunito";
@@ -12,34 +20,58 @@
 @import "@fontsource-variable/geist-mono";
 
 @theme {
-  /* Surfaces, darkest to lightest. A slight warm tint, never navy. */
-  --color-bg: #14110f;
-  --color-surface: #1c1815;
-  --color-raised: #241f1b;
-  --color-hairline: #2e2823;
+  /* Surfaces, darkest to lightest. */
+  --color-bg: #121117;
+  --color-surface: #18171f;
+  --color-raised: #201f28; /* the selected row, hovers, key caps, the toast */
+  --color-hairline: #2b2a34;
   /* Behind the panel in a plain browser tab (the desktop app shows the blur instead). */
-  --color-backdrop: #0b0908;
+  --color-backdrop: #07070b;
 
-  /* Text, strongest to faintest. Measured against bg / raised (the selected
-     row): text 15.9 / 13.8, muted 8.0 / 6.9, faint 5.5 / 4.8, so even the
-     faintest small text passes WCAG AA (4.5:1). */
-  --color-text: #f3ebe0;
-  --color-muted: #b3a796;
-  --color-faint: #948979;
+  /* Text, strongest to faintest. */
+  --color-text: #edebf4; /* 15.9 / 15.1 / 13.8 */
+  --color-muted: #b6b3c3; /* 9.1 / 8.7 / 7.9 */
+  --color-faint: #9491a0; /* 6.1 / 5.8 / 5.3 */
 
-  /* Amber means one of three things only: urgent (due within 7 days), the
-     main action, or the "now" mark. Everything else is neutral or info. */
-  --color-amber: #f2a65a;
+  /* Violet, the accent, means two things only: the main action and the
+     "now" mark. accent is for text and marks, accent-solid fills the
+     primary button (hover darkens it), on-accent is the text on that fill. */
+  --color-accent: #baa3ff; /* violet-11: 8.7 / 8.3 / 7.6 */
+  --color-accent-glow: #8e62ff40;
+  --color-accent-solid: #743cdd; /* violet-9 */
+  --color-accent-solid-hover: #6729cc; /* violet-10 */
+  --color-on-accent: #ffffff; /* 6.1 on accent-solid */
+
+  /* Amber means one thing only: urgent (due within 7 days). */
+  --color-amber: #f2a65a; /* 9.3 / 8.8 / 8.1 */
   --color-amber-glow: #f2a65a33;
-  /* Text on a filled amber button. */
-  --color-on-amber: #1c1209;
-  --color-positive: #8fbf8a;
-  --color-danger: #e5736b;
-  /* Info: the agent's own status (working, saved answers, simulating). */
-  --color-info: #8ab4d8;
 
-  /* The selected row's bar and the keyboard focus ring: neutral, so amber stays rare. */
-  --color-focus: #f3ebe0;
+  --color-positive: #8fbf8a; /* 8.9 / 8.5 / 7.8 */
+  --color-danger: #e5736b; /* 6.3 / 5.9 / 5.4 */
+  /* Info: the agent's own status (working, saved answers, simulating). */
+  --color-info: #8ab4d8; /* 8.6 / 8.1 / 7.5 */
+
+  /* The selected row's bar and the keyboard focus ring: neutral, so the accent stays rare. */
+  --color-focus: #edebf4;
+
+  /* The palette panel: a thin outer edge, and the tint it paints over the
+     window's blur (mostly opaque, so text never sits on a busy desktop). */
+  --color-edge: rgb(255 255 255 / 0.06);
+  --color-panel: color-mix(in srgb, var(--color-bg) 86%, transparent);
+  /* Dims the palette behind a sheet (shortcuts, demo controls). */
+  --color-scrim: color-mix(in srgb, var(--color-bg) 70%, transparent);
+  /* Inset fields (search, draft) sit slightly darker than the panel. */
+  --color-inset: color-mix(in srgb, var(--color-bg) 55%, transparent);
+
+  /* Depth for things that float: menus, sheets and the toast. Used as
+     shadow-(--shadow-menu) so the light theme's values apply at runtime. */
+  --shadow-menu: 0 12px 32px rgb(0 0 0 / 0.45);
+  --shadow-sheet: 0 16px 48px rgb(0 0 0 / 0.45);
+  --shadow-toast: 0 8px 24px rgb(0 0 0 / 0.35);
+
+  /* The "now" mark's glow when WebGL is missing (the CSS fallback). */
+  --color-now-glow: var(--color-accent);
+  --color-now-glow-soft: var(--color-accent-glow);
 
   /* Fonts: Poppins for headings, Nunito for everything you read, Geist Mono
      for figures, dates, ids and small labels. */
@@ -76,6 +108,57 @@
   --duration-base: 180ms;
 }
 
+/* Numbers that aren't colours. --now-halo scales the WebGL mark's glow
+   (NowVisual.tsx reads it): full on dark, softer on light. */
+:root {
+  --now-halo: 1;
+}
+
+/* The light theme: the same roles, swapped in when macOS is set to Light.
+   Here surface (menus, sheets) is the whitest layer and raised (the
+   selected row, hovers) a touch darker than the panel. */
+@media (prefers-color-scheme: light) {
+  :root {
+    --color-bg: #f7f6fa;
+    --color-surface: #fdfcff;
+    --color-raised: #edecf4;
+    --color-hairline: #dbd9e3;
+    --color-backdrop: #dedde4;
+
+    --color-text: #1f1d2a; /* 15.4 / 16.2 / 14.1 */
+    --color-muted: #585665; /* 6.7 / 7.0 / 6.1 */
+    --color-faint: #666472; /* 5.4 / 5.7 / 4.9 */
+
+    --color-accent: #6f40cf; /* violet-11: 5.9 / 6.2 / 5.4 */
+    --color-accent-glow: #743cdd24;
+    --color-accent-solid: #743cdd; /* violet-9 */
+    --color-accent-solid-hover: #6533c3; /* violet-10 */
+    --color-on-accent: #ffffff; /* 6.1 on accent-solid */
+
+    --color-amber: #975400; /* 5.4 / 5.7 / 5.0 */
+    --color-amber-glow: #f2a65a2e;
+
+    --color-positive: #1c7149; /* 5.6 / 5.9 / 5.1 */
+    --color-danger: #c62a2f; /* 5.2 / 5.4 / 4.7 */
+    --color-info: #0b67b4; /* 5.4 / 5.7 / 5.0 */
+
+    --color-focus: #1f1d2a;
+
+    --color-edge: rgb(31 29 42 / 0.1);
+    --color-panel: color-mix(in srgb, var(--color-bg) 88%, transparent);
+    /* A light veil plus the sheet's own shadow, rather than a dark wash. */
+    --color-scrim: color-mix(in srgb, var(--color-text) 12%, transparent);
+    --color-inset: color-mix(in srgb, var(--color-raised) 70%, transparent);
+
+    --shadow-menu: 0 12px 32px rgb(31 29 42 / 0.14), 0 1px 3px rgb(31 29 42 / 0.08);
+    --shadow-sheet: 0 16px 48px rgb(31 29 42 / 0.18), 0 2px 6px rgb(31 29 42 / 0.08);
+    --shadow-toast: 0 8px 24px rgb(31 29 42 / 0.14), 0 1px 3px rgb(31 29 42 / 0.08);
+
+    --now-halo: 0.6;
+  }
+}
+
+
 /* A small label in capitals: section titles such as "EVIDENCE IT RELIED ON". */
 @utility label {
   font-family: var(--font-mono);
@@ -108,7 +191,8 @@ body,
   margin: 0;
   background: transparent;
   overflow: hidden;
-  color-scheme: dark;
+  /* Native bits (scrollbars, form controls) follow the theme too. */
+  color-scheme: light dark;
 }
 
 /* In a plain browser tab there is no native blur behind the window, so the
@@ -294,7 +378,7 @@ textarea {
   animation: now-pulse 1.2s ease-in-out infinite;
 }
 .now-fallback.now-needs-you {
-  filter: drop-shadow(0 0 5px var(--color-amber));
+  filter: drop-shadow(0 0 5px var(--color-now-glow));
   animation: now-breathe 2.8s ease-in-out infinite;
 }
 @keyframes now-pulse {
@@ -304,7 +388,7 @@ textarea {
 }
 @keyframes now-breathe {
   50% {
-    filter: drop-shadow(0 0 2px var(--color-amber-glow));
+    filter: drop-shadow(0 0 2px var(--color-now-glow-soft));
   }
 }
 

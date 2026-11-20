@@ -1,8 +1,8 @@
 // A key cap, used for every inline shortcut hint (e.g. "Esc Close").
 
-// `onAmber`: the cap sits inside a filled amber (primary) button.
-export function Kbd({ keys, onAmber = false }: { keys: string[]; onAmber?: boolean }) {
-  const cap = onAmber ? "border-on-amber/25 bg-on-amber/10 text-on-amber" : "border-hairline bg-raised text-muted";
+// `onAccent`: the cap sits inside a filled violet (primary) button.
+export function Kbd({ keys, onAccent = false }: { keys: string[]; onAccent?: boolean }) {
+  const cap = onAccent ? "border-on-accent/25 bg-on-accent/10 text-on-accent" : "border-hairline bg-raised text-muted";
   return (
     <span className="inline-flex gap-0.5">
       {keys.map((key) => (
@@ -46,7 +46,7 @@ export function KeyButton({
   onClick: () => void;
   /** Shown before the label in mouse mode, in place of the key caps. */
   icon?: React.ReactNode;
-  /** "primary": the screen's main action (Approve, onboarding's next step), a filled amber button. */
+  /** "primary": the screen's main action (Approve, onboarding's next step), a filled violet button. */
   tone?: "muted" | "faint" | "primary";
   /** In mouse mode the key caps make way for the icon: it's just a button to click. */
   mouse?: boolean;
@@ -55,7 +55,7 @@ export function KeyButton({
 }) {
   const primary = tone === "primary";
   const colour = primary
-    ? `bg-amber font-semibold text-on-amber ${disabled ? "" : "hover:bg-amber/90"}`
+    ? `bg-accent-solid font-semibold text-on-accent ${disabled ? "" : "hover:bg-accent-solid-hover"}`
     : disabled
       ? "text-faint"
       : tone === "faint"
@@ -74,7 +74,7 @@ export function KeyButton({
       className={`inline-flex items-center gap-1.5 rounded-md leading-none transition-colors duration-(--duration-fast) ${shape} ${disabled ? "cursor-default opacity-60" : "cursor-pointer"} ${colour}`}
     >
       {/* An exact 16 px box with a block-level icon, so icon and text share one centre line. */}
-      {mouse ? icon && <span className="grid size-4 shrink-0 place-items-center [&>svg]:block">{icon}</span> : <Kbd keys={keys} onAmber={primary} />}
+      {mouse ? icon && <span className="grid size-4 shrink-0 place-items-center [&>svg]:block">{icon}</span> : <Kbd keys={keys} onAccent={primary} />}
       {label}
     </button>
   );

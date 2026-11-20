@@ -45,7 +45,7 @@ export function ConnectorList({
           <li
             key={row.id}
             className={`flex items-center gap-3.5 rounded-xl border px-3.5 py-2.5 transition-colors duration-(--duration-fast) ${
-              row.next ? "border-amber/35 bg-amber-glow/10" : "border-hairline bg-surface/60"
+              row.next ? "border-accent/35 bg-accent-glow/10" : "border-hairline bg-surface/60"
             } ${off ? "opacity-45" : ""}`}
           >
             <span className="grid size-10 shrink-0 place-items-center rounded-lg border border-hairline bg-raised text-muted" aria-hidden="true">
@@ -99,7 +99,7 @@ export function ConnectorList({
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => onConnect(row.id)}
                 className={`grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg border transition-colors duration-(--duration-fast) ${
-                  row.next ? "border-amber/40 text-amber hover:bg-amber-glow" : "border-hairline text-muted hover:bg-raised hover:text-text"
+                  row.next ? "border-accent/40 text-accent hover:bg-accent-glow" : "border-hairline text-muted hover:bg-raised hover:text-text"
                 }`}
               >
                 <Plus size={16} strokeWidth={1.75} />

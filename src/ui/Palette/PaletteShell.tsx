@@ -30,7 +30,7 @@ export const PaletteShell = forwardRef<HTMLDivElement, Props>(function PaletteSh
   return (
     <div
       ref={ref}
-      className={`relative flex h-full flex-col overflow-hidden rounded-[14px] border border-white/[0.06] bg-bg/[0.86] outline-none ${className}`}
+      className={`relative flex h-full flex-col overflow-hidden rounded-[14px] border border-edge bg-panel outline-none ${className}`}
       {...rest}
     >
       {header}

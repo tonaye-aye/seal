@@ -51,7 +51,7 @@ export function Menu({
       ref={ref}
       role="menu"
       aria-label={label}
-      className={`sheet-in absolute ${placement === "above" ? "bottom-[calc(100%+6px)]" : "top-[calc(100%+6px)]"} z-40 min-w-[290px] rounded-lg border border-hairline bg-surface p-1 shadow-[0_12px_32px_rgb(0_0_0/0.45)] ${
+      className={`sheet-in absolute ${placement === "above" ? "bottom-[calc(100%+6px)]" : "top-[calc(100%+6px)]"} z-40 min-w-[290px] rounded-lg border border-hairline bg-surface p-1 shadow-(--shadow-menu) ${
         align === "right" ? "right-0" : "left-0"
       }`}
     >

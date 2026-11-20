@@ -11,7 +11,7 @@ export const CommandBar = forwardRef<HTMLInputElement, Props>(
     return (
       <div className="px-3 pb-2.5">
         {/* Light on purpose: a hairline box with no fill until it is focused (press /). */}
-        <label className="flex h-8 items-center gap-2 rounded-md border border-hairline px-2.5 transition-colors duration-(--duration-fast) focus-within:border-muted/50 focus-within:bg-bg/50">
+        <label className="flex h-8 items-center gap-2 rounded-md border border-hairline px-2.5 transition-colors duration-(--duration-fast) focus-within:border-muted/50 focus-within:bg-inset">
           <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true" className="shrink-0 text-faint">
             <circle cx="7" cy="7" r="4.75" fill="none" stroke="currentColor" strokeWidth="1.5" />
             <path d="M10.5 10.5 14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
