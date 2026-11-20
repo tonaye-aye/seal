@@ -7,6 +7,8 @@ import { TOAST_MS, rankedFindings, ScanPreviewProvider, type ScanState } from ".
 import { KeyButton } from "../ui/Kbd";
 import { buildTimeline, filterTimeline, nowIndex } from "../ui/timeline";
 import { SearchField } from "../ui/Palette/SearchField";
+import { FilterButton } from "../ui/Palette/Filters";
+import { applyFilters, filterOptions, type FilterId } from "../ui/filters";
 import { ActionBar, FindingDetail, type Pane } from "../ui/Palette/FindingDetail";
 import {
   AllClear,
@@ -203,6 +205,10 @@ type FrameProps = {
   search?: { focused?: boolean; tip?: boolean };
   /** "Checked and left alone" opened (it is closed by default, and opens by itself for a search that matches inside). */
   group?: boolean;
+  /** The list's filters that are on. */
+  filters?: FilterId[];
+  /** The rail's Filter menu drawn open. */
+  filterMenu?: boolean;
 };
 
 /**
@@ -231,6 +237,8 @@ function PaletteFrame({
   rail,
   search,
   group = false,
+  filters = [],
+  filterMenu = false,
 }: FrameProps) {
   const setup = onboarding && isSetupScreen(onboarding.step);
   const shellRef = useRef<HTMLDivElement>(null);
@@ -240,14 +248,15 @@ function PaletteFrame({
   const shownScan = scan.toast ? { ...scan, toast: { ...scan.toast, id: toastLoop + 1 } } : scan;
 
   const findings = rankedFindings(shownScan);
-  const rows = listItems(findings, shownScan, query);
-  const isGroupOpen = groupOpen(rows, query, group, false);
+  const everyRow = listItems(findings, shownScan, "");
+  const rows = applyFilters(listItems(findings, shownScan, query), filters);
+  const isGroupOpen = groupOpen(rows, !!query.trim() || filters.length > 0, group, false);
   const items = listStops(rows, isGroupOpen);
   const item = pickSelected(rows, items, selected, view === "list");
   const openItem = item?.type === "finding" ? item.finding : item?.type === "cleared" ? item.cleared : undefined;
   const entries = filterTimeline(buildTimeline(shownScan), query);
   const entry = entries[nowIndex(entries)] ?? entries[entries.length - 1];
-  const nothingYet = items.length === 0 && !query;
+  const nothingYet = items.length === 0 && !query && !filters.length;
   const inDetail = view === "detail" && !!openItem;
 
   let main: React.ReactNode;
@@ -302,6 +311,9 @@ function PaletteFrame({
         query={query}
         open={isGroupOpen}
         onToggleGroup={noop}
+        filters={filters}
+        onRemoveFilter={noop}
+        onClearFilters={noop}
         holdHover={holdHover}
       />
     );
@@ -354,6 +366,19 @@ function PaletteFrame({
                 onViewOpenChange={noop}
                 mouse={mouse}
                 preview={rail}
+                filter={
+                  <FilterButton
+                    options={filterOptions(everyRow, filters)}
+                    active={filters}
+                    onToggle={noop}
+                    onClear={noop}
+                    open={filterMenu}
+                    onOpenChange={noop}
+                    mouse={mouse}
+                    away={(inDetail ? detailFrom : view) === "timeline"}
+                    preview={{ hover: rail?.hover === "filter", tip: rail?.tip === "filter" }}
+                  />
+                }
                 settings={
                   <SettingsButton
                     hotkey={["⌥", "Space"]}
@@ -488,6 +513,7 @@ const SECTIONS = [
   ["onboarding", "Onboarding"],
   ["list", "List"],
   ["search", "Search"],
+  ["filters", "Filters"],
   ["finding", "Finding"],
   ["timeline", "Timeline"],
   ["rail", "Icon rail"],
@@ -634,6 +660,45 @@ export function Gallery() {
               </Shot>
               <Shot title="Finding, with a search held" note="Life / Timeline / IronWorks Fitness beside the open field; / or a click goes back to the timeline">
                 <PaletteFrame scan={s.done} view="detail" selected="f-ironworks" detailFrom="timeline" query="iron" />
+              </Shot>
+            </Section>
+
+            <Section id="filters" title="Filters">
+              <Shot title="Filter icon, with its tooltip" note="Under View on the rail. F or a click opens the menu">
+                <PaletteFrame scan={s.done} rail={{ tip: "filter" }} />
+              </Shot>
+              <Shot title="Hovering Filter" note="Hover lifts it, like every rail icon">
+                <PaletteFrame scan={s.done} mouse rail={{ hover: "filter" }} />
+              </Shot>
+              <Shot title="Filter menu, keyboard" note="Only filters that match something here. 1 to 9 tick a row (the menu stays open), ⌫ clears, F or Esc closes. The grey number is how many rows each one matches on its own">
+                <PaletteFrame scan={s.done} filterMenu filters={["kind:price_increase"]} />
+              </Shot>
+              <Shot title="Filter menu, mouse mode" note="A click ticks a row and leaves the menu open; a click outside closes it">
+                <PaletteFrame scan={s.done} mouse filterMenu filters={["kind:price_increase", "kind:trial_converted"]} />
+              </Shot>
+              <Shot title="One filter" note="Not sure: the findings the agent isn't sure of and the cases it couldn't decide. The heading counts what's left; ⌫ takes the filter off">
+                <PaletteFrame scan={s.done} filters={["unsure"]} />
+              </Shot>
+              <Shot title="Two filters" note="Two kinds show rows of either kind. The rail's Filter icon carries the count">
+                <PaletteFrame scan={s.done} filters={["kind:price_increase", "kind:trial_converted"]} />
+              </Shot>
+              <Shot title="Two filters, mouse mode" note="Each chip's × takes it off; Clear all takes them all off">
+                <PaletteFrame scan={s.done} mouse filters={["kind:price_increase", "kind:trial_converted"]} />
+              </Shot>
+              <Shot title="No matches" note="Due within 7 days and Bill error: no row is both. The line says how to get back">
+                <PaletteFrame scan={s.done} filters={["soon", "kind:billing_error"]} />
+              </Shot>
+              <Shot title="Filter and search" note='"iron" within Not sure: both narrow the list; the search title leads, the chips stay under it'>
+                <PaletteFrame scan={s.done} query="iron" filters={["unsure"]} />
+              </Shot>
+              <Shot title="Filter and search, no matches" note="Esc clears the search first, so the line says that">
+                <PaletteFrame scan={s.done} query="sky" filters={["kind:billing_error"]} search={{ focused: true }} />
+              </Shot>
+              <Shot title="A filter matching a row left alone" note="Paying twice, after Not a leak on StreamBox: the group opens by itself while the filter is on">
+                <PaletteFrame scan={dismissedTop} filters={["kind:duplicate_subscription"]} selected={top.id} />
+              </Shot>
+              <Shot title="On the timeline" note="Filters are for the findings list: the icon is dimmed here, and F or a click goes back to the list with the menu open">
+                <PaletteFrame scan={s.done} view="timeline" filters={["unsure"]} rail={{ tip: "filter" }} />
               </Shot>
             </Section>
 
