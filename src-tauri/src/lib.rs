@@ -9,6 +9,8 @@ use tauri::{
     tray::TrayIconBuilder,
     AppHandle, Manager, State, WindowEvent,
 };
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 /// Placeholder product name, shown in the menu bar menu. Kept in sync with
@@ -25,7 +27,20 @@ const HOTKEYS: [(&str, &[&str]); 2] = [
 
 /// The hotkey that actually registered, so the UI can show the right hint.
 /// Empty if none could be registered (the menu bar icon still works).
-struct ActiveHotkey(Vec<String>);
+/// A Mutex (a lock) because onboarding can switch it while the app runs.
+struct ActiveHotkey(Mutex<Vec<String>>);
+
+/// A file in the app's config folder that says "fallback" once the user has
+/// chosen Cmd+Shift+Space (because another app already uses Option+Space).
+const HOTKEY_CHOICE_FILE: &str = "hotkey";
+
+fn prefers_fallback(app: &AppHandle) -> bool {
+    app.path()
+        .app_config_dir()
+        .ok()
+        .and_then(|dir| std::fs::read_to_string(dir.join(HOTKEY_CHOICE_FILE)).ok())
+        .is_some_and(|text| text.trim() == "fallback")
+}
 
 /// Called by the UI on Esc.
 #[tauri::command]
@@ -36,12 +51,77 @@ fn hide_palette(app: AppHandle) {
 /// Called by the UI to label the hotkey hint in the footer.
 #[tauri::command]
 fn active_hotkey(state: State<ActiveHotkey>) -> Vec<String> {
-    state.0.clone()
+    state.0.lock().map(|keys| keys.clone()).unwrap_or_default()
+}
+
+/// Called on first run, so the onboarding's welcome is on screen without the hotkey.
+#[tauri::command]
+fn show_palette(app: AppHandle) {
+    palette::show(&app);
+}
+
+/// Set once the UI has been told about LIFE_ONBOARDING, so the reset happens
+/// once per launch, not every time the page reloads (in development the page
+/// can reload when the window comes back, which would start onboarding over).
+static ONBOARDING_FLAG_USED: AtomicBool = AtomicBool::new(false);
+
+/// Launch options for the UI. LIFE_ONBOARDING=1 starts onboarding again
+/// (to rehearse the demo): `LIFE_ONBOARDING=1 pnpm tauri dev`.
+#[tauri::command]
+fn launch_flags() -> serde_json::Value {
+    let asked = std::env::var("LIFE_ONBOARDING").is_ok_and(|v| v == "1");
+    // `swap` sets the flag and returns what it was before, in one step.
+    let onboarding = asked && !ONBOARDING_FLAG_USED.swap(true, Ordering::SeqCst);
+    serde_json::json!({ "onboarding": onboarding })
+}
+
+/// Onboarding keeps the palette on screen when the user clicks into another
+/// app (it dims instead); the usual hide-on-click-away returns once it's done.
+#[tauri::command]
+fn set_hide_on_blur(enabled: bool) {
+    palette::set_hide_on_blur(enabled);
+}
+
+/// Onboarding's summon step: the hotkey answers the step instead of hiding the palette.
+#[tauri::command]
+fn set_hotkey_practice(on: bool) {
+    palette::set_hotkey_practice(on);
+}
+
+/// Whether the palette is on screen right now. The UI asks after a page
+/// reload, when it has missed the shown/hidden events.
+#[tauri::command]
+fn palette_visible(app: AppHandle) -> bool {
+    app.get_webview_window(palette::LABEL)
+        .and_then(|w| w.is_visible().ok())
+        .unwrap_or(false)
+}
+
+/// Onboarding's "Use Cmd+Shift+Space instead": drops Option+Space (another app
+/// probably has it), registers the fallback and remembers the choice for next
+/// launch. Returns the new key labels for the UI.
+#[tauri::command]
+fn use_fallback_hotkey(app: AppHandle, state: State<ActiveHotkey>) -> Vec<String> {
+    let _ = app.global_shortcut().unregister_all();
+    if let Ok(dir) = app.path().app_config_dir() {
+        let _ = std::fs::create_dir_all(&dir);
+        let _ = std::fs::write(dir.join(HOTKEY_CHOICE_FILE), "fallback");
+    }
+    let keys = register_hotkey(&app, true);
+    if let Ok(mut active) = state.0.lock() {
+        *active = keys.clone();
+    }
+    keys
 }
 
 /// Try each hotkey in turn and return the labels of the one that worked.
-fn register_hotkey(app: &AppHandle) -> Vec<String> {
-    for (shortcut, labels) in HOTKEYS {
+/// With `fallback_first`, Cmd+Shift+Space is tried before Option+Space.
+fn register_hotkey(app: &AppHandle, fallback_first: bool) -> Vec<String> {
+    let mut order = HOTKEYS.to_vec();
+    if fallback_first {
+        order.reverse();
+    }
+    for (shortcut, labels) in order {
         // The handler fires on both key down and key up; only act on key down.
         let result = app
             .global_shortcut()
@@ -98,16 +178,16 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
-            let hotkey = register_hotkey(app.handle());
+            let hotkey = register_hotkey(app.handle(), prefers_fallback(app.handle()));
             build_tray(app.handle(), &hotkey)?;
-            app.manage(ActiveHotkey(hotkey));
+            app.manage(ActiveHotkey(Mutex::new(hotkey)));
             app.manage(llm::LlmConfig::load());
             Ok(())
         })
         .on_window_event(|window, event| {
             // Clicking into another app hides the palette, like Spotlight.
             if let WindowEvent::Focused(false) = event {
-                if palette::HIDE_ON_BLUR && window.label() == palette::LABEL {
+                if palette::hides_on_blur() && window.label() == palette::LABEL {
                     palette::hide(window.app_handle());
                 }
             }
@@ -115,6 +195,12 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             hide_palette,
             active_hotkey,
+            show_palette,
+            launch_flags,
+            use_fallback_hotkey,
+            set_hide_on_blur,
+            set_hotkey_practice,
+            palette_visible,
             llm::llm_request,
             llm::llm_configured
         ])
