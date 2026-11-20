@@ -17,7 +17,9 @@ import type { Corpus } from "../agent/corpus.ts";
 import { rank, runScan, type AgentEvent, type Cleared, type Finding, type ScanResult, type Stage } from "../agent/pipeline.ts";
 import { getConnectors, setConnectorStatus } from "../connectors/live.ts";
 import type { ConnectorId } from "../connectors/types.ts";
-import { createAppLlm, llmConfigured } from "./llm-tauri.ts";
+import { checkEndpoint, dropAfterCalls, markLost, usesReplay, type EndpointState, type EndpointStatus } from "./endpoint.ts";
+import { tauriTransport } from "./llm-tauri.ts";
+import { createModelSession } from "./model-session.ts";
 
 export type Decision = Finding["status"];
 
@@ -59,6 +61,12 @@ export type ScanState = {
   error?: string;
   /** True once any model answer came from saved replies, not the endpoint. */
   usedReplay: boolean;
+  /**
+   * Why this check uses saved answers, when it does: the endpoint check's
+   * state (offline, key rejected, chosen...) or "lost" when the endpoint
+   * dropped out partway. Undefined for a live check.
+   */
+  replay?: { why: EndpointState | "lost"; detail?: string; stage?: Stage };
   trace: TraceLine[];
   /** Maya's choices, kept by finding id so they survive a re-scan. */
   decisions: Record<string, Decision>;
@@ -208,6 +216,7 @@ export async function resetScan(): Promise<boolean> {
     corpus: undefined,
     error: undefined,
     usedReplay: false,
+    replay: undefined,
     trace: [],
     decisions: {},
     saved: {},
@@ -367,14 +376,39 @@ export async function startScan({ background = false } = {}): Promise<void> {
     result: undefined,
     error: undefined,
     usedReplay: false,
+    replay: undefined,
     trace: [],
   });
   try {
-    if (!(await llmConfigured())) {
-      throw new Error("The model endpoint isn't set up. Add BC_API_KEY to .env, then restart the app.");
-    }
+    const { session, endpoint, lost } = await openSession();
     const connectors = await getConnectors();
-    const result = await runScan(connectors, createAppLlm("live_with_fallback"), onEvent, { only: scanSources });
+    const live = runScan(connectors, session, eventsFor(++scanRun), { only: scanSources });
+    live.catch(() => undefined); // an abandoned run ends quietly
+    const outcome = await Promise.race([live.then((result) => ({ result })), lost.then((reason) => ({ reason }))]);
+    let result: ScanResult;
+    if ("result" in outcome) result = outcome.result;
+    else {
+      // Lost the endpoint partway. Live answers vary a little from run to run,
+      // and later questions are built from earlier answers, so mixing live and
+      // saved answers would leave gaps. Instead the whole check starts again
+      // on saved answers, which follow one earlier run from start to end.
+      // The live run is left to finish on its own; its events are ignored.
+      set({
+        stage: undefined,
+        progress: undefined,
+        findings: [],
+        cleared: [],
+        undecided: [],
+        usedReplay: false,
+        replay: { why: "lost", detail: outcome.reason, stage: state.stage },
+      });
+      const replay = createModelSession({ transport: tauriTransport, start: "replay" });
+      result = await runScan(connectors, replay, eventsFor(++scanRun), { only: scanSources });
+    }
+    // On saved answers with none saved, every case fails: say why, rather than show an empty list.
+    if (state.replay && result.findings.length === 0 && result.cleared.length === 0 && result.undecided.length > 0) {
+      throw new Error(noSavedAnswers(endpoint));
+    }
     set({
       phase: "done",
       finishedAt: Date.now(),
@@ -402,8 +436,21 @@ async function runBackground(): Promise<void> {
   set({ refreshing: true, startedAt: Date.now(), trace: [] });
   set({ trace: trace("Checking again in the background") });
   try {
-    if (!(await llmConfigured())) throw new Error("The model endpoint isn't set up.");
-    const result = await runScan(await getConnectors(), createAppLlm("live_with_fallback"), onEvent, { only: scanSources });
+    const { session, endpoint, lost } = await openSession({ background: true });
+    // A background check is for fresh answers: with the endpoint down it waits for next time.
+    if (usesReplay(endpoint.state) && endpoint.state !== "forced") {
+      set({ refreshing: false, trace: trace("The model endpoint isn't available, so the last results stay. The next background check will try again.", "warn") });
+      return;
+    }
+    const live = runScan(await getConnectors(), session, eventsFor(++scanRun), { only: scanSources });
+    live.catch(() => undefined);
+    const outcome = await Promise.race([live.then((result) => ({ result })), lost.then((reason) => ({ reason }))]);
+    if (!("result" in outcome)) {
+      scanRun++; // ignore the rest of the abandoned run
+      set({ refreshing: false, stage: undefined, progress: undefined }); // the trace already says so
+      return;
+    }
+    const { result } = outcome;
     set({
       refreshing: false,
       finishedAt: Date.now(),
@@ -414,6 +461,7 @@ async function runBackground(): Promise<void> {
       cleared: result.cleared,
       undecided: result.undecided,
       usedReplay: result.usedReplay,
+      replay: endpoint.state === "forced" ? { why: "forced", detail: endpoint.detail } : undefined,
       trace: trace(`Checked again in ${((Date.now() - (state.startedAt ?? Date.now())) / 1000).toFixed(1)} s. Nothing was sent or changed.`, "good"),
     });
   } catch (error) {
@@ -423,6 +471,76 @@ async function runBackground(): Promise<void> {
   } finally {
     quiet = false;
   }
+}
+
+// ---------- The model endpoint, for one check ----------
+
+/** What each stage is doing, for "Lost the model endpoint while ...". */
+const STAGE_DOING: Partial<Record<Stage, string>> = {
+  extract: "reading the evidence",
+  judge: "deciding and drafting",
+  draft: "drafting",
+};
+
+/**
+ * Checks the endpoint, says what it found in the trace, and returns the model
+ * client for this check: live, or saved answers when the endpoint can't be used.
+ */
+async function openSession({ background = false } = {}) {
+  set({ trace: trace("Checking the model endpoint") });
+  const endpoint = await checkEndpoint();
+  const start = usesReplay(endpoint.state) ? "replay" : "live";
+  set({ trace: trace(endpointLine(endpoint), start === "replay" || endpoint.state === "slow" ? "warn" : "good") });
+  if (start === "replay" && !background) set({ replay: { why: endpoint.state, detail: endpoint.detail } });
+  // Resolves with the reason if the endpoint is lost partway through.
+  let signalLost: (reason: string) => void = () => undefined;
+  const lost = new Promise<string>((resolve) => (signalLost = resolve));
+  const session = createModelSession({
+    transport: tauriTransport,
+    start,
+    dropAfter: dropAfterCalls(),
+    onLost: (reason) => {
+      markLost(`Lost partway through a check: ${reason}.`);
+      const doing = state.stage ? STAGE_DOING[state.stage] : undefined;
+      const next = background ? "The last results stay." : "Starting the check again from saved answers.";
+      set({ trace: trace(`Lost the model endpoint${doing ? ` while ${doing}` : ""}: ${reason}. ${next}`, "warn") });
+      signalLost(reason);
+    },
+  });
+  return { session, endpoint, lost };
+}
+
+/** Counts scan runs, so events from an abandoned run (after a lost endpoint) are ignored. */
+let scanRun = 0;
+
+function eventsFor(run: number) {
+  return (event: AgentEvent) => {
+    if (run === scanRun) onEvent(event);
+  };
+}
+
+/** The trace line for the endpoint check. */
+function endpointLine(e: EndpointStatus): string {
+  switch (e.state) {
+    case "live":
+      return `Model endpoint answered in ${((e.ms ?? 0) / 1000).toFixed(1)} s`;
+    case "slow":
+      return `Model endpoint is slow today: ${e.detail ?? ""}`.trim();
+    case "forced":
+      return e.byFlag ? "Using saved answers only (started with LIFE_REPLAY=1)" : "Using saved answers only, as chosen";
+    case "browser":
+      return "Browser preview: using saved answers from an earlier run";
+    default:
+      return `${e.detail ?? "Couldn't use the model endpoint."} Using saved answers from an earlier run.`;
+  }
+}
+
+/** The error when a check on saved answers finds none saved. */
+function noSavedAnswers(e: EndpointStatus): string {
+  if (e.state === "forced") return "There are no saved answers for this check yet. Turn off saved answers only (⌘⇧D, then M) and run a live check first.";
+  if (e.state === "not_set_up") return "The model endpoint isn't set up, and there are no saved answers yet. Add BC_API_KEY to .env, then restart the app.";
+  if (e.state === "key_rejected") return "The model endpoint didn't accept the API key, and there are no saved answers yet. Check BC_API_KEY in .env, then restart the app.";
+  return "Couldn't reach the model endpoint, and there are no saved answers yet. Check the network, then press R.";
 }
 
 /**

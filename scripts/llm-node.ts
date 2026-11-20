@@ -11,7 +11,11 @@ import { LlmError, type LlmTransport } from "../src/lib/llm.ts";
 const CACHE_DIR = new URL("../.cache/llm/", import.meta.url).pathname;
 const TIMEOUT_MS = 180_000;
 
-export function nodeTransport(): LlmTransport {
+/**
+ * `save`: "always" (the default, as the eval expects) keeps the latest reply;
+ * "if_absent" keeps the first, like the app does (scripts/replay-check.ts).
+ */
+export function nodeTransport({ save = "always" }: { save?: "always" | "if_absent" } = {}): LlmTransport {
   const base = process.env.BC_BASE_URL?.replace(/\/+$/, "");
   const key = process.env.BC_API_KEY;
 
@@ -40,7 +44,8 @@ export function nodeTransport(): LlmTransport {
         throw new LlmError("network", `Could not reach the endpoint: ${(error as Error).message}`);
       }
       const text = await response.text();
-      if (response.ok) {
+      const exists = await readFile(file).then(() => true, () => false);
+      if (response.ok && (save === "always" || !exists)) {
         await mkdir(CACHE_DIR, { recursive: true });
         await writeFile(file, text);
       }
