@@ -5,11 +5,12 @@ import { getConnectors } from "../../connectors/live";
 import { formatAUD } from "../../lib/money";
 import { resetEdit, setEdit } from "../../lib/scan-store";
 import { evidenceDate, lookupEvidence, type EvidenceView } from "../evidence";
-import { SOON_DAYS, daysUntil, figureValue, isUnsure, shortDate } from "../format";
+import { daysUntil, figureValue, isUnsure, shortDate, urgency } from "../format";
 import { copy } from "../../copy";
 import { ApproveIcon, CheckNowIcon, DismissIcon, EditIcon, OpenIcon, PaneIcon, SnoozeIcon, UndoIcon } from "../icons";
 import { Kbd, KeyButton, KeyHint } from "../Kbd";
 import { ViewHeading } from "./ViewHeading";
+import { DEADLINE_TONE } from "./FindingsList";
 import { SavedNote } from "../replay";
 
 // One finding, opened: why it was flagged, the evidence trail (cited items
@@ -39,12 +40,12 @@ function EvidenceImage({ docId, alt }: { docId: string; alt: string }) {
   useEffect(() => {
     loadImage(docId).then(setSrc, () => setFailed(true));
   }, [docId]);
-  if (failed) return <p className="text-[12px] text-danger">{copy.detail.photoFailed}</p>;
+  if (failed) return <p className="text-meta text-danger">{copy.detail.photoFailed}</p>;
   if (!src) return <div className="shimmer h-28 rounded-md" aria-label={copy.detail.loadingPhoto} />;
   return <img src={src} alt={alt} className="max-h-36 w-full rounded-md border border-hairline object-cover" />;
 }
 
-/** Marks the amounts code checked wherever they appear in the text. */
+/** Marks the amounts code checked wherever they appear in the text (info: the agent's own check, not urgency). */
 function Highlighted({ text, needles }: { text: string; needles: string[] }) {
   if (!needles.length) return <>{text}</>;
   const escaped = needles.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
@@ -53,7 +54,7 @@ function Highlighted({ text, needles }: { text: string; needles: string[] }) {
     <>
       {parts.map((part, i) =>
         needles.includes(part) ? (
-          <mark key={i} className="rounded-[3px] bg-amber-glow px-0.5 text-amber">
+          <mark key={i} className="rounded-[3px] bg-info/15 px-0.5 text-info">
             {part}
           </mark>
         ) : (
@@ -86,17 +87,17 @@ function EvidenceItem({
       className={`cursor-pointer rounded-md border px-2.5 py-2 ${open ? "border-hairline bg-raised" : "border-transparent hover:bg-surface"}`}
     >
       <div className="flex items-baseline gap-2">
-        <span className="w-3 shrink-0 text-center font-mono text-[11px] text-faint" aria-hidden="true">
+        <span className="w-3 shrink-0 text-center font-mono text-label text-faint" aria-hidden="true">
           {SOURCE_ICON[view.kind]}
         </span>
         <span className="min-w-0 flex-1">
-          <span className={`block truncate text-[12.5px] ${view.kind === "txn" ? "font-mono text-[12px]" : ""}`}>{view.title}</span>
-          <span className="block truncate text-[11.5px] text-faint">
+          <span className={`block truncate text-meta ${view.kind === "txn" ? "font-mono text-meta" : ""}`}>{view.title}</span>
+          <span className="block truncate text-meta text-faint">
             {view.source} · {view.meta}
           </span>
         </span>
-        <span className="shrink-0 text-right font-mono text-[11px] text-faint tabular">
-          {view.amount && <span className="block text-[12px] text-text">{view.amount}</span>}
+        <span className="shrink-0 text-right figure text-label text-faint">
+          {view.amount && <span className="block text-meta text-text">{view.amount}</span>}
           {evidenceDate(view)}
         </span>
       </div>
@@ -110,7 +111,7 @@ function EvidenceItem({
       {open && view.body && (
         <div className="mt-2 ml-5">
           {view.body && (
-            <p className="max-h-44 overflow-y-auto text-[12px] leading-[1.55] whitespace-pre-wrap text-muted">
+            <p className="max-h-44 overflow-y-auto text-meta whitespace-pre-wrap text-muted">
               <Highlighted text={view.body.trim()} needles={needles} />
             </p>
           )}
@@ -147,7 +148,7 @@ function EvidenceTrail({
   const group = (title: string, list: typeof items, offset: number) =>
     list.length > 0 && (
       <>
-        <h3 className="mt-1 mb-1 px-2.5 font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">{title}</h3>
+        <h3 className="mt-1 mb-1 px-2.5 label text-faint">{title}</h3>
         <ul className="flex flex-col">
           {list.map((item, i) => (
             <EvidenceItem
@@ -208,13 +209,13 @@ function DraftPane({
       {draft ? (
         <div>
           <div className="mb-2 flex items-center gap-2">
-            <h3 className="font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">{copy.detail.draftedEmail}</h3>
-            {edited && <span className="rounded-full border border-hairline px-1.5 text-[10.5px] text-muted">{copy.detail.editedByYou}</span>}
-            {finding.status === "approved" && <span className="rounded-full border border-positive/30 px-1.5 text-[10.5px] text-positive">{copy.detail.inDrafts}</span>}
+            <h3 className="label text-faint">{copy.detail.draftedEmail}</h3>
+            {edited && <span className="rounded-full border border-hairline px-1.5 text-meta text-muted">{copy.detail.editedByYou}</span>}
+            {finding.status === "approved" && <span className="rounded-full border border-positive/30 px-1.5 text-meta text-positive">{copy.detail.inDrafts}</span>}
           </div>
           {!draft.grounded && (
-            <div className="mb-2.5 rounded-md border border-amber/30 bg-amber-glow/40 px-2.5 py-2 text-[12px]">
-              <p className="font-medium text-amber">{copy.detail.checkBeforeSending}</p>
+            <div className="mb-2.5 rounded-md border border-danger/30 bg-danger/8 px-2.5 py-2 text-meta">
+              <p className="font-semibold text-danger">{copy.detail.checkBeforeSending}</p>
               <ul className="mt-0.5 list-disc pl-4 text-muted">
                 {draft.problems.map((p) => (
                   <li key={p}>{p}</li>
@@ -222,7 +223,7 @@ function DraftPane({
               </ul>
             </div>
           )}
-          <dl className="mb-2 grid grid-cols-[52px_1fr] gap-x-2 gap-y-0.5 text-[12px]">
+          <dl className="mb-2 grid grid-cols-[52px_1fr] gap-x-2 gap-y-0.5 text-meta">
             <dt className="text-faint">{copy.detail.to}</dt>
             <dd className="truncate">
               {draft.to.name} <span className="text-faint">{draft.to.address}</span>
@@ -243,9 +244,9 @@ function DraftPane({
                 aria-label={copy.detail.draftBody}
                 value={draft.body}
                 onChange={(e) => setEdit(finding.id, e.target.value)}
-                className="h-56 w-full resize-none rounded-md border border-amber/40 bg-bg/70 p-2.5 text-[12.5px] leading-[1.55] text-text outline-none"
+                className="h-56 w-full resize-none rounded-md border border-muted/50 bg-bg/70 p-2.5 text-small text-text outline-none"
               />
-              <div className="mt-1.5 flex items-center justify-between text-[11.5px]">
+              <div className="mt-1.5 flex items-center justify-between text-meta">
                 <span className="text-faint">{copy.detail.editsNotChecked}</span>
                 <span className="flex gap-3">
                   {edited && (
@@ -260,40 +261,46 @@ function DraftPane({
               </div>
             </>
           ) : (
-            <p className="rounded-md border border-hairline bg-bg/40 p-2.5 text-[12.5px] leading-[1.55] whitespace-pre-wrap">{draft.body}</p>
+            <p className="rounded-md border border-hairline bg-bg/40 p-2.5 text-small whitespace-pre-wrap">{draft.body}</p>
           )}
         </div>
       ) : finding.action.kind === "none" ? (
-        <div className="rounded-md border border-hairline p-3 text-[12.5px] text-muted">
+        <div className="rounded-md border border-hairline p-3 text-small text-muted">
           <p className="font-medium text-text">{copy.detail.nothingToSend}</p>
           <p className="mt-0.5">{finding.action.summary}</p>
         </div>
       ) : scanning ? (
         <div className="flex flex-col gap-2" aria-label={copy.detail.writingDraftLabel}>
-          <p className="text-[12px] text-faint">{copy.detail.writingDraft}</p>
+          <p className="text-meta text-faint">{copy.detail.writingDraft}</p>
           <span className="shimmer h-3 w-3/4 rounded" />
           <span className="shimmer h-3 w-full rounded" />
           <span className="shimmer h-3 w-5/6 rounded" />
         </div>
       ) : (
-        <p className="text-[12.5px] text-danger">{copy.detail.couldntDraft}</p>
+        <p className="text-small text-danger">{copy.detail.couldntDraft}</p>
       )}
 
-      <div>
-      <h3 className="mt-4 mb-1.5 font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">{copy.detail.checkedByCode}</h3>
-      <dl className="flex flex-col">
-        {finding.figures.map((f) => (
-          <div key={f.id} className="flex items-baseline justify-between gap-3 border-b border-hairline/60 py-1 text-[12px] last:border-0" title={f.how}>
-            <dt className="min-w-0 text-muted">
-              {f.label}
-              {f.how && <span className="block truncate font-mono text-[10.5px] text-faint">{f.how}</span>}
-            </dt>
-            <dd className="shrink-0 font-mono tabular">{figureValue(f)}</dd>
-          </div>
-        ))}
-      </dl>
+      {/* The figures code worked out: the only numbers the draft may use. A panel of its own, so it reads as the check it is. */}
+      <section className="mt-4 rounded-lg border border-hairline bg-surface/60 px-3 pt-2.5 pb-1.5">
+        <h3 className="mb-1 flex items-center gap-1.5 label text-faint">
+          <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true" className="text-positive">
+            <path d="m2.5 6.5 2.25 2.25L9.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          {copy.detail.checkedByCode}
+        </h3>
+        <dl className="flex flex-col">
+          {finding.figures.map((f) => (
+            <div key={f.id} className="flex items-baseline justify-between gap-4 border-b border-hairline/60 py-1.5 last:border-0" title={f.how}>
+              <dt className="min-w-0 text-small text-muted">
+                {f.label}
+                {f.how && <span className="mt-0.5 block truncate font-mono text-label text-faint">{f.how}</span>}
+              </dt>
+              <dd className="shrink-0 figure text-small text-text">{figureValue(f)}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
       <SavedNote finding={finding} />
-      </div>
     </div>
   );
 }
@@ -308,11 +315,12 @@ function Amounts({ finding }: { finding: Finding }) {
     a.perMonth !== undefined && [copy.detail.perMonth, formatAUD(a.perMonth)],
   ].filter(Boolean) as [string, string][];
   return (
-    <div className="flex shrink-0 gap-4">
-      {cells.map(([label, value]) => (
+    // The first amount leads (largest); the others sit beside it, smaller.
+    <div className="flex shrink-0 items-end gap-5">
+      {cells.map(([label, value], i) => (
         <div key={label} className="text-right">
-          <div className="font-mono text-[13px] tabular">{value}</div>
-          <div className="text-[10.5px] text-faint">{label}</div>
+          <div className={`figure ${i === 0 ? "text-heading text-text" : "text-body text-muted"}`}>{value}</div>
+          <div className="mt-0.5 label text-faint">{label}</div>
         </div>
       ))}
     </div>
@@ -362,23 +370,24 @@ export function FindingDetail({
         title={item.title}
         eyebrow={
           <>
-            <span className="truncate font-medium">{item.merchant}</span>
+            <span className="truncate font-semibold text-text">{item.merchant}</span>
             {finding ? (
               <>
-                <span className="shrink-0 rounded-full border border-hairline px-2 py-px text-[11px] text-muted">{copy.shared.kind[finding.kind]}</span>
+                {/* The kind is quiet context; the deadline is the news, coloured by how close it is. */}
+                <span className="shrink-0 text-faint">{copy.shared.kind[finding.kind]}</span>
                 {finding.deadline && (
                   <span
                     title={finding.deadline.label}
-                    className={`shrink-0 rounded-full px-2 py-px font-mono text-[10.5px] whitespace-nowrap ${
-                      daysUntil(finding.deadline.date) <= SOON_DAYS ? "bg-amber-glow text-amber" : "border border-hairline text-faint"
-                    }`}
+                    className={`ml-1 inline-flex h-5 shrink-0 items-center rounded-full px-2 figure text-label whitespace-nowrap ${
+                      urgency(finding.deadline.date) === "soon" ? "" : "border border-hairline"
+                    } ${DEADLINE_TONE[urgency(finding.deadline.date)]}`}
                   >
                     {copy.detail.deadlineChip(shortDate(finding.deadline.date), copy.dates.days(daysUntil(finding.deadline.date)))}
                   </span>
                 )}
               </>
             ) : (
-              <span className="rounded-full border border-hairline px-2 py-px text-[11px] text-positive/80">{copy.shared.looksFine}</span>
+              <span className="shrink-0 text-positive">{copy.shared.looksFine}</span>
             )}
           </>
         }
@@ -386,15 +395,15 @@ export function FindingDetail({
       >
         <span className="line-clamp-2">{item.why}</span>
         {finding?.deadline && (
-          <span className="mt-0.5 block truncate text-[12px] text-faint">
+          <span className="mt-0.5 block truncate text-meta text-faint">
             {copy.detail.nextDate(finding.deadline.label, shortDate(finding.deadline.date))}
           </span>
         )}
       </ViewHeading>
 
       {finding && isUnsure(finding) && (
-        <div className="mx-4 mt-2 rounded-md border border-amber/30 bg-amber-glow/40 px-3 py-1.5 text-[12px]">
-          <span className="font-medium text-amber">{copy.detail.notSure}</span>
+        <div className="mx-4 mt-2 rounded-md border border-info/25 bg-info/8 px-3 py-1.5 text-meta">
+          <span className="font-semibold text-info">{copy.detail.notSure}</span>
           <span className="text-muted">{finding.doubts.join(" ") || copy.detail.lessConfident}</span>
         </div>
       )}
@@ -404,8 +413,8 @@ export function FindingDetail({
         {finding ? (
           <DraftPane finding={finding} edited={edited} editing={editing} onStopEditing={onStopEditing} focused={pane === "draft"} paneRef={draftRef} scanning={scanning} onFocus={onFocusDraft} />
         ) : (
-          <div className="rounded-lg p-3 text-[12.5px]">
-            <h3 className="mb-1.5 font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">{copy.detail.whyLeftAlone}</h3>
+          <div className="rounded-lg p-3 text-small">
+            <h3 className="mb-1.5 label text-faint">{copy.detail.whyLeftAlone}</h3>
             <p className="text-muted">{(item as Cleared).why}</p>
             <p className="mt-3 text-faint">{copy.detail.nothingToDo}</p>
           </div>
@@ -448,7 +457,7 @@ export function ActionBar({
     const hint = "evidence" in item ? copy.actions.clickForDetail : copy.actions.clickWhyFine;
     return (
       // The click hint sits on the right, where the keyboard's J/K hint would be.
-      <div className="flex h-10 shrink-0 items-center justify-between gap-3 border-t border-hairline px-4 text-[12px]">
+      <div className="flex h-10 shrink-0 items-center justify-between gap-3 border-t border-hairline px-4 text-meta">
         <span className="max-w-[220px] truncate font-medium text-text">{item.merchant}</span>
         <span className="inline-flex shrink-0 items-center gap-1.5 text-muted">
           <MouseIcon />
@@ -476,7 +485,7 @@ export function ActionBar({
   }
   const twoPanes = !!item && "evidence" in item;
   return (
-    <div className="flex h-10 shrink-0 items-center justify-between border-t border-hairline px-4 text-[12px]">
+    <div className="flex h-10 shrink-0 items-center justify-between border-t border-hairline px-4 text-meta">
       <div className="flex min-w-0 items-center gap-3">
         {/* Say which finding the actions apply to, in the list and in an open finding alike. */}
         {item && !("undecided" in item) && (detail || "evidence" in item) && (
@@ -490,7 +499,7 @@ export function ActionBar({
             keys={h.keys}
             label={h.label}
             icon={h.icon}
-            tone={h.command === "approve" ? "amber" : "muted"}
+            tone={h.command === "approve" ? "primary" : "muted"}
             // In an open finding the actions stay, as plain buttons once the mouse moves.
             mouse={mouse && detail}
             onClick={() => onCommand(h.command)}

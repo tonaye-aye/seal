@@ -79,7 +79,7 @@ export function MenuItem({
       tabIndex={-1}
       onMouseDown={(e) => e.preventDefault()}
       onClick={onSelect}
-      className="flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[12.5px] text-muted hover:bg-raised hover:text-text"
+      className="flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-small text-muted hover:bg-raised hover:text-text"
     >
       <span className="grid size-4 shrink-0 place-items-center [&>svg]:block">{icon}</span>
       <span className="flex-1">{label}</span>

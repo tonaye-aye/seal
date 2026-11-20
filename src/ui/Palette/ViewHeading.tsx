@@ -26,18 +26,18 @@ export function ViewHeading({
   return (
     // The hairline marks the pinned edge the rows scroll under.
     <div className="shrink-0 border-b border-hairline">
-      <div className="flex items-start gap-3 px-4 pt-3.5 pb-3">
+      <div className="flex items-start gap-3 px-4 pt-3 pb-2.5">
         <span
-          className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg border border-hairline bg-raised text-muted"
+          className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-md border border-hairline bg-raised text-muted"
           aria-hidden="true"
         >
           {view === "list" ? <ListIcon /> : view === "timeline" ? <TimelineIcon /> : <FindingIcon />}
         </span>
         <div className="min-w-0 flex-1">
-          {eyebrow && <div className="mb-1 flex items-center gap-2 text-[12px] whitespace-nowrap">{eyebrow}</div>}
-          <h1 className="text-[18px] font-medium tracking-[-0.02em]">{title}</h1>
+          {eyebrow && <div className="mb-1 flex items-center gap-2 text-meta whitespace-nowrap">{eyebrow}</div>}
+          <h1 className="heading text-heading font-semibold">{title}</h1>
           {/* The line under the title is left out when there is nothing to say. */}
-          {hasContent(children) && <p className="mt-0.5 text-[12.5px] text-muted">{children}</p>}
+          {hasContent(children) && <p className="mt-0.5 text-small text-muted">{children}</p>}
         </div>
         {action && <div className="mt-1 shrink-0">{action}</div>}
       </div>
@@ -46,13 +46,13 @@ export function ViewHeading({
   );
 }
 
-/** A page with lines and an amber dot: one finding, opened. */
+/** A page with lines and a dot: one finding, opened. */
 function FindingIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
       <rect x="2.5" y="1.5" width="11" height="13" rx="2" />
       <path d="M5.5 5.5h5M5.5 8.5h5M5.5 11.5h3" />
-      <circle cx="12.5" cy="2.5" r="2" fill="var(--color-amber)" stroke="var(--color-raised)" strokeWidth="1" />
+      <circle cx="12.5" cy="2.5" r="2" fill="currentColor" stroke="var(--color-raised)" strokeWidth="1" />
     </svg>
   );
 }

@@ -14,12 +14,12 @@ export function Toast() {
       role="status"
       className={`toast-in absolute bottom-[88px] left-1/2 z-20 flex w-max max-w-[560px] -translate-x-1/2 items-center gap-3 overflow-hidden rounded-lg border border-hairline bg-raised py-2 pr-2 pl-3.5 shadow-[0_8px_24px_rgb(0_0_0/0.35)]`}
     >
-      <span className="text-[12.5px]">{toast.text}</span>
+      <span className="text-small">{toast.text}</span>
       {toast.undoable ? (
         <button
           type="button"
           onClick={() => void undoLast()}
-          className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-amber hover:bg-hairline"
+          className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-meta text-amber hover:bg-hairline"
         >
           <UndoIcon />
           {copy.toasts.undo} <Kbd keys={["⌘", "Z"]} />
@@ -32,7 +32,7 @@ export function Toast() {
       {toast.undoable && (
         <span
           aria-hidden="true"
-          className="toast-timer absolute bottom-0 left-0 h-px w-full origin-left bg-amber/60"
+          className="toast-timer absolute bottom-0 left-0 h-px w-full origin-left bg-muted/50"
           style={{ animationDuration: `${TOAST_MS}ms` }}
         />
       )}

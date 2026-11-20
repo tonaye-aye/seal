@@ -44,7 +44,7 @@ export function SetupScreen({
 }
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
-  return <p className="mb-2 font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">{children}</p>;
+  return <p className="mb-2 label text-faint">{children}</p>;
 }
 
 // ---------- 1. Welcome ----------
@@ -59,17 +59,17 @@ function Welcome({ hotkey, onHotkey, desktop }: { hotkey: string[]; onHotkey: (k
   return (
     <section className="fade-in flex flex-1 flex-col items-center justify-center px-10 text-center">
       <Eyebrow>{copy.onboarding.step(1)}</Eyebrow>
-      <h1 className="text-[20px] font-medium tracking-[-0.02em]">{copy.onboarding.welcomeTitle}</h1>
+      <h1 className="heading text-display font-semibold">{copy.onboarding.welcomeTitle}</h1>
       <p className="mt-2 max-w-[54ch] text-muted">{copy.onboarding.welcomeBody}</p>
       <div className="mt-7 flex w-[400px] flex-col items-center gap-1.5 rounded-xl border border-hairline bg-raised/60 px-5 py-4">
         {noShortcut ? (
-          <p className="text-[13px] text-muted">{copy.onboarding.noShortcut}</p>
+          <p className="text-body text-muted">{copy.onboarding.noShortcut}</p>
         ) : (
           <>
-            <p className="text-[13px] text-text">
+            <p className="text-body text-text">
               <KeyText text={copy.onboarding.openWith} slots={{ keys: <PlusKeys keys={keys} /> }} />
             </p>
-            <p className="text-[12px] text-faint">{copy.onboarding.menuBar}</p>
+            <p className="text-meta text-faint">{copy.onboarding.menuBar}</p>
           </>
         )}
       </div>
@@ -85,7 +85,7 @@ function Welcome({ hotkey, onHotkey, desktop }: { hotkey: string[]; onHotkey: (k
               .then(onHotkey)
               .finally(() => setSwitching(false));
           }}
-          className="mt-2 cursor-pointer rounded-md px-2 py-1 text-[12px] text-faint hover:bg-raised hover:text-text"
+          className="mt-2 cursor-pointer rounded-md px-2 py-1 text-meta text-faint hover:bg-raised hover:text-text"
         >
           <KeyText text={copy.onboarding.useFallback} />
         </button>
@@ -164,7 +164,7 @@ function Connect({ onboarding, mouse }: { onboarding: OnboardingState; mouse: bo
   return (
     <section className="fade-in flex min-h-0 flex-1 flex-col items-center px-10 pt-6">
       <Eyebrow>{copy.onboarding.step(2)}</Eyebrow>
-      <h1 className="text-center text-[20px] font-medium tracking-[-0.02em]">{copy.onboarding.connectTitle}</h1>
+      <h1 className="text-center heading text-display font-semibold">{copy.onboarding.connectTitle}</h1>
       <p className="mt-1.5 max-w-[60ch] text-center text-muted">{copy.onboarding.connectBody}</p>
       <div className="mt-4 min-h-0 flex-1 overflow-y-auto pb-3">
         <ConnectorList
@@ -173,7 +173,7 @@ function Connect({ onboarding, mouse }: { onboarding: OnboardingState; mouse: bo
           onConnect={(id) => void connectNext(id as ConnectorId)}
           onFix={(id) => void retrySource(id as ConnectorId)}
         />
-        <p className="mt-3 text-center text-[12px] text-faint">{copy.onboarding.connectNote}</p>
+        <p className="mt-3 text-center text-meta text-faint">{copy.onboarding.connectNote}</p>
       </div>
     </section>
   );
@@ -208,7 +208,7 @@ export function PrimaryButton({ onboarding, mouse }: { onboarding: OnboardingSta
       keys={primary.keys}
       label={primary.label}
       icon={primary.icon}
-      tone="amber"
+      tone="primary"
       mouse={mouse}
       disabled={primary.disabled}
       // On the connect step the button runs the check (Enter there connects the next source).

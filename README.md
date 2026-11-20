@@ -197,8 +197,12 @@ error, replay, undo and more.
 
 ## Licences
 
-- [Geist Sans and Geist Mono](https://github.com/vercel/geist-font) by Vercel: SIL Open Font License 1.1,
-  installed through `@fontsource-variable`.
+- [Poppins](https://github.com/itfoundry/Poppins) by Indian Type Foundry (headings): SIL Open Font License 1.1,
+  installed through `@fontsource/poppins`.
+- [Nunito](https://github.com/googlefonts/nunito) by Vernon Adams (body and UI text): SIL Open Font License 1.1,
+  installed through `@fontsource-variable/nunito`.
+- [Geist Mono](https://github.com/vercel/geist-font) by Vercel (figures, dates and small labels): SIL Open Font
+  License 1.1, installed through `@fontsource-variable/geist-mono`.
 - [Lucide](https://lucide.dev) icons (`lucide-react`): ISC.
 - React, Vite, Tailwind CSS: MIT. Tauri: MIT or Apache-2.0.
 - All seed data, people and brands are made up.

@@ -302,7 +302,7 @@ function PaletteFrame({
           banner={
             onboarding?.step === "first-scan" ? (
               <>
-                <span className="font-medium text-amber">Your first check.</span> It reads everything, so it takes a little while. You can hide me, I'll keep going.
+                <span className="font-semibold text-text">Your first check.</span> It reads everything, so it takes a little while. You can hide me, I'll keep going.
               </>
             ) : undefined
           }
@@ -342,7 +342,7 @@ function PaletteFrame({
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
     <section id={id} className="scroll-mt-6">
-      <h2 className="mb-5 text-[18px] font-semibold tracking-tight text-text">{title}</h2>
+      <h2 className="mb-5 heading text-heading font-semibold text-text">{title}</h2>
       <div className="flex flex-col gap-10">{children}</div>
     </section>
   );
@@ -352,8 +352,8 @@ function Shot({ title, note, height = 680, children }: { title: string; note?: s
   return (
     <figure className="m-0">
       <figcaption className="mb-2.5 flex items-baseline gap-3">
-        <span className="text-[13px] font-medium text-text">{title}</span>
-        {note && <span className="text-[12px] text-faint">{note}</span>}
+        <span className="text-body font-medium text-text">{title}</span>
+        {note && <span className="text-meta text-faint">{note}</span>}
       </figcaption>
       <LazyMount height={height}>{children}</LazyMount>
     </figure>
@@ -372,7 +372,7 @@ function Strip({ children }: { children: React.ReactNode }) {
 function Labelled({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-4">
-      <span className="w-40 shrink-0 font-mono text-[11px] text-faint">{label}</span>
+      <span className="w-40 shrink-0 font-mono text-label text-faint">{label}</span>
       <div className="min-w-0 flex-1">{children}</div>
     </div>
   );
@@ -409,11 +409,11 @@ export function Gallery() {
       <div ref={setScroller} className="h-full overflow-y-auto bg-bg text-text">
         <div className="mx-auto flex max-w-[1240px] gap-10 px-8 py-10">
           <nav className="sticky top-10 h-max w-40 shrink-0">
-            <p className="mb-1 text-[15px] font-semibold">Gallery</p>
-            <p className="mb-5 text-[11.5px] leading-snug text-faint">
+            <p className="mb-1 heading text-title font-semibold">Gallery</p>
+            <p className="mb-5 text-meta leading-snug text-faint">
               Dev only. Sample data from the seed household, look only. {corpus ? "" : "Loading evidence…"}
             </p>
-            <ul className="flex flex-col gap-1.5 text-[12.5px] text-muted">
+            <ul className="flex flex-col gap-1.5 text-small text-muted">
               {SECTIONS.map(([id, label]) => (
                 <li key={id}>
                   <a href={`#/gallery`} onClick={(e) => {
@@ -509,7 +509,7 @@ export function Gallery() {
             </Section>
 
             <Section id="timeline" title="Timeline">
-              <Shot title="Timeline" note="Past dates, today's activity, NOW, upcoming with amber deadlines">
+              <Shot title="Timeline" note="Past dates, today's activity, NOW, upcoming with amber deadlines (within 7 days)">
                 <PaletteFrame scan={s.decided} view="timeline" />
               </Shot>
               <Shot title="Timeline, mouse mode">
@@ -714,7 +714,7 @@ export function Gallery() {
                   ))}
                 </Strip>
               </Shot>
-              <Shot title="Connectors button (footer)" note="Count, amber while busy or retrying, red with a number when a source needs attention" height={330}>
+              <Shot title="Connectors button (footer)" note="Count, info colour while busy or retrying, red with a number when a source needs attention" height={330}>
                 <Strip>
                   {(
                     [
@@ -771,16 +771,16 @@ export function Gallery() {
               <Shot title="Key buttons" note="Keyboard (key caps before the label), mouse (an icon instead) and disabled" height={150}>
                 <Strip>
                   <Labelled label="Keyboard">
-                    <div className="flex items-center gap-6 text-[12px]">
-                      <KeyButton keys={["A"]} label={copy.actions.approve} icon={<ApproveIcon />} tone="amber" onClick={noop} />
+                    <div className="flex items-center gap-6 text-meta">
+                      <KeyButton keys={["A"]} label={copy.actions.approve} icon={<ApproveIcon />} tone="primary" onClick={noop} />
                       <KeyButton keys={["S"]} label={copy.actions.snooze} icon={<SnoozeIcon />} onClick={noop} />
                       <KeyButton keys={["T"]} label="Trace" icon={<TraceIcon />} tone="faint" onClick={noop} />
                       <KeyButton keys={["R"]} label={copy.demo.checkInProgress} icon={<CheckNowIcon />} onClick={noop} disabled />
                     </div>
                   </Labelled>
                   <Labelled label="Mouse">
-                    <div className="flex items-center gap-6 text-[12px]">
-                      <KeyButton keys={["A"]} label={copy.actions.approve} icon={<ApproveIcon />} tone="amber" onClick={noop} mouse />
+                    <div className="flex items-center gap-6 text-meta">
+                      <KeyButton keys={["A"]} label={copy.actions.approve} icon={<ApproveIcon />} tone="primary" onClick={noop} mouse />
                       <KeyButton keys={["S"]} label={copy.actions.snooze} icon={<SnoozeIcon />} onClick={noop} mouse />
                       <KeyButton keys={["T"]} label="Trace" icon={<TraceIcon />} tone="faint" onClick={noop} mouse />
                       <KeyButton keys={["R"]} label={copy.demo.checkInProgress} icon={<CheckNowIcon />} onClick={noop} mouse disabled />
@@ -806,12 +806,13 @@ export function Gallery() {
                   </Labelled>
                 </Strip>
               </Shot>
-              <Shot title="Deadline chips" note="Past or within 14 days is amber, later is faint" height={110}>
+              <Shot title="Deadline chips" note="Past or within 7 days is amber, within 14 bright, later muted" height={110}>
                 <Strip>
                   <Labelled label="14 Nov, 21 Nov, 18 Dec">
                     <div className="flex items-center gap-4">
                       <DeadlineChip date="2026-11-14" />
                       <DeadlineChip date="2026-11-21" />
+                      <DeadlineChip date="2026-11-28" />
                       <DeadlineChip date="2026-12-18" />
                     </div>
                   </Labelled>
@@ -827,7 +828,7 @@ export function Gallery() {
                     view="finding"
                     eyebrow={<span className="font-medium text-text">{FINDINGS.skylink.merchant}</span>}
                     title={FINDINGS.skylink.title}
-                    action={<span className="font-mono text-[13px] tabular">{formatAUD(FINDINGS.skylink.amounts.atStake!)}</span>}
+                    action={<span className="figure text-small">{formatAUD(FINDINGS.skylink.amounts.atStake!)}</span>}
                   >
                     {FINDINGS.skylink.why}
                   </ViewHeading>

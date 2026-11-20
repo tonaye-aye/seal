@@ -17,10 +17,10 @@ export function ShortcutSheet({ onClose }: { onClose: () => void }) {
         <div className="grid grid-cols-2 gap-6">
           {GROUPS.map((g) => (
             <div key={g.title}>
-              <h2 className="mb-2.5 font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">{g.title}</h2>
+              <h2 className="mb-2.5 label text-faint">{g.title}</h2>
               <ul className="flex flex-col gap-2">
                 {g.keys.map(([keys, label]) => (
-                  <li key={label} className="flex items-center justify-between gap-3 text-[12.5px] text-muted">
+                  <li key={label} className="flex items-center justify-between gap-3 text-small text-muted">
                     {label}
                     <Kbd keys={keys} />
                   </li>
@@ -29,7 +29,7 @@ export function ShortcutSheet({ onClose }: { onClose: () => void }) {
             </div>
           ))}
         </div>
-        <p className="mt-4 text-[11.5px] text-faint">{copy.shortcuts.footnote}</p>
+        <p className="mt-4 text-meta text-faint">{copy.shortcuts.footnote}</p>
       </section>
     </div>
   );

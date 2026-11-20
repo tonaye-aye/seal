@@ -56,7 +56,7 @@ export function replayNote(scan: ScanState): React.ReactNode | undefined {
   }
   return (
     <>
-      <span className="font-medium text-amber">{words.lead}</span> {text}
+      <span className="font-semibold text-text">{words.lead}</span> {text}
     </>
   );
 }
@@ -64,7 +64,7 @@ export function replayNote(scan: ScanState): React.ReactNode | undefined {
 /** The small "Saved answer" tag. */
 export function SavedTag({ title }: { title?: string }) {
   return (
-    <span className="shrink-0 rounded-full border border-amber/30 px-2 py-px text-[11px] text-amber" title={title ?? copy.replay.tagTitle}>
+    <span className="shrink-0 rounded-full border border-info/30 px-2 py-px text-meta text-info" title={title ?? copy.replay.tagTitle}>
       {copy.replay.tag}
     </span>
   );
@@ -75,5 +75,5 @@ export function SavedNote({ finding }: { finding: Finding }) {
   const s = savedParts(finding);
   if (!s.judged && !s.drafted) return null;
   const text = s.judged && s.drafted ? copy.replay.judgedAndDrafted : s.judged ? copy.replay.judged : copy.replay.drafted;
-  return <p className="mt-3 font-mono text-[10.5px] text-amber">{text}</p>;
+  return <p className="mt-3 font-mono text-label text-info">{text}</p>;
 }

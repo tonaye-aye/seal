@@ -16,12 +16,12 @@ import { DOT, stateText, useTick } from "./StatusStrip";
 
 // Bottom bar: one Connectors button (with a count, and a warning when a source
 // needs attention) that opens a small menu. While a demo failure is switched
-// on, an amber "Simulating" chip sits next to it, and when the model endpoint
+// on, a "Simulating" chip (info colour) sits next to it, and when the model endpoint
 // isn't answering normally (or saved answers are in use), a model chip does. Settings lives in the top bar
 // (SettingsButton below, placed by Header).
 export function Footer({ onScenarios, right }: { onScenarios: () => void; right?: React.ReactNode }) {
   return (
-    <footer className="relative flex h-10 shrink-0 items-center justify-between gap-3 border-t border-hairline px-3 text-[12px]">
+    <footer className="relative flex h-10 shrink-0 items-center justify-between gap-3 border-t border-hairline px-3 text-meta">
       <div className="flex min-w-0 items-center gap-2">
         <ConnectorsButton />
         <ModelChip />
@@ -41,7 +41,7 @@ function footerButton(open: boolean) {
   }`;
 }
 
-/** "Connectors 4": how many sources are connected, amber while one is busy, red with a count when any need attention. */
+/** "Connectors 4": how many sources are connected, info colour while one is busy, red with a count when any need attention. */
 export function ConnectorsButton({ defaultOpen = false }: { defaultOpen?: boolean }) {
   const live = useLive();
   const [open, setOpen] = useState(defaultOpen);
@@ -70,14 +70,14 @@ export function ConnectorsButton({ defaultOpen = false }: { defaultOpen?: boolea
         </span>
         {copy.footer.connectors}
         {problems > 0 ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-danger/15 px-1.5 py-0.5 font-mono text-[10.5px] text-danger">
+          <span className="inline-flex items-center gap-1 rounded-full bg-danger/15 px-1.5 py-0.5 font-mono text-label text-danger">
             <CircleAlert size={11} strokeWidth={2} aria-hidden="true" />
             {problems}
           </span>
         ) : retrying ? (
-          <span className="rounded-full bg-amber-glow px-1.5 py-0.5 font-mono text-[10.5px] text-amber">{stateText(retrying, now)}</span>
+          <span className="rounded-full bg-info/15 px-1.5 py-0.5 font-mono text-label text-info">{stateText(retrying, now)}</span>
         ) : (
-          <span className={`rounded-full px-1.5 py-0.5 font-mono text-[10.5px] tabular ${busy ? "bg-amber-glow text-amber" : "bg-raised text-faint"}`}>
+          <span className={`rounded-full px-1.5 py-0.5 figure text-label ${busy ? "bg-info/15 text-info" : "bg-raised text-faint"}`}>
             {busy ? <span className="motion-safe:animate-pulse">{ok}</span> : ok}
           </span>
         )}
@@ -86,7 +86,7 @@ export function ConnectorsButton({ defaultOpen = false }: { defaultOpen?: boolea
         </span>
       </button>
       <Menu open={open} onClose={() => setOpen(false)} label={copy.footer.connectors}>
-        <p className="px-2.5 pt-1.5 pb-1 font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">{copy.footer.connectors}</p>
+        <p className="px-2.5 pt-1.5 pb-1 label text-faint">{copy.footer.connectors}</p>
         <ul className="flex flex-col">
           {(["bank", "email", "documents", "calendar"] as const).map((id) => (
             <ConnectorRow key={id} id={id} label={LABELS[id]} status={live.statuses[id]} now={now} slow={id === "documents" ? live.slowReads : undefined} />
@@ -96,7 +96,7 @@ export function ConnectorsButton({ defaultOpen = false }: { defaultOpen?: boolea
         <ul className="flex flex-col">
           <ModelRow />
         </ul>
-        <p className="px-2.5 pt-1 pb-1.5 text-[11px] text-faint">{copy.footer.connectorsNote}</p>
+        <p className="px-2.5 pt-1 pb-1.5 text-meta text-faint">{copy.footer.connectorsNote}</p>
       </Menu>
     </div>
   );
@@ -118,10 +118,10 @@ function ConnectorRow({
 }) {
   const text = slow ? copy.connector.slow(slow.done) : status ? (status.state === "ok" && status.count !== undefined ? copy.footer.countRead(status.count) : stateText(status, now)) : copy.connector.notConnectedYet;
   return (
-    <li className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[12.5px]" title={status?.detail}>
+    <li className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-small" title={status?.detail}>
       <span className={`size-1.5 shrink-0 rounded-full ${slow ? DOT.syncing : status ? DOT[status.state] : "border border-faint"}`} aria-hidden="true" />
       <span className="flex-1 text-text">{label}</span>
-      <span className={`font-mono text-[11px] ${status?.state === "error" || status?.state === "needs_reconnect" ? "text-danger" : status?.state === "retrying" ? "text-amber" : "text-faint"}`}>
+      <span className={`font-mono text-label ${status?.state === "error" || status?.state === "needs_reconnect" ? "text-danger" : status?.state === "retrying" ? "text-info" : "text-faint"}`}>
         {text}
       </span>
       {!status && onboardingDone() && id && (
@@ -130,7 +130,7 @@ function ConnectorRow({
           tabIndex={-1}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => void connectLater(id)}
-          className="cursor-pointer rounded-full bg-raised px-2 py-0.5 text-[11px] text-text hover:bg-hairline"
+          className="cursor-pointer rounded-full bg-raised px-2 py-0.5 text-meta text-text hover:bg-hairline"
         >
           {copy.footer.connect}
         </button>
@@ -141,7 +141,7 @@ function ConnectorRow({
           tabIndex={-1}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => void reconnectCalendar().then(() => startScan())}
-          className="cursor-pointer rounded-full bg-raised px-2 py-0.5 text-[11px] text-text hover:bg-hairline"
+          className="cursor-pointer rounded-full bg-raised px-2 py-0.5 text-meta text-text hover:bg-hairline"
         >
           {copy.footer.reconnect}
         </button>

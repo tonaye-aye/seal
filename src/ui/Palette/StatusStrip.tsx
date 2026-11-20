@@ -10,8 +10,8 @@ const LABELS = copy.shared.source;
 
 export const DOT: Record<ConnectorStatus["state"], string> = {
   connecting: "bg-faint motion-safe:animate-pulse",
-  syncing: "bg-amber motion-safe:animate-pulse",
-  retrying: "bg-amber",
+  syncing: "bg-info motion-safe:animate-pulse",
+  retrying: "bg-info",
   ok: "bg-positive",
   needs_reconnect: "bg-danger",
   error: "bg-danger",
@@ -69,7 +69,7 @@ export function StatusStrip() {
           <li
             key={id}
             title={status?.detail ?? text}
-            className="flex h-6 shrink-0 items-center gap-1.5 rounded-full border border-hairline px-2.5 text-[11.5px] text-muted"
+            className="flex h-6 shrink-0 items-center gap-1.5 rounded-full border border-hairline px-2.5 text-meta text-muted"
           >
             <span
               className={`size-1.5 rounded-full ${slow ? DOT.syncing : status ? DOT[status.state] : "border border-faint"}`}
@@ -77,11 +77,11 @@ export function StatusStrip() {
             />
             {LABELS[id]}
             {loud && (
-              <span className={`font-mono text-[10.5px] ${status.state === "retrying" ? "text-amber" : "text-faint"}`}>{text}</span>
+              <span className={`font-mono text-label ${status.state === "retrying" ? "text-info" : "text-faint"}`}>{text}</span>
             )}
             {slow && (
               <>
-                <span className="font-mono text-[10.5px] text-faint">{copy.footer.slowShort}</span>
+                <span className="font-mono text-label text-faint">{copy.footer.slowShort}</span>
                 <span className="shimmer h-1.5 w-8 rounded-full" aria-hidden="true" />
               </>
             )}
@@ -90,7 +90,7 @@ export function StatusStrip() {
               <button
                 type="button"
                 onClick={() => void reconnectCalendar().then(() => startScan())}
-                className="-mr-1 ml-0.5 rounded-full bg-raised px-2 text-[11px] text-text hover:bg-hairline"
+                className="-mr-1 ml-0.5 rounded-full bg-raised px-2 text-meta text-text hover:bg-hairline"
               >
                 {copy.footer.reconnect}
               </button>

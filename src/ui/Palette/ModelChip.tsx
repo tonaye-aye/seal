@@ -14,14 +14,14 @@ import { ago } from "./Timeline";
 // in use, a chip says so; clicking it opens a menu to try live again or
 // switch to saved answers. The Connectors menu also lists it as a row.
 
-const CHIP: Partial<Record<EndpointState, { text: string; tone: "amber" | "danger" }>> = {
-  slow: { text: copy.model.chip.slow, tone: "amber" },
+const CHIP: Partial<Record<EndpointState, { text: string; tone: "info" | "danger" }>> = {
+  slow: { text: copy.model.chip.slow, tone: "info" },
   offline: { text: copy.model.chip.offline, tone: "danger" },
   key_rejected: { text: copy.model.chip.key_rejected, tone: "danger" },
   not_set_up: { text: copy.model.chip.not_set_up, tone: "danger" },
   unavailable: { text: copy.model.chip.unavailable, tone: "danger" },
-  forced: { text: copy.model.chip.forced, tone: "amber" },
-  browser: { text: copy.model.chip.browser, tone: "amber" },
+  forced: { text: copy.model.chip.forced, tone: "info" },
+  browser: { text: copy.model.chip.browser, tone: "info" },
 };
 
 /** What the endpoint is doing, in a few words (the Connectors menu row and the chip's menu). */
@@ -43,10 +43,10 @@ export function ModelRow() {
   const e = useEndpoint();
   const bad = CHIP[e.state]?.tone === "danger";
   return (
-    <li className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[12.5px]" title={e.detail}>
+    <li className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-small" title={e.detail}>
       <span className={`size-1.5 shrink-0 rounded-full ${endpointDot(e.state)}`} aria-hidden="true" />
       <span className="flex-1 text-text">{copy.model.title}</span>
-      <span className={`font-mono text-[11px] ${bad ? "text-danger" : e.state === "slow" || e.state === "forced" || e.state === "browser" ? "text-amber" : "text-faint"}`}>
+      <span className={`font-mono text-label ${bad ? "text-danger" : e.state === "slow" || e.state === "forced" || e.state === "browser" ? "text-info" : "text-faint"}`}>
         {endpointText(e)}
       </span>
     </li>
@@ -61,7 +61,7 @@ export function ModelChip({ defaultOpen = false }: { defaultOpen?: boolean }) {
   const chip = CHIP[e.state];
   if (!chip) return null;
   const checking = scan.phase === "scanning" || scan.refreshing;
-  const tone = chip.tone === "danger" ? "border-danger/30 text-danger hover:bg-danger/10" : "border-amber/30 text-amber hover:bg-amber-glow/20";
+  const tone = chip.tone === "danger" ? "border-danger/30 text-danger hover:bg-danger/10" : "border-info/30 text-info hover:bg-info/10";
   const choose = (run: () => void) => () => {
     setOpen(false);
     run();
@@ -77,18 +77,18 @@ export function ModelChip({ defaultOpen = false }: { defaultOpen?: boolean }) {
         onMouseDown={(ev) => ev.preventDefault()}
         onClick={() => setOpen((o) => !o)}
         title={e.detail}
-        className={`fade-in flex h-6 min-w-0 cursor-pointer items-center gap-1.5 truncate rounded-full border px-2.5 text-[11.5px] ${tone}`}
+        className={`fade-in flex h-6 min-w-0 cursor-pointer items-center gap-1.5 truncate rounded-full border px-2.5 text-meta ${tone}`}
       >
         <Cpu size={12} strokeWidth={1.75} aria-hidden="true" className="shrink-0" />
         <span className="truncate">{chip.text}</span>
       </button>
       <Menu open={open} onClose={() => setOpen(false)} label={copy.model.title}>
-        <p className="px-2.5 pt-1.5 pb-1 font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">{copy.model.title}</p>
-        <div className="w-[330px] px-2.5 pb-2 text-[12px]">
+        <p className="px-2.5 pt-1.5 pb-1 label text-faint">{copy.model.title}</p>
+        <div className="w-[330px] px-2.5 pb-2 text-meta">
           <p className="flex flex-wrap items-center gap-x-2 text-text">
             <span className={`size-1.5 shrink-0 rounded-full ${endpointDot(e.state)}`} aria-hidden="true" />
             {endpointText(e)}
-            {e.checkedAt && <span className="font-mono text-[11px] whitespace-nowrap text-faint">{copy.model.checkedAgo(ago(e.checkedAt))}</span>}
+            {e.checkedAt && <span className="font-mono text-label whitespace-nowrap text-faint">{copy.model.checkedAgo(ago(e.checkedAt))}</span>}
           </p>
           {e.detail && <p className="mt-1 text-muted">{e.detail}</p>}
           <p className="mt-1 text-faint">{copy.model.savedNote}</p>
@@ -103,7 +103,7 @@ export function ModelChip({ defaultOpen = false }: { defaultOpen?: boolean }) {
             onSelect={choose(toggleSavedOnly)}
           />
         )}
-        {demo.byFlag && <p className="px-2.5 pb-1.5 text-[11.5px] text-faint">{copy.model.byFlag}</p>}
+        {demo.byFlag && <p className="px-2.5 pb-1.5 text-meta text-faint">{copy.model.byFlag}</p>}
       </Menu>
     </div>
   );
