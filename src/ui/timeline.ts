@@ -33,8 +33,10 @@ export type TimelineEntry = {
   who: string;
   /** What happens, e.g. "Renews" or "Last day to give notice". */
   what: string;
-  /** Extra words under the line, e.g. the finding's title. */
+  /** Extra words under the line, e.g. the finding's title (shown on one line per finding). */
   detail?: string;
+  /** The finding's title, kept for search on every line of that finding, even where it isn't shown. */
+  title?: string;
   amountCents?: number;
   /** Real time it happened (agent activity only), for "4 min ago". */
   at?: number;
@@ -71,6 +73,13 @@ function linkCharge(key: string, findings: Finding[]): { finding?: Finding; name
   return { finding, name };
 }
 
+/** "Saved a draft to Apple Support", or just "Saved a draft" when the line already names who it goes to. */
+function draftedTo(to: string, merchant: string): string {
+  const a = norm(to);
+  const b = norm(merchant);
+  return a && (a.includes(b) || b.includes(a)) ? copy.timeline.savedDraft : copy.timeline.savedDraftTo(to);
+}
+
 function toneFor(date: string, today: string, finding?: Finding): TimelineTone {
   if (finding && finding.status === "approved") return "done";
   if (date <= today) return "past";
@@ -85,7 +94,7 @@ export function buildTimeline(scan: ScanState): TimelineEntry[] {
   const inRange = (d: string) => d >= from && d <= until;
   const findings = scan.findings.map((f) => withDecision(f, scan));
   const entries: TimelineEntry[] = [];
-  // One line per finding per day: the first one placed wins, later ones add detail to it.
+  // One line per finding per day: the first one placed wins, later ones only add a missing amount.
   const byFindingDay = new Map<string, TimelineEntry>();
 
   function place(entry: Omit<TimelineEntry, "side" | "tone">, finding?: Finding) {
@@ -96,10 +105,9 @@ export function buildTimeline(scan: ScanState): TimelineEntry[] {
       const existing = byFindingDay.get(slot);
       if (existing) {
         existing.amountCents ??= entry.amountCents;
-        if (!existing.what.toLowerCase().includes(entry.what.toLowerCase())) existing.detail = existing.detail ?? entry.what;
         return;
       }
-      const full = { ...entry, side, tone, findingId: finding.id } as TimelineEntry;
+      const full = { ...entry, side, tone, findingId: finding.id, title: finding.title } as TimelineEntry;
       byFindingDay.set(slot, full);
       entries.push(full);
       return;
@@ -201,7 +209,7 @@ export function buildTimeline(scan: ScanState): TimelineEntry[] {
       date: today,
       side: "past",
       who: f.merchant,
-      what: f.status === "approved" && f.draft ? copy.timeline.savedDraftTo(f.draft.to.name) : DID[f.status],
+      what: f.status === "approved" && f.draft ? draftedTo(f.draft.to.name, f.merchant) : DID[f.status],
       detail: f.status === "approved" ? copy.timeline.waitingInDrafts : f.title,
       at: scan.decidedAt[f.id],
       findingId: f.id,
@@ -210,19 +218,41 @@ export function buildTimeline(scan: ScanState): TimelineEntry[] {
   }
 
   // Oldest first. On the same day: dated items, then today's activity (in the order it happened).
-  return entries.sort(
+  entries.sort(
     (a, b) =>
       a.date.localeCompare(b.date) ||
       Number(a.tone === "agent") - Number(b.tone === "agent") ||
       (a.at ?? 0) - (b.at ?? 0),
   );
+  return titleOnce(entries);
+}
+
+/**
+ * A finding usually has several lines (a deadline, a renewal, the next charge).
+ * Its title would repeat under each one, so it shows under one line only: the
+ * next one still to come, or the latest one if they have all passed.
+ */
+function titleOnce(entries: TimelineEntry[]): TimelineEntry[] {
+  const keeper = new Map<string, TimelineEntry>();
+  for (const e of entries) {
+    if (!e.findingId || e.tone === "agent") continue;
+    const kept = keeper.get(e.findingId);
+    if (!kept || kept.side === "past") keeper.set(e.findingId, e);
+  }
+  for (const e of entries) {
+    if (!e.findingId || e.tone === "agent") continue;
+    // A calendar line still says where it came from.
+    const shown = keeper.get(e.findingId) === e ? e.detail : e.key.startsWith("event:") ? copy.timeline.fromCalendar : undefined;
+    e.detail = shown;
+  }
+  return entries;
 }
 
 /** The lines that match a search: by business, what happens, the detail, or a date like "28 Nov". */
 export function filterTimeline(entries: TimelineEntry[], query: string): TimelineEntry[] {
   const q = query.trim().toLowerCase();
   if (!q) return entries;
-  return entries.filter((e) => [e.who, e.what, e.detail ?? "", shortDate(e.date), e.date].some((t) => t.toLowerCase().includes(q)));
+  return entries.filter((e) => [e.who, e.what, e.detail ?? "", e.title ?? "", shortDate(e.date), e.date].some((t) => t.toLowerCase().includes(q)));
 }
 
 /** Where the present-moment marker goes: before the first entry after today. */

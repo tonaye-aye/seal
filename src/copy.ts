@@ -294,6 +294,8 @@ export const copy = {
     somethingWentWrong: "Something went wrong",
     did: { approved: "Saved a draft to Drafts", snoozed: "Snoozed", dismissed: "Marked not a leak" } as Record<string, string>,
     savedDraftTo: (name: string) => `Saved a draft to ${name}`,
+    /** When the draft goes to the business the line already names. */
+    savedDraft: "Saved a draft",
     waitingInDrafts: "Waiting in Drafts. Nothing was sent.",
   },
 
@@ -550,7 +552,7 @@ export const copy = {
         short: "Slow documents",
         simulates: "Each document read takes 4 to 6 seconds.",
         expect:
-          "for about 15 s while documents are read, a loading card under the steps on the checking screen; Connectors at the bottom stays amber, and its menu says Documents are slow to respond.",
+          "for about 15 s while documents are read, a loading card under the steps on the checking screen; the Connectors count at the bottom pulses blue, and its menu says Documents are slow to respond.",
       },
     },
     modelTitle: "Model endpoint",

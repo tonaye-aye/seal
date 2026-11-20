@@ -12,7 +12,7 @@ import { CloseIcon, HideIcon, KeysIcon, TraceIcon } from "../icons";
 import { Menu, MenuItem, Tip } from "../layers";
 import { ModelChip, ModelRow } from "./ModelChip";
 import { SimulatingChip } from "./ScenariosSheet";
-import { DOT, stateText, useTick } from "./StatusStrip";
+import { DOT, pillButton, stateText, StatusRow, useTick } from "./StatusStrip";
 
 // Bottom bar: one Connectors button (with a count, and a warning when a source
 // needs attention) that opens a small menu. While a demo failure is switched
@@ -117,38 +117,32 @@ function ConnectorRow({
   slow?: { done: number; total: number };
 }) {
   const text = slow ? copy.connector.slow(slow.done) : status ? (status.state === "ok" && status.count !== undefined ? copy.footer.countRead(status.count) : stateText(status, now)) : copy.connector.notConnectedYet;
+  const bad = status?.state === "error" || status?.state === "needs_reconnect";
+  const action =
+    !status && onboardingDone() && id ? (
+      <button type="button" tabIndex={-1} onMouseDown={(e) => e.preventDefault()} onClick={() => void connectLater(id)} className={pillButton()}>
+        {copy.footer.connect}
+      </button>
+    ) : status?.state === "needs_reconnect" ? (
+      <button
+        type="button"
+        tabIndex={-1}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => void reconnectCalendar().then(() => startScan())}
+        className={pillButton()}
+      >
+        {copy.footer.reconnect}
+      </button>
+    ) : undefined;
   return (
-    <Tip content={status?.detail} side="right">
-      <li className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-small">
-        <span className={`size-1.5 shrink-0 rounded-full ${slow ? DOT.syncing : status ? DOT[status.state] : "border border-faint"}`} aria-hidden="true" />
-        <span className="flex-1 text-text">{label}</span>
-        <span className={`font-mono text-label ${status?.state === "error" || status?.state === "needs_reconnect" ? "text-danger" : status?.state === "retrying" ? "text-info" : "text-faint"}`}>
-          {text}
-        </span>
-        {!status && onboardingDone() && id && (
-          <button
-            type="button"
-            tabIndex={-1}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => void connectLater(id)}
-            className="press cursor-pointer rounded-full bg-raised px-2 py-0.5 text-meta text-text hover:bg-hairline"
-          >
-            {copy.footer.connect}
-          </button>
-        )}
-        {status?.state === "needs_reconnect" && (
-          <button
-            type="button"
-            tabIndex={-1}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => void reconnectCalendar().then(() => startScan())}
-            className="press cursor-pointer rounded-full bg-raised px-2 py-0.5 text-meta text-text hover:bg-hairline"
-          >
-            {copy.footer.reconnect}
-          </button>
-        )}
-      </li>
-    </Tip>
+    <StatusRow
+      dot={slow ? DOT.syncing : status ? DOT[status.state] : "border border-faint"}
+      label={label}
+      state={text}
+      tone={bad ? "danger" : status?.state === "retrying" || slow ? "info" : "faint"}
+      tip={status?.detail}
+      action={action}
+    />
   );
 }
 

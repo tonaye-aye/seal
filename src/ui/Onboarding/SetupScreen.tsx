@@ -166,7 +166,7 @@ function Connect({ onboarding, mouse }: { onboarding: OnboardingState; mouse: bo
       <Eyebrow>{copy.onboarding.step(2)}</Eyebrow>
       <h1 className="text-center heading text-display font-semibold">{copy.onboarding.connectTitle}</h1>
       <p className="mt-1.5 max-w-[60ch] text-center text-muted">{copy.onboarding.connectBody}</p>
-      <div className="mt-4 min-h-0 flex-1 overflow-y-auto pb-3">
+      <div className="scroll-fade mt-4 min-h-0 flex-1 overflow-y-auto pb-3">
         <ConnectorList
           rows={[...rows, ...MORE_ROWS]}
           mouse={mouse}

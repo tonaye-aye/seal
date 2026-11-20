@@ -71,7 +71,7 @@ export function KeyButton({
       // Keep keyboard focus on the palette, so the keys keep working after a click.
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
-      className={`press inline-flex items-center gap-1.5 rounded-md leading-none ${shape} ${disabled ? "cursor-default opacity-60" : "cursor-pointer"} ${colour}`}
+      className={`press inline-flex shrink-0 items-center gap-1.5 rounded-md leading-none whitespace-nowrap ${shape} ${disabled ? "cursor-default opacity-60" : "cursor-pointer"} ${colour}`}
     >
       {/* An exact 16 px box with a block-level icon, so icon and text share one centre line. */}
       {mouse ? icon && <span className="grid size-4 shrink-0 place-items-center [&>svg]:block">{icon}</span> : <Kbd keys={keys} onAccent={primary} />}
