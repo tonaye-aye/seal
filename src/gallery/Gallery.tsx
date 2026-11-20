@@ -9,7 +9,7 @@ import { buildTimeline, filterTimeline, nowIndex } from "../ui/timeline";
 import { SearchField } from "../ui/Palette/SearchField";
 import { FilterButton } from "../ui/Palette/Filters";
 import { applyFilters, filterOptions, type FilterId } from "../ui/filters";
-import { ActionBar, FindingDetail, type Pane } from "../ui/Palette/FindingDetail";
+import { ActionBar, FindingDetail, sidebarStops, type Pane } from "../ui/Palette/FindingDetail";
 import {
   AllClear,
   CLEARED_GROUP,
@@ -184,6 +184,9 @@ type FrameProps = {
   query?: string;
   pane?: Pane;
   evidenceIndex?: number;
+  /** The open evidence item in a finding's sidebar (-1: all folded). */
+  openEvidence?: number;
+  figuresOpen?: boolean;
   editing?: boolean;
   mouse?: boolean;
   hint?: boolean;
@@ -223,6 +226,8 @@ function PaletteFrame({
   query = "",
   pane = "evidence",
   evidenceIndex = 0,
+  openEvidence = 0,
+  figuresOpen = false,
   editing = false,
   mouse = false,
   hint = false,
@@ -270,10 +275,14 @@ function PaletteFrame({
         edited={"evidence" in openItem && shownScan.edits[openItem.id] !== undefined}
         pane={pane}
         evidenceIndex={evidenceIndex}
+        openEvidence={openEvidence}
+        figuresOpen={figuresOpen}
         editing={editing}
+        mouse={mouse}
         onStopEditing={noop}
         onFocusDraft={noop}
-        onSelectEvidence={noop}
+        onToggleEvidence={noop}
+        onToggleFigures={noop}
         draftRef={draftRef}
         scanning={shownScan.phase === "scanning"}
       />
@@ -401,7 +410,7 @@ function PaletteFrame({
               </>
             ) : undefined
           }
-          bar={!setup && inDetail ? <ActionBar item={actionItem} detail pane={pane} mouse={mouse} onCommand={noop} /> : undefined}
+          bar={!setup && inDetail ? <ActionBar item={actionItem} detail pane={pane} stopOpen={openItem && evidenceIndex === sidebarStops(openItem, shownScan.corpus).evidence ? figuresOpen : evidenceIndex === openEvidence} mouse={mouse} onCommand={noop} /> : undefined}
           footer={
             <Footer
               onScenarios={noop}
@@ -703,17 +712,29 @@ export function Gallery() {
             </Section>
 
             <Section id="finding" title="Finding">
-              <Shot title="Evidence and draft" note="Cited item open, amounts checked by code highlighted">
+              <Shot title="Evidence and draft" note="Main column: header, figures, deadline, then the draft. Sidebar: the first cited item open, amounts checked by code highlighted; Checked by code folded with a count">
                 <PaletteFrame scan={s.done} view="detail" selected="f-skylink" />
               </Shot>
-              <Shot title="Not sure: check evidence" note="Medium confidence with a doubt">
+              <Shot title="All evidence folded" note="Enter or Space on the open item closes it: one line each (icon, name, date; bank lines add the amount)">
+                <PaletteFrame scan={s.done} view="detail" selected="f-skylink" openEvidence={-1} evidenceIndex={2} />
+              </Shot>
+              <Shot title="Another item open" note="J moved to the second line, Enter opened it (one open at a time)">
+                <PaletteFrame scan={s.done} view="detail" selected="f-ironworks" evidenceIndex={1} openEvidence={1} />
+              </Shot>
+              <Shot title="Checked by code open" note="C from either side, or J to its header and Enter. The header is the sidebar's last stop">
+                <PaletteFrame scan={s.done} view="detail" selected="f-skylink" openEvidence={-1} evidenceIndex={7} figuresOpen />
+              </Shot>
+              <Shot title="Keys on the draft" note="Tab: J/K scroll the draft, the sidebar's highlight goes away, the footer says Tab Evidence">
+                <PaletteFrame scan={s.done} view="detail" selected="f-skylink" pane="draft" />
+              </Shot>
+              <Shot title="Not sure: check evidence" note="Medium confidence with a doubt; the notice stays above the draft">
                 <PaletteFrame scan={s.done} view="detail" selected="f-ironworks" pane="draft" />
               </Shot>
               <Shot title="Check before sending" note="Draft the claim check couldn't fully match">
                 <PaletteFrame scan={s.done} view="detail" selected="f-brightpage" pane="draft" />
               </Shot>
-              <Shot title="Meter photo inline" note="Evidence with no text layer">
-                <PaletteFrame scan={s.done} view="detail" selected="f-redgum" evidenceIndex={1} />
+              <Shot title="Meter photo" note="Evidence with no text layer: the photo shows inside its item">
+                <PaletteFrame scan={s.done} view="detail" selected="f-redgum" evidenceIndex={1} openEvidence={1} />
               </Shot>
               <Shot title="Editing the draft" note="Typing is blocked here">
                 <PaletteFrame scan={s.edited} view="detail" selected="f-skylink" pane="draft" editing />
@@ -721,10 +742,10 @@ export function Gallery() {
               <Shot title="Nothing to send" note="The fix is a step Maya takes herself">
                 <PaletteFrame scan={s.done} view="detail" selected="f-streambox" />
               </Shot>
-              <Shot title="Finding, mouse mode" note="Plain action buttons, click any evidence">
+              <Shot title="Finding, mouse mode" note="Plain action buttons, no selection highlight; click any evidence line to open it">
                 <PaletteFrame scan={s.done} view="detail" selected="f-skylink" mouse />
               </Shot>
-              <Shot title="Checked and left alone" note="Why the mobile rise was fine">
+              <Shot title="Checked and left alone" note="Why the mobile rise was fine; the sidebar has the evidence it relied on and no figures">
                 <PaletteFrame scan={s.done} view="detail" selected="c-kookaburra" />
               </Shot>
               <Shot title="Still drafting" note="A finding whose draft hasn't arrived during a check">

@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
+import * as Accordion from "@radix-ui/react-accordion";
+import { ChevronRight } from "lucide-react";
 import type { Corpus } from "../../agent/corpus";
 import type { Cleared, Finding } from "../../agent/pipeline";
 import { getConnectors } from "../../connectors/live";
@@ -7,21 +9,42 @@ import { resetEdit, setEdit } from "../../lib/scan-store";
 import { evidenceDate, lookupEvidence, type EvidenceView } from "../evidence";
 import { daysUntil, figureValue, isUnsure, shortDate, urgency } from "../format";
 import { copy } from "../../copy";
-import { ApproveIcon, CheckNowIcon, DismissIcon, EditIcon, OpenIcon, PaneIcon, SnoozeIcon, UndoIcon } from "../icons";
+import {
+  ApproveIcon,
+  BankIcon,
+  CalendarIcon,
+  CheckNowIcon,
+  DismissIcon,
+  DocumentIcon,
+  EditIcon,
+  EmailIcon,
+  OpenIcon,
+  PaneIcon,
+  PhotoIcon,
+  SnoozeIcon,
+  UndoIcon,
+} from "../icons";
 import { Kbd, KeyButton, KeyHint } from "../Kbd";
 import { ViewHeading } from "./ViewHeading";
 import { DEADLINE_TONE } from "./FindingsList";
 import { SavedNote } from "../replay";
 import { Tip } from "../layers";
 import { CountUp } from "../CountUp";
+import { useGlide } from "../motion";
 
-// One finding, opened: why it was flagged, the evidence trail (cited items
-// first) on the left, and on the right the drafted fix with the figures code
-// checked. The Palette owns the keys; this only draws.
+// One finding, opened. The main column has the header (business, kind, the
+// figures that matter, the deadline) and the drafted fix. The sidebar on the
+// right belongs to this finding: the evidence as a list of one-line items
+// (open one to read it), then the figures code checked, folded away. The
+// Palette owns the keys; this only draws.
 
+/** Which side J/K act on: the sidebar ("evidence") or the draft. */
 export type Pane = "evidence" | "draft";
 
-// ---------- Evidence trail ----------
+/** The value the "Checked by code" accordion uses for its one item. */
+const FIGURES = "figures";
+
+// ---------- Evidence ----------
 
 const imageCache = new Map<string, Promise<string>>();
 function loadImage(docId: string): Promise<string> {
@@ -35,7 +58,7 @@ function loadImage(docId: string): Promise<string> {
   return p;
 }
 
-/** A photo with no text layer, shown inline (the meter photo). */
+/** A photo with no text layer, shown inside its item (the meter photo). */
 function EvidenceImage({ docId, alt }: { docId: string; alt: string }) {
   const [src, setSrc] = useState<string>();
   const [failed, setFailed] = useState(false);
@@ -43,8 +66,8 @@ function EvidenceImage({ docId, alt }: { docId: string; alt: string }) {
     loadImage(docId).then(setSrc, () => setFailed(true));
   }, [docId]);
   if (failed) return <p className="text-meta text-danger">{copy.detail.photoFailed}</p>;
-  if (!src) return <div className="shimmer h-28 rounded-md" aria-label={copy.detail.loadingPhoto} />;
-  return <img src={src} alt={alt} className="max-h-36 w-full rounded-md border border-hairline object-cover" />;
+  if (!src) return <div className="shimmer h-40 rounded-md" aria-label={copy.detail.loadingPhoto} />;
+  return <img src={src} alt={alt} className="max-h-48 w-full rounded-md border border-hairline object-cover" />;
 }
 
 /** Marks the amounts code checked wherever they appear in the text (info: the agent's own check, not urgency). */
@@ -67,60 +90,30 @@ function Highlighted({ text, needles }: { text: string; needles: string[] }) {
   );
 }
 
-const SOURCE_ICON: Record<EvidenceView["kind"], string> = { txn: "$", email: "@", doc: "▤", event: "◷" };
-
-function EvidenceItem({
-  view,
-  cited,
-  open,
-  needles,
-  onOpen,
-}: {
-  view: EvidenceView;
-  cited: boolean;
-  open: boolean;
-  needles: string[];
-  onOpen: () => void;
-}) {
+/** The text of an opened item. Starts scrolled so the first checked amount is in view. */
+function Excerpt({ text, needles }: { text: string; needles: string[] }) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    const box = ref.current;
+    const mark = box?.querySelector("mark");
+    if (box && mark && mark.offsetTop > box.clientHeight * 0.6) box.scrollTop = mark.offsetTop - 32;
+  }, [text]);
+  // Documents line their columns up with runs of spaces, which wrap badly in a
+  // narrow sidebar: a dot between the label and its value reads the same.
+  const tidy = text.replace(/[ \t]{2,}:/g, ":").replace(/(\S)[ \t]{3,}(?=\S)/g, "$1 · ");
   return (
-    <li
-      aria-selected={open}
-      onClick={onOpen}
-      className={`row-press cursor-pointer rounded-md border px-2.5 py-2 transition-colors duration-(--duration-fast) ${open ? "border-hairline bg-raised" : "border-transparent hover:bg-surface"}`}
-    >
-      <div className="flex items-baseline gap-2">
-        <span className="w-3 shrink-0 text-center font-mono text-label text-faint" aria-hidden="true">
-          {SOURCE_ICON[view.kind]}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className={`block truncate text-meta ${view.kind === "txn" ? "font-mono text-meta" : ""}`}>{view.title}</span>
-          <span className="block truncate text-meta text-faint">
-            {view.source} · {view.meta}
-          </span>
-        </span>
-        <span className="shrink-0 text-right figure text-label text-faint">
-          {view.amount && <span className="block text-meta text-text">{view.amount}</span>}
-          {evidenceDate(view)}
-        </span>
-      </div>
-      {cited && !open && <span className="sr-only">{copy.detail.cited}</span>}
-      {/* A photo is always shown: it is the evidence, and there is no text to read instead. */}
-      {view.imageDocId && (
-        <div className="mt-2 ml-5">
-          <EvidenceImage docId={view.imageDocId} alt={view.title} />
-        </div>
-      )}
-      {open && view.body && (
-        <div className="mt-2 ml-5">
-          {view.body && (
-            <p className="max-h-44 overflow-y-auto text-meta whitespace-pre-wrap text-muted">
-              <Highlighted text={view.body.trim()} needles={needles} />
-            </p>
-          )}
-        </div>
-      )}
-    </li>
+    <p ref={ref} className="relative mt-1 max-h-56 overflow-y-auto text-meta whitespace-pre-wrap text-muted">
+      <Highlighted text={tidy} needles={needles} />
+    </p>
   );
+}
+
+function SourceIcon({ view }: { view: EvidenceView }) {
+  if (view.imageDocId) return <PhotoIcon />;
+  if (view.kind === "txn") return <BankIcon />;
+  if (view.kind === "email") return <EmailIcon />;
+  if (view.kind === "event") return <CalendarIcon />;
+  return <DocumentIcon />;
 }
 
 export function evidenceFor(item: Finding | Cleared, corpus: Corpus | undefined): { view: EvidenceView; cited: boolean }[] {
@@ -128,73 +121,162 @@ export function evidenceFor(item: Finding | Cleared, corpus: Corpus | undefined)
   return item.citedIds.map((id) => ({ view: lookupEvidence(corpus, id), cited: true }));
 }
 
-function EvidenceTrail({
+/**
+ * The stops J/K move through in the sidebar: one per piece of evidence, then
+ * the "Checked by code" header when the finding has figures.
+ */
+export function sidebarStops(item: Finding | Cleared, corpus: Corpus | undefined): { evidence: number; figures: boolean } {
+  return { evidence: evidenceFor(item, corpus).length, figures: "figures" in item && item.figures.length > 0 };
+}
+
+// Shared by every line in the sidebar, so evidence and the figures header line up.
+const LINE = "row-press relative flex h-7 cursor-pointer items-center gap-2 rounded-md px-2 text-meta";
+
+function Sidebar({
   items,
+  finding,
   selected,
   focused,
+  openEvidence,
+  figuresOpen,
   needles,
-  onSelect,
+  mouse,
+  onToggleEvidence,
+  onToggleFigures,
 }: {
   items: { view: EvidenceView; cited: boolean }[];
+  finding?: Finding;
+  /** The selected stop: an evidence index, or items.length for the figures header. */
   selected: number;
   focused: boolean;
+  /** The open evidence item (-1: all folded). */
+  openEvidence: number;
+  figuresOpen: boolean;
   needles: string[];
-  onSelect: (index: number) => void;
+  mouse: boolean;
+  onToggleEvidence: (index: number) => void;
+  onToggleFigures: () => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const highlightRef = useRef<HTMLDivElement>(null);
+  // The selected line has the same sliding highlight as the list and the timeline.
+  useGlide(listRef, highlightRef);
+  // Lines move while an item opens or closes, after the highlight was placed:
+  // draw again once that settles so it lands on the right line.
+  const [, redraw] = useReducer((n: number) => n + 1, 0);
   useEffect(() => {
-    ref.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
+    listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
   }, [selected]);
+
   const cited = items.filter((i) => i.cited);
   const rest = items.filter((i) => !i.cited);
+  // Only the side J/K act on shows its selection (the bar marks where the keys go).
+  const isSelected = (i: number) => focused && !mouse && i === selected;
+
+  const evidenceItem = (item: (typeof items)[number], index: number) => {
+    const { view } = item;
+    const open = index === openEvidence;
+    return (
+      <Accordion.Item key={view.id} value={String(index)} data-glide-rows>
+        {/* The palette owns the keys, so the line never takes focus (like "Checked and left alone"). */}
+        <Accordion.Trigger asChild>
+          <div aria-selected={isSelected(index)} className={`${LINE} ${open ? "text-text" : "text-muted"} hover:text-text`}>
+            <span className={`shrink-0 ${open ? "text-muted" : "text-faint"}`}>
+              <SourceIcon view={view} />
+            </span>
+            <span className={`min-w-0 flex-1 truncate ${view.kind === "txn" ? "font-mono" : ""}`}>{view.title}</span>
+            {view.amount && <span className="shrink-0 figure text-meta text-text">{view.amount}</span>}
+            <span className="min-w-11 shrink-0 text-right figure text-label whitespace-nowrap text-faint">{evidenceDate(view)}</span>
+          </div>
+        </Accordion.Trigger>
+        <Accordion.Content className="accordion-content">
+          <div className="pt-0.5 pr-2 pb-2.5 pl-8">
+            <p className="truncate text-label text-faint">
+              {view.source} · {view.meta}
+            </p>
+            {view.imageDocId && (
+              <div className="mt-1.5">
+                <EvidenceImage docId={view.imageDocId} alt={view.title} />
+              </div>
+            )}
+            {view.body && <Excerpt text={view.body.trim()} needles={needles} />}
+          </div>
+        </Accordion.Content>
+      </Accordion.Item>
+    );
+  };
+
   const group = (title: string, list: typeof items, offset: number) =>
     list.length > 0 && (
       <>
-        <h3 className="mt-1 mb-1 px-2.5 label text-faint">{title}</h3>
-        <ul className="flex flex-col">
-          {list.map((item, i) => (
-            <EvidenceItem
-              key={item.view.id}
-              view={item.view}
-              cited={item.cited}
-              open={offset + i === selected}
-              needles={needles}
-              onOpen={() => onSelect(offset + i)}
-            />
-          ))}
-        </ul>
+        <h3 className="mt-2 mb-1 px-2 label text-faint first:mt-0.5">{title}</h3>
+        {list.map((item, i) => evidenceItem(item, offset + i))}
       </>
     );
+
+  const figuresSelected = isSelected(items.length);
   return (
-    <div ref={ref} className={`min-h-0 overflow-y-auto rounded-lg p-1.5 ${focused ? "pane-focus" : ""}`}>
-      {group(copy.detail.reliedOn(cited.length), cited, 0)}
-      {group(copy.detail.alsoGathered(rest.length), rest, cited.length)}
-    </div>
+    <aside aria-label={copy.detail.sidebarLabel} className="flex w-84 shrink-0 flex-col border-l border-hairline">
+      <div ref={listRef} onAnimationEnd={redraw} className="relative min-h-0 flex-1 overflow-y-auto p-2">
+        {focused && !mouse && <div ref={highlightRef} className="glide inset-x-2" style={{ "--glide-bar-inset": "7px" } as React.CSSProperties} aria-hidden="true" />}
+        <Accordion.Root
+          type="single"
+          collapsible
+          value={openEvidence >= 0 ? String(openEvidence) : ""}
+          onValueChange={(value) => onToggleEvidence(value === "" ? openEvidence : Number(value))}
+        >
+          {group(copy.detail.reliedOn(cited.length), cited, 0)}
+          {group(copy.detail.alsoGathered(rest.length), rest, cited.length)}
+        </Accordion.Root>
+
+        {/* The figures code worked out: the only numbers the draft may use. Folded away, with a count. */}
+        {finding && finding.figures.length > 0 && (
+          <Accordion.Root
+            type="single"
+            collapsible
+            value={figuresOpen ? FIGURES : ""}
+            onValueChange={onToggleFigures}
+            className="mt-2 border-t border-hairline pt-2"
+          >
+            <Accordion.Item value={FIGURES} data-glide-rows>
+              <Accordion.Trigger asChild>
+                <div aria-selected={figuresSelected} className={`${LINE} text-muted hover:text-text`}>
+                  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" className="shrink-0 text-positive">
+                    <path d="m2.5 6.5 2.25 2.25L9.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <span className={`label ${figuresSelected || figuresOpen ? "text-muted" : "text-faint"}`}>{copy.detail.checkedByCode}</span>
+                  <span className="rounded-full border border-hairline px-1.5 figure text-label text-faint">{finding.figures.length}</span>
+                  <ChevronRight size={12} strokeWidth={2} aria-hidden="true" className="accordion-chevron shrink-0 text-faint" />
+                  <span className="flex-1" />
+                  {figuresSelected && <Kbd keys={["C"]} />}
+                </div>
+              </Accordion.Trigger>
+              <Accordion.Content className="accordion-content">
+                <dl className="flex flex-col px-2 pb-1">
+                  {finding.figures.map((f) => (
+                    <Tip key={f.id} content={f.how}>
+                      <div className="flex items-baseline justify-between gap-3 border-b border-hairline/60 py-1.5 last:border-0">
+                        <dt className="min-w-0 text-meta text-muted">
+                          {f.label}
+                          {f.how && <span className="mt-0.5 block truncate font-mono text-label text-faint">{f.how}</span>}
+                        </dt>
+                        <dd className="shrink-0 figure text-meta text-text">{figureValue(f)}</dd>
+                      </div>
+                    </Tip>
+                  ))}
+                </dl>
+              </Accordion.Content>
+            </Accordion.Item>
+          </Accordion.Root>
+        )}
+      </div>
+    </aside>
   );
 }
 
-// ---------- Draft and figures ----------
+// ---------- Draft ----------
 
-function DraftPane({
-  finding,
-  edited,
-  editing,
-  onStopEditing,
-  focused,
-  paneRef,
-  scanning,
-  onFocus,
-}: {
-  finding: Finding;
-  edited: boolean;
-  editing: boolean;
-  onStopEditing: () => void;
-  focused: boolean;
-  /** A click in the pane makes it the one J/K act on. */
-  onFocus: () => void;
-  paneRef: React.RefObject<HTMLDivElement | null>;
-  scanning: boolean;
-}) {
+function Draft({ finding, edited, editing, onStopEditing, scanning }: { finding: Finding; edited: boolean; editing: boolean; onStopEditing: () => void; scanning: boolean }) {
   const draft = finding.draft;
   const textRef = useRef<HTMLTextAreaElement>(null);
 
@@ -206,105 +288,83 @@ function DraftPane({
     }
   }, [editing]);
 
-  return (
-    <div ref={paneRef} onClick={onFocus} className={`min-h-0 overflow-y-auto rounded-lg p-3 ${focused ? "pane-focus" : ""}`}>
-      {draft ? (
-        <div>
-          <div className="mb-2 flex items-center gap-2">
-            <h3 className="label text-faint">{copy.detail.draftedEmail}</h3>
-            {edited && <span className="rounded-full border border-hairline px-1.5 text-meta text-muted">{copy.detail.editedByYou}</span>}
-            {finding.status === "approved" && <span className="rounded-full border border-positive/30 px-1.5 text-meta text-positive">{copy.detail.inDrafts}</span>}
-          </div>
-          {!draft.grounded && (
-            <div className="mb-2.5 rounded-md border border-danger/30 bg-danger/8 px-2.5 py-2 text-meta">
-              <p className="font-semibold text-danger">{copy.detail.checkBeforeSending}</p>
-              <ul className="mt-0.5 list-disc pl-4 text-muted">
-                {draft.problems.map((p) => (
-                  <li key={p}>{p}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          <dl className="mb-2 grid grid-cols-[52px_1fr] gap-x-2 gap-y-0.5 text-meta">
-            <dt className="text-faint">{copy.detail.to}</dt>
-            <dd className="truncate">
-              {draft.to.name} <span className="text-faint">{draft.to.address}</span>
-            </dd>
-            <dt className="text-faint">{copy.detail.subject}</dt>
-            <dd>{draft.subject}</dd>
-            {draft.attachDocumentIds.length > 0 && (
-              <>
-                <dt className="text-faint">{copy.detail.attach}</dt>
-                <dd className="text-muted">{copy.detail.attachments(draft.attachDocumentIds.length)}</dd>
-              </>
-            )}
-          </dl>
-          {editing ? (
-            <>
-              <textarea
-                ref={textRef}
-                aria-label={copy.detail.draftBody}
-                value={draft.body}
-                onChange={(e) => setEdit(finding.id, e.target.value)}
-                className="h-56 w-full resize-none rounded-md border border-muted/50 bg-inset p-2.5 text-small text-text outline-none"
-              />
-              <div className="mt-1.5 flex items-center justify-between text-meta">
-                <span className="text-faint">{copy.detail.editsNotChecked}</span>
-                <span className="flex gap-3">
-                  {edited && (
-                    <button type="button" className="press -mx-1 cursor-pointer rounded-md px-1 text-faint hover:bg-raised hover:text-muted" onClick={() => resetEdit(finding.id)}>
-                      {copy.detail.revert}
-                    </button>
-                  )}
-                  <button type="button" className="press -mx-1 flex cursor-pointer items-center gap-1.5 rounded-md px-1 text-accent hover:bg-raised" onClick={onStopEditing}>
-                    {copy.detail.doneEditing} <Kbd keys={["Esc"]} />
-                  </button>
-                </span>
-              </div>
-            </>
-          ) : (
-            <p className="rounded-md border border-hairline bg-inset p-2.5 text-small whitespace-pre-wrap">{draft.body}</p>
-          )}
-        </div>
-      ) : finding.action.kind === "none" ? (
+  if (!draft) {
+    if (finding.action.kind === "none")
+      return (
         <div className="rounded-md border border-hairline p-3 text-small text-muted">
           <p className="font-medium text-text">{copy.detail.nothingToSend}</p>
           <p className="mt-0.5">{finding.action.summary}</p>
         </div>
-      ) : scanning ? (
+      );
+    if (scanning)
+      return (
         <div className="flex flex-col gap-2" aria-label={copy.detail.writingDraftLabel}>
           <p className="text-meta text-faint">{copy.detail.writingDraft}</p>
           <span className="shimmer h-3 w-3/4 rounded" />
           <span className="shimmer h-3 w-full rounded" />
           <span className="shimmer h-3 w-5/6 rounded" />
         </div>
-      ) : (
-        <p className="text-small text-danger">{copy.detail.couldntDraft}</p>
-      )}
+      );
+    return <p className="text-small text-danger">{copy.detail.couldntDraft}</p>;
+  }
 
-      {/* The figures code worked out: the only numbers the draft may use. A panel of its own, so it reads as the check it is. */}
-      <section className="mt-4 rounded-lg border border-hairline bg-surface/60 px-3 pt-2.5 pb-1.5">
-        <h3 className="mb-1 flex items-center gap-1.5 label text-faint">
-          <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true" className="text-positive">
-            <path d="m2.5 6.5 2.25 2.25L9.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          {copy.detail.checkedByCode}
-        </h3>
-        <dl className="flex flex-col">
-          {finding.figures.map((f) => (
-            <Tip key={f.id} content={f.how}>
-              <div className="flex items-baseline justify-between gap-4 border-b border-hairline/60 py-1.5 last:border-0">
-                <dt className="min-w-0 text-small text-muted">
-                  {f.label}
-                  {f.how && <span className="mt-0.5 block truncate font-mono text-label text-faint">{f.how}</span>}
-                </dt>
-                <dd className="shrink-0 figure text-small text-text">{figureValue(f)}</dd>
-              </div>
-            </Tip>
-          ))}
-        </dl>
-      </section>
-      <SavedNote finding={finding} />
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-2">
+        <h3 className="label text-faint">{copy.detail.draftedEmail}</h3>
+        {edited && <span className="rounded-full border border-hairline px-1.5 text-meta text-muted">{copy.detail.editedByYou}</span>}
+        {finding.status === "approved" && <span className="rounded-full border border-positive/30 px-1.5 text-meta text-positive">{copy.detail.inDrafts}</span>}
+      </div>
+      {!draft.grounded && (
+        <div className="mb-2.5 rounded-md border border-danger/30 bg-danger/8 px-2.5 py-2 text-meta">
+          <p className="font-semibold text-danger">{copy.detail.checkBeforeSending}</p>
+          <ul className="mt-0.5 list-disc pl-4 text-muted">
+            {draft.problems.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <dl className="mb-2 grid grid-cols-[52px_1fr] gap-x-2 gap-y-0.5 text-meta">
+        <dt className="text-faint">{copy.detail.to}</dt>
+        <dd className="truncate">
+          {draft.to.name} <span className="text-faint">{draft.to.address}</span>
+        </dd>
+        <dt className="text-faint">{copy.detail.subject}</dt>
+        <dd>{draft.subject}</dd>
+        {draft.attachDocumentIds.length > 0 && (
+          <>
+            <dt className="text-faint">{copy.detail.attach}</dt>
+            <dd className="text-muted">{copy.detail.attachments(draft.attachDocumentIds.length)}</dd>
+          </>
+        )}
+      </dl>
+      {editing ? (
+        <>
+          <textarea
+            ref={textRef}
+            aria-label={copy.detail.draftBody}
+            value={draft.body}
+            onChange={(e) => setEdit(finding.id, e.target.value)}
+            className="h-72 w-full resize-none rounded-md border border-muted/50 bg-inset p-3 text-small text-text outline-none"
+          />
+          <div className="mt-1.5 flex items-center justify-between text-meta">
+            <span className="text-faint">{copy.detail.editsNotChecked}</span>
+            <span className="flex gap-3">
+              {edited && (
+                <button type="button" className="press -mx-1 cursor-pointer rounded-md px-1 text-faint hover:bg-raised hover:text-muted" onClick={() => resetEdit(finding.id)}>
+                  {copy.detail.revert}
+                </button>
+              )}
+              <button type="button" className="press -mx-1 flex cursor-pointer items-center gap-1.5 rounded-md px-1 text-accent hover:bg-raised" onClick={onStopEditing}>
+                {copy.detail.doneEditing} <Kbd keys={["Esc"]} />
+              </button>
+            </span>
+          </div>
+        </>
+      ) : (
+        <p className="rounded-md border border-hairline bg-inset p-3 text-small whitespace-pre-wrap">{draft.body}</p>
+      )}
     </div>
   );
 }
@@ -340,9 +400,13 @@ export function FindingDetail({
   edited,
   pane,
   evidenceIndex,
+  openEvidence,
+  figuresOpen,
   editing,
+  mouse,
   onStopEditing,
-  onSelectEvidence,
+  onToggleEvidence,
+  onToggleFigures,
   onFocusDraft,
   draftRef,
   scanning,
@@ -351,10 +415,16 @@ export function FindingDetail({
   corpus: Corpus | undefined;
   edited: boolean;
   pane: Pane;
+  /** The selected stop in the sidebar (see sidebarStops). */
   evidenceIndex: number;
+  openEvidence: number;
+  figuresOpen: boolean;
   editing: boolean;
+  mouse: boolean;
   onStopEditing: () => void;
-  onSelectEvidence: (index: number) => void;
+  onToggleEvidence: (index: number) => void;
+  onToggleFigures: () => void;
+  /** A click in the main column makes the draft the side J/K act on. */
   onFocusDraft: () => void;
   draftRef: React.RefObject<HTMLDivElement | null>;
   scanning: boolean;
@@ -370,66 +440,84 @@ export function FindingDetail({
     : [];
 
   return (
-    <section aria-label={copy.detail.label} className="flex min-h-0 flex-1 flex-col">
-      {/* Pinned, like the list's and the timeline's headings. */}
-      <ViewHeading
-        title={item.title}
-        eyebrow={
-          <>
-            <span className="truncate font-semibold text-text">{item.merchant}</span>
-            {finding ? (
-              <>
-                {/* The kind is quiet context; the deadline is the news, coloured by how close it is. */}
-                <span className="shrink-0 text-faint">{copy.shared.kind[finding.kind]}</span>
-                {finding.deadline && (
-                  <Tip content={finding.deadline.label}>
-                    <span
-                      className={`ml-1 inline-flex h-5 shrink-0 items-center rounded-full px-2 figure text-label whitespace-nowrap ${
-                        urgency(finding.deadline.date) === "soon" ? "" : "border border-hairline"
-                      } ${DEADLINE_TONE[urgency(finding.deadline.date)]}`}
-                    >
-                      {copy.detail.deadlineChip(shortDate(finding.deadline.date), copy.dates.days(daysUntil(finding.deadline.date)))}
-                    </span>
-                  </Tip>
-                )}
-              </>
-            ) : (
-              <span className="shrink-0 text-positive">{copy.shared.looksFine}</span>
-            )}
-          </>
-        }
-        action={finding && <Amounts finding={finding} />}
-      >
-        <span className="line-clamp-2">{item.why}</span>
-        {finding?.deadline && (
-          <span className="mt-0.5 block truncate text-meta text-faint">
-            {copy.detail.nextDate(finding.deadline.label, shortDate(finding.deadline.date))}
-          </span>
-        )}
-      </ViewHeading>
+    <section aria-label={copy.detail.label} className="flex min-h-0 flex-1">
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Pinned, like the list's and the timeline's headings. */}
+        <ViewHeading
+          title={item.title}
+          eyebrow={
+            <>
+              <span className="truncate font-semibold text-text">{item.merchant}</span>
+              {finding ? (
+                <>
+                  {/* The kind is quiet context; the deadline is the news, coloured by how close it is. */}
+                  <span className="shrink-0 text-faint">{copy.shared.kind[finding.kind]}</span>
+                  {finding.deadline && (
+                    <Tip content={finding.deadline.label}>
+                      <span
+                        className={`ml-1 inline-flex h-5 shrink-0 items-center rounded-full px-2 figure text-label whitespace-nowrap ${
+                          urgency(finding.deadline.date) === "soon" ? "" : "border border-hairline"
+                        } ${DEADLINE_TONE[urgency(finding.deadline.date)]}`}
+                      >
+                        {copy.detail.deadlineChip(shortDate(finding.deadline.date), copy.dates.days(daysUntil(finding.deadline.date)))}
+                      </span>
+                    </Tip>
+                  )}
+                </>
+              ) : (
+                <span className="shrink-0 text-positive">{copy.shared.looksFine}</span>
+              )}
+            </>
+          }
+          action={finding && <Amounts finding={finding} />}
+        >
+          <span className="line-clamp-2">{item.why}</span>
+          {finding?.deadline && (
+            <span className="mt-0.5 block truncate text-meta text-faint">
+              {copy.detail.nextDate(finding.deadline.label, shortDate(finding.deadline.date))}
+            </span>
+          )}
+        </ViewHeading>
 
-      {finding && isUnsure(finding) && (
-        <div className="mx-4 mt-2 rounded-md border border-info/25 bg-info/8 px-3 py-1.5 text-meta">
-          <span className="font-semibold text-info">{copy.detail.notSure}</span>
-          <span className="text-muted">{finding.doubts.join(" ") || copy.detail.lessConfident}</span>
-        </div>
-      )}
-
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] gap-2 px-2 pt-2">
-        <EvidenceTrail items={evidence} selected={evidenceIndex} focused={pane === "evidence"} needles={needles} onSelect={onSelectEvidence} />
-        {finding ? (
-          <DraftPane finding={finding} edited={edited} editing={editing} onStopEditing={onStopEditing} focused={pane === "draft"} paneRef={draftRef} scanning={scanning} onFocus={onFocusDraft} />
-        ) : (
-          <div className="rounded-lg p-3 text-small">
-            <h3 className="mb-1.5 label text-faint">{copy.detail.whyLeftAlone}</h3>
-            <p className="text-muted">{(item as Cleared).why}</p>
-            <p className="mt-3 text-faint">{copy.detail.nothingToDo}</p>
+        {finding && isUnsure(finding) && (
+          <div className="mx-4 mt-2 rounded-md border border-info/25 bg-info/8 px-3 py-1.5 text-meta">
+            <span className="font-semibold text-info">{copy.detail.notSure}</span>
+            <span className="text-muted">{finding.doubts.join(" ") || copy.detail.lessConfident}</span>
           </div>
         )}
+
+        <div ref={draftRef} onClick={finding ? onFocusDraft : undefined} className="min-h-0 flex-1 overflow-y-auto p-2">
+          {finding ? (
+            <div className={`rounded-lg p-3 ${pane === "draft" && !mouse ? "pane-focus" : ""}`}>
+              <Draft finding={finding} edited={edited} editing={editing} onStopEditing={onStopEditing} scanning={scanning} />
+              <SavedNote finding={finding} />
+            </div>
+          ) : (
+            <div className="p-3 text-small">
+              <h3 className="mb-1.5 label text-faint">{copy.detail.whyLeftAlone}</h3>
+              <p className="text-muted">{(item as Cleared).why}</p>
+              <p className="mt-3 text-faint">{copy.detail.nothingToDo}</p>
+            </div>
+          )}
+        </div>
       </div>
+
+      <Sidebar
+        items={evidence}
+        finding={finding}
+        selected={evidenceIndex}
+        focused={pane === "evidence"}
+        openEvidence={openEvidence}
+        figuresOpen={figuresOpen}
+        needles={needles}
+        mouse={mouse}
+        onToggleEvidence={onToggleEvidence}
+        onToggleFigures={onToggleFigures}
+      />
     </section>
   );
 }
+
 
 /** A small mouse, for the "click" hint (the mouse's version of a key cap). */
 export function MouseIcon() {
@@ -443,19 +531,22 @@ export function MouseIcon() {
 }
 
 /** Something the action bar (or its key) can do. */
-export type Command = "approve" | "edit" | "snooze" | "dismiss" | "undo" | "rescan" | "open" | "pane";
+export type Command = "approve" | "edit" | "snooze" | "dismiss" | "undo" | "rescan" | "open" | "pane" | "toggle" | "figures";
 
 /** The keys for what's selected, shown under the list or the open finding. Each one can also be clicked. */
 export function ActionBar({
   item,
   detail,
   pane,
+  stopOpen = false,
   mouse,
   onCommand,
 }: {
   item?: Finding | Cleared | { undecided: string };
   detail: boolean;
   pane?: Pane;
+  /** In an open finding: the selected sidebar line is open (so Enter closes it). */
+  stopOpen?: boolean;
   /** The mouse is driving: say what a click does instead of listing keys. */
   mouse: boolean;
   onCommand: (command: Command) => void;
@@ -519,7 +610,10 @@ export function ActionBar({
         {!detail && item && !("undecided" in item) && <KeyButton keys={["↵"]} label={copy.actions.open} icon={<OpenIcon />} tone="faint" onClick={() => onCommand("open")} />}
         {!detail && <KeyHint keys={["J", "K"]} label={copy.actions.move} />}
         {detail && !mouse && <KeyHint keys={["J", "K"]} label={pane === "draft" ? copy.actions.scroll : copy.actions.evidence} />}
-        {detail && !mouse && twoPanes && <KeyButton keys={["Tab"]} label={copy.actions.switchPane} icon={<PaneIcon />} tone="faint" onClick={() => onCommand("pane")} />}
+        {detail && !mouse && pane !== "draft" && <KeyButton keys={["↵"]} label={stopOpen ? copy.actions.close : copy.actions.open} icon={<OpenIcon />} tone="faint" onClick={() => onCommand("toggle")} />}
+        {detail && !mouse && twoPanes && (
+          <KeyButton keys={["Tab"]} label={pane === "draft" ? copy.actions.toEvidence : copy.actions.toDraft} icon={<PaneIcon />} tone="faint" onClick={() => onCommand("pane")} />
+        )}
         {/* With the mouse, the click hint takes the place of the navigation keys, as in the list. */}
         {detail && mouse && (
           <span className="inline-flex items-center gap-1.5 text-muted">

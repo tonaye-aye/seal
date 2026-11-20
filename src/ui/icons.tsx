@@ -8,11 +8,16 @@ import {
   ArrowRight,
   ArrowUpRight,
   Ban,
+  CalendarDays,
   Check,
   Clock,
   Columns2,
+  CreditCard,
   EyeOff,
+  FileText,
+  Image,
   Keyboard,
+  Mail,
   Pencil,
   Plus,
   RotateCcw,
@@ -43,6 +48,13 @@ export const NextIcon = icon(ArrowRight);
 export const ConnectIcon = icon(Plus);
 export const CheckNowIcon = icon(ScanSearch);
 export const ResetIcon = icon(RotateCcw);
+
+// Where a piece of evidence came from, for the open finding's sidebar.
+export const BankIcon = icon(CreditCard);
+export const EmailIcon = icon(Mail);
+export const DocumentIcon = icon(FileText);
+export const PhotoIcon = icon(Image);
+export const CalendarIcon = icon(CalendarDays);
 
 /** Three rows with a dot each: the findings list. */
 export function ListIcon() {

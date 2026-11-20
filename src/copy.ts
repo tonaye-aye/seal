@@ -207,6 +207,10 @@ export const copy = {
     scroll: "Scroll",
     evidence: "Evidence",
     switchPane: "Switch pane",
+    /** In an open finding: Enter on a sidebar line, and where Tab goes. */
+    close: "Close",
+    toDraft: "Draft",
+    toEvidence: "Evidence",
     /** What a click does, in mouse mode. */
     clickForDetail: "Click for more detail",
     clickWhyFine: "Click to see why it looks fine",
@@ -229,13 +233,14 @@ export const copy = {
     perMonth: "Per month",
     notSure: "Not sure: check evidence. ",
     lessConfident: "The agent is less confident about this one.",
-    /** Evidence trail (left). */
+    /** The sidebar (right): evidence, then the figures code checked. */
+    sidebarLabel: "Evidence and checks",
     reliedOn: (n: number) => `Evidence it relied on · ${n}`,
     alsoGathered: (n: number) => `Also gathered · ${n}`,
     cited: "Cited",
     photoFailed: "Couldn't load the photo.",
     loadingPhoto: "Loading photo",
-    /** Draft (right). */
+    /** Draft (main column). */
     draftedEmail: "Drafted email",
     editedByYou: "Edited by you",
     inDrafts: "In Drafts",
@@ -255,7 +260,7 @@ export const copy = {
     checkedByCode: "Checked by code",
     /** A finding that looked fine. */
     whyLeftAlone: "Why it was left alone",
-    nothingToDo: "Nothing to do. If you think it's wrong, the evidence it relied on is on the left.",
+    nothingToDo: "Nothing to do. If you think it's wrong, the evidence it relied on is on the right.",
   },
 
   /** How each piece of evidence is labelled in the trail. */
@@ -550,7 +555,8 @@ export const copy = {
           [["J"], "Next"],
           [["K"], "Previous"],
           [["↵"], "Open evidence and draft"],
-          [["Space"], "Open or close a group"],
+          [["Space"], "Open or close a group or evidence"],
+          [["C"], "Checked by code (in a finding)"],
           [["A"], "Approve: save the draft to Drafts"],
           [["E"], "Edit the draft"],
           [["S"], "Snooze"],
@@ -566,7 +572,7 @@ export const copy = {
           [["⌘", "↵"], "Timeline: what's coming"],
           [["V"], "View: findings or timeline"],
           [["/"],"Search findings or the timeline"],
-          [["Tab"], "Switch pane (in a finding)"],
+          [["Tab"], "Draft or evidence (in a finding)"],
           [["T"], "Show what the agent did"],
           [["R"], "Check again (reconnects first)"],
           [["Esc"], "Back, then close"],

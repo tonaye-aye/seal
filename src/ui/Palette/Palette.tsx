@@ -13,7 +13,7 @@ import {
 import { ListHint, TimelineHint } from "./FooterHint";
 import { PrimaryButton, SetupScreen } from "../Onboarding/SetupScreen";
 import { approve, dismiss, rankedFindings, snooze, startScan, undoLast, useScan } from "../../lib/scan-store";
-import { ActionBar, FindingDetail, evidenceFor, type Command, type Pane } from "./FindingDetail";
+import { ActionBar, FindingDetail, sidebarStops, type Command, type Pane } from "./FindingDetail";
 import {
   AllClear,
   CLEARED_GROUP,
@@ -53,7 +53,8 @@ import { changeView, nativeViewTransitions } from "../motion";
 // It owns every key, in one handler, so nothing else can fight over them:
 //   list    J/K move, Enter opens, A approve, E edit, S snooze, D not a leak,
 //           Enter or Space on "Checked and left alone" opens or closes it
-//   detail  J/K move through evidence (or scroll the draft), Tab switch pane
+//   detail  J/K move through the sidebar (or scroll the draft), Enter or Space
+//           opens or closes the selected line, C "Checked by code", Tab draft/sidebar
 //   timeline  J/K move through time, Enter opens the line's finding
 //   list    F filter menu, Backspace removes the newest filter (Esc clears them all, after the search)
 //   always  Cmd+Enter timeline, V view menu, Cmd+Z undo, / search, T trace, R check again, ? keys, Esc back
@@ -103,6 +104,10 @@ export function Palette() {
   const [timelineKey, setTimelineKey] = useState<string>();
   const [pane, setPane] = useState<Pane>("evidence");
   const [evidenceIndex, setEvidenceIndex] = useState(0);
+  // In an open finding's sidebar: which evidence is open (-1: all folded; the
+  // first, a cited one, starts open) and whether "Checked by code" is.
+  const [openEvidence, setOpenEvidence] = useState(0);
+  const [figuresOpen, setFiguresOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [traceOpen, setTraceOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -136,7 +141,9 @@ export function Palette() {
   const selected: ListItem | undefined = pickSelected(rows, items, selectedKey, view === "list");
   const selectedItem: Finding | Cleared | undefined =
     selected?.type === "finding" ? selected.finding : selected?.type === "cleared" ? selected.cleared : undefined;
-  const evidenceCount = selectedItem ? evidenceFor(selectedItem, scan.corpus).length : 0;
+  const stops = selectedItem ? sidebarStops(selectedItem, scan.corpus) : { evidence: 0, figures: false };
+  const stopCount = stops.evidence + (stops.figures ? 1 : 0);
+  const onFiguresStop = stops.figures && evidenceIndex === stops.evidence;
   const entries = filterTimeline(buildTimeline(scan), query);
   const selectedEntry = entries.find((e) => e.key === timelineKey) ?? entries[nowIndex(entries)] ?? entries[entries.length - 1];
 
@@ -197,6 +204,23 @@ export function Palette() {
   function select(key: string | undefined) {
     setSelectedKey(key);
     setEvidenceIndex(0);
+    setOpenEvidence(0);
+    setFiguresOpen(false);
+  }
+
+  /** Opens or closes one piece of evidence in the sidebar, and selects it. */
+  function toggleEvidence(index: number) {
+    setPane("evidence");
+    setEvidenceIndex(index);
+    setOpenEvidence((open) => (open === index ? -1 : index));
+  }
+
+  /** Opens or closes "Checked by code" (C, or Enter on its header), and selects its header. */
+  function toggleFigures() {
+    if (!stops.figures) return;
+    setPane("evidence");
+    setEvidenceIndex(stops.evidence);
+    setFiguresOpen((o) => !o);
   }
 
   function move(by: number) {
@@ -341,6 +365,15 @@ export function Palette() {
         if (inDetail && selectedItem && "evidence" in selectedItem) {
           setPane((p) => (p === "evidence" ? "draft" : "evidence"));
         }
+        return;
+      case "toggle":
+        // Enter or Space on the selected sidebar line.
+        if (!inDetail) return;
+        if (onFiguresStop) toggleFigures();
+        else if (evidenceIndex < stops.evidence) toggleEvidence(evidenceIndex);
+        return;
+      case "figures":
+        if (inDetail) toggleFigures();
         return;
       case "edit":
         if (selected?.type === "finding" && selected.finding.draft && selected.finding.status === "new") {
@@ -498,7 +531,7 @@ export function Palette() {
         event.preventDefault();
         if (!inDetail) move(down ? 1 : -1);
         else if (pane === "evidence") {
-          setEvidenceIndex((i) => Math.min(evidenceCount - 1, Math.max(0, i + (down ? 1 : -1))));
+          setEvidenceIndex((i) => Math.min(stopCount - 1, Math.max(0, i + (down ? 1 : -1))));
         }
         else draftRef.current?.scrollBy({ top: down ? 64 : -64 });
         return;
@@ -517,12 +550,16 @@ export function Palette() {
         case "Enter":
           event.preventDefault();
           if (!inDetail) run("open");
+          else if (pane === "evidence") run("toggle");
           return;
         case " ":
-          // Space opens and closes "Checked and left alone", like Enter.
+          // Space opens and closes "Checked and left alone" and the sidebar's lines, like Enter.
           if (!inDetail && selected?.type === "group") {
             event.preventDefault();
             toggleGroup();
+          } else if (inDetail && pane === "evidence") {
+            event.preventDefault();
+            run("toggle");
           }
           return;
         case "Tab":
@@ -544,6 +581,9 @@ export function Palette() {
       if (byLetter[lower]) {
         event.preventDefault();
         run(byLetter[lower]);
+      } else if (lower === "c" && inDetail) {
+        event.preventDefault();
+        run("figures");
       } else if (lower === "t") {
         event.preventDefault();
         setTraceOpen((o) => !o);
@@ -572,16 +612,17 @@ export function Palette() {
         edited={"evidence" in selectedItem && scan.edits[selectedItem.id] !== undefined}
         pane={pane}
         evidenceIndex={evidenceIndex}
+        openEvidence={openEvidence}
+        figuresOpen={figuresOpen}
         editing={editing}
+        mouse={mouse}
         onStopEditing={() => {
           setEditing(false);
           panelRef.current?.focus();
         }}
         onFocusDraft={() => setPane("draft")}
-        onSelectEvidence={(i) => {
-          setEvidenceIndex(i);
-          setPane("evidence");
-        }}
+        onToggleEvidence={toggleEvidence}
+        onToggleFigures={toggleFigures}
         draftRef={draftRef}
         scanning={scan.phase === "scanning"}
       />
@@ -718,7 +759,7 @@ export function Palette() {
       banner={banner}
       // Only an open finding has a bar of its own (its actions). The list and
       // timeline put their hint in the footer, and setup steps their action.
-      bar={!setup && inDetail ? <ActionBar item={actionItem} detail pane={pane} mouse={mouse} onCommand={run} /> : undefined}
+      bar={!setup && inDetail ? <ActionBar item={actionItem} detail pane={pane} stopOpen={onFiguresStop ? figuresOpen : evidenceIndex === openEvidence} mouse={mouse} onCommand={run} /> : undefined}
       footer={
         <Footer
           onScenarios={() => setScenariosOpen(true)}
