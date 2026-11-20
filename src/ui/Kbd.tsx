@@ -25,11 +25,16 @@ export function KeyHint({ keys, label }: { keys: string[]; label: string }) {
   );
 }
 
-/** A key hint that is also a button: same action by key or by click. */
+/**
+ * A key hint that is also a button: same action by key or by click. The one
+ * button pattern across the app: in keyboard mode the key caps come before
+ * the label; in mouse mode an icon does (see src/ui/icons.tsx).
+ */
 export function KeyButton({
   keys,
   label,
   onClick,
+  icon,
   tone = "muted",
   mouse = false,
   disabled = false,
@@ -37,8 +42,10 @@ export function KeyButton({
   keys: string[];
   label: string;
   onClick: () => void;
+  /** Shown before the label in mouse mode, in place of the key caps. */
+  icon?: React.ReactNode;
   tone?: "muted" | "amber" | "faint";
-  /** In mouse mode the key caps are hidden: it's just a button to click. */
+  /** In mouse mode the key caps make way for the icon: it's just a button to click. */
   mouse?: boolean;
   /** Greyed out and not clickable (the caller also ignores its key). */
   disabled?: boolean;
@@ -58,9 +65,10 @@ export function KeyButton({
       // Keep keyboard focus on the palette, so the keys keep working after a click.
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
-      className={`-mx-1.5 inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 transition-colors duration-(--duration-fast) ${disabled ? "cursor-default opacity-60" : "cursor-pointer hover:bg-raised"} ${colour}`}
+      className={`-mx-1.5 inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 leading-none transition-colors duration-(--duration-fast) ${disabled ? "cursor-default opacity-60" : "cursor-pointer hover:bg-raised"} ${colour}`}
     >
-      {!mouse && <Kbd keys={keys} />}
+      {/* An exact 16 px box with a block-level icon, so icon and text share one centre line. */}
+      {mouse ? icon && <span className="grid size-4 shrink-0 place-items-center [&>svg]:block">{icon}</span> : <Kbd keys={keys} />}
       {label}
     </button>
   );

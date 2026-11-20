@@ -1,9 +1,12 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Ellipsis } from "lucide-react";
+import { Menu, MenuItem } from "./Menu";
 import type { Cleared, Finding } from "../../agent/pipeline";
 import { useLive } from "../../connectors/live";
 import { formatAUD } from "../../lib/money";
 import type { ScanState } from "../../lib/scan-store";
 import { KIND_LABEL, SOON_DAYS, daysText, daysUntil, headlineAmount, isUnsure, plural, shortDate } from "../format";
+import { ApproveIcon, DismissIcon, SnoozeIcon } from "../icons";
 import { Kbd } from "../Kbd";
 import { TraceLines } from "./Trace";
 import { ViewHeading } from "./ViewHeading";
@@ -50,10 +53,6 @@ export function Headline({
   matches?: ListItem[];
 }) {
   const open = findings.filter((f) => f.status === "new");
-  const soon = open.filter((f) => f.deadline && daysUntil(f.deadline.date) <= SOON_DAYS);
-  const lastSoon = soon.map((f) => f.deadline!.date).sort().pop();
-  const back = open.reduce((n, f) => n + (f.amounts.recoverable ?? 0), 0);
-  const monthly = open.reduce((n, f) => n + (f.amounts.perMonth ?? 0), 0);
   const scanning = scan.phase === "scanning";
   const q = query.trim();
 
@@ -84,28 +83,17 @@ export function Headline({
   let title: string;
   if (findings.length === 0) title = scanning ? "Nothing needs you so far" : "All clear this month";
   else if (open.length === 0) title = "You've dealt with everything";
-  else {
-    title = `${plural(open.length, "thing")} need${open.length === 1 ? "s" : ""} you`;
-    if (lastSoon) title += `, ${soon.length} before ${shortDate(lastSoon)}`;
-  }
+  // Kept short on purpose: just how many need attention (deadlines and money are on each row).
+  else title = `${plural(open.length, "thing")} need${open.length === 1 ? "s" : ""} attention`;
 
-  const parts: string[] = [];
-  if (findings.length === 0) parts.push(scanning ? "Findings appear here as soon as each one is checked" : "Nothing looks wrong or unwanted. The ones below were checked and look fine");
-  else if (open.length === 0) parts.push("Approved drafts are waiting in your mailbox. Nothing was sent.");
-  else {
-    if (back > 0) parts.push(`Up to ${formatAUD(back)} to save or get back`);
-    if (monthly > 0) parts.push(`${formatAUD(monthly)} a month you could stop paying`);
-  }
+  let line: string | undefined;
+  if (findings.length === 0) line = scanning ? "Findings appear here as soon as each one is checked." : "Nothing looks wrong or unwanted. The ones below were checked and look fine.";
+  else if (open.length === 0) line = "Approved drafts are waiting in your mailbox. Nothing was sent.";
 
   return (
-    <ViewHeading
-      view="list"
-      title={title}
-      search={search}
-    >
-      {parts.join(", ")}
-      {parts.length > 0 && (open.length > 0 || findings.length === 0) && "."}
-      {scanning && <span className="text-faint"> Still checking the rest.</span>}
+    <ViewHeading view="list" title={title} search={search}>
+      {line}
+      {scanning && <span className="text-faint">{line ? " " : ""}Still checking the rest.</span>}
     </ViewHeading>
   );
 }
@@ -159,35 +147,52 @@ export function DeadlineChip({ date }: { date: string }) {
 export type RowAction = "approve" | "snooze" | "dismiss";
 
 /**
- * Buttons over the right end of the row the pointer is on (which is also the
- * selected row while the mouse is in use). They show no key caps: they are
- * for clicking. Once a key is pressed they go away until the mouse moves.
+ * The selected row's quick menu: a ⋯ button that opens Approve, Snooze and
+ * Not a leak, each with its key (A, S, D still work without opening it). It
+ * opens downwards, or upwards when the row is near the bottom of the list.
+ * `startOpen` shows it open without a click (the dev gallery only).
  */
-function HoverActions({ finding, onAct, held = false }: { finding: Finding; onAct: (action: RowAction) => void; held?: boolean }) {
-  const approve = finding.draft ? "Approve" : finding.action.kind === "none" ? "Handled" : "Approve";
-  const button = (label: string, action: RowAction, className: string) => (
-    <button
-      type="button"
-      tabIndex={-1}
-      // Keep keyboard focus on the palette, so the keys keep working after a click.
-      onMouseDown={(e) => e.preventDefault()}
-      onClick={() => onAct(action)}
-      className={`cursor-pointer rounded-md px-2 py-1 transition-colors duration-(--duration-fast) hover:bg-raised ${className}`}
-    >
-      {label}
-    </button>
-  );
+function RowMenu({ finding, onAct, startOpen = false }: { finding: Finding; onAct: (action: RowAction) => void; startOpen?: boolean }) {
+  const [open, setOpen] = useState(startOpen);
+  const [placement, setPlacement] = useState<"above" | "below">("below");
+  const button = useRef<HTMLButtonElement>(null);
+  const approve = finding.draft ? "Approve" : finding.action.kind === "none" ? "Mark handled" : "Approve";
+  const choose = (action: RowAction) => () => {
+    setOpen(false);
+    onAct(action);
+  };
   return (
-    <span
-      // Clicks here act on the row; they must not also open it.
-      onClick={(e) => e.stopPropagation()}
-      // Shown only while the pointer is on this row (mouse mode starts on any movement in the palette).
-      // `held` keeps them showing without a pointer (the dev gallery only).
-      className={`fade-in absolute inset-y-0 right-1 ${held ? "flex" : "hidden group-hover/row:flex"} w-[290px] items-center justify-end gap-0.5 bg-[linear-gradient(90deg,transparent,var(--color-raised)_32px)] pr-1 text-[12px]`}
-    >
-      {button(approve, "approve", "text-amber")}
-      {button("Snooze", "snooze", "text-muted hover:text-text")}
-      {button("Not a leak", "dismiss", "text-muted hover:text-text")}
+    // Clicks here act on the row; they must not also open it.
+    <span className="relative flex w-7 shrink-0 justify-end" onClick={(e) => e.stopPropagation()}>
+      <button
+        ref={button}
+        type="button"
+        tabIndex={-1}
+        data-menu-button
+        data-coach="row-menu"
+        aria-label={`Quick actions for ${finding.merchant}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="Quick actions"
+        // Keep keyboard focus on the palette, so the keys keep working after a click.
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => {
+          // Open upwards when the row sits in the lower half of its list.
+          const list = button.current?.closest("[data-row-list]");
+          const r = button.current?.getBoundingClientRect();
+          const l = list?.getBoundingClientRect();
+          if (r && l) setPlacement(r.top > l.top + l.height / 2 ? "above" : "below");
+          setOpen((o) => !o);
+        }}
+        className={`grid size-6 cursor-pointer place-items-center rounded-md transition-colors duration-(--duration-fast) hover:bg-hairline hover:text-text ${open ? "bg-hairline text-text" : "text-muted"}`}
+      >
+        <Ellipsis size={15} strokeWidth={1.75} aria-hidden="true" className="block" />
+      </button>
+      <Menu open={open} onClose={() => setOpen(false)} align="right" placement={placement} label="Quick actions" coach="row-menu-list">
+        <MenuItem icon={<ApproveIcon />} label={approve} keys={<Kbd keys={["A"]} />} onSelect={choose("approve")} />
+        <MenuItem icon={<SnoozeIcon />} label="Snooze" keys={<Kbd keys={["S"]} />} onSelect={choose("snooze")} />
+        <MenuItem icon={<DismissIcon />} label="Not a leak" keys={<Kbd keys={["D"]} />} onSelect={choose("dismiss")} />
+      </Menu>
     </span>
   );
 }
@@ -240,7 +245,6 @@ export function FindingsList({
   allFindings,
   selectedKey,
   scrollKey,
-  mouse,
   onHover,
   onOpen,
   onAct,
@@ -269,7 +273,7 @@ export function FindingsList({
   query: string;
   /** The search bar, pinned under the heading. */
   search: React.ReactNode;
-  /** Dev gallery only: show the selected row's click buttons without a pointer over it. */
+  /** Dev gallery only: show the selected row's quick menu open. */
   holdHover?: boolean;
 }) {
   const live = useLive();
@@ -277,6 +281,8 @@ export function FindingsList({
   const findings = items.flatMap((i) => (i.type === "finding" ? [i.finding] : []));
   const rest = items.filter((i) => i.type !== "finding");
   const missing = Object.values(live.statuses).filter((s) => s && (s.state === "needs_reconnect" || s.state === "error"));
+  const SOURCE_NAMES = { bank: "Bank", email: "Email", documents: "Documents", calendar: "Calendar" } as const;
+  const notConnected = (scan.result?.notConnected ?? []).map((id) => SOURCE_NAMES[id]);
   const remaining =
     scan.phase === "scanning" && scan.stage === "judge" && scan.progress ? scan.progress.total - scan.progress.done : undefined;
 
@@ -299,9 +305,14 @@ export function FindingsList({
     } as const;
     if (item.type === "finding")
       return (
-        <div key={item.key} {...common} className={rowClass(selected)}>
+        <div key={item.key} {...common} data-coach="finding-row" className={rowClass(selected)}>
           <FindingRow finding={item.finding} selected={selected} />
-          {mouse && selected && item.finding.status === "new" && <HoverActions finding={item.finding} onAct={(action) => onAct(action, item.key)} held={holdHover} />}
+          {/* The quick menu on the selected row; the same width is kept on other rows so the columns line up. */}
+          {selected && item.finding.status === "new" ? (
+            <RowMenu finding={item.finding} onAct={(action) => onAct(action, item.key)} startOpen={holdHover} />
+          ) : (
+            <span className="w-7 shrink-0" aria-hidden="true" />
+          )}
         </div>
       );
     if (item.type === "undecided")
@@ -324,7 +335,7 @@ export function FindingsList({
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div data-coach="findings" className="flex min-h-0 flex-1 flex-col">
       {/* Pinned: the heading stays put while the rows scroll. */}
       <Headline findings={allFindings} scan={scan} search={search} query={query} matches={items} />
       <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto pb-2">
@@ -334,12 +345,18 @@ export function FindingsList({
             The check stopped early: {scan.error} Press <Kbd keys={["R"]} /> to try again.
           </p>
         )}
+        {notConnected.length > 0 && (
+          <p className="mx-3 mb-2 rounded-lg border border-hairline px-3.5 py-2 text-[12.5px] text-muted">
+            {notConnected.join(" and ")} {notConnected.length === 1 ? "wasn't" : "weren't"} connected, so this check didn't look at{" "}
+            {notConnected.length === 1 ? "it" : "them"}. Connect from Connectors at the bottom.
+          </p>
+        )}
         {missing.length > 0 && (
           <p className="mx-3 mb-2 rounded-lg border border-danger/25 bg-danger/[0.07] px-3.5 py-2 text-[12.5px] text-muted">
             {missing.map((s) => s!.name).join(" and ")} couldn't be read, so this check is missing what's in it. Press <Kbd keys={["R"]} /> to reconnect and check again.
           </p>
         )}
-        <div role="listbox" aria-label="Findings" className="flex flex-col px-1.5">
+        <div role="listbox" aria-label="Findings" data-row-list className="flex flex-col px-1.5">
           {findings.length > 0 && findings.map((f) => row({ type: "finding", key: f.id, finding: f }))}
           {remaining !== undefined && remaining > 0 && (
             <div className="flex h-9 items-center gap-2.5 px-2.5 text-[12.5px] text-faint">

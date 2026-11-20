@@ -7,7 +7,7 @@ import { startScan } from "../../lib/scan-store";
 // strip calm; the full detail is in each chip's tooltip and screen reader text.
 const LABELS = { bank: "Bank", email: "Email", documents: "Documents", calendar: "Calendar" } as const;
 
-const DOT: Record<ConnectorStatus["state"], string> = {
+export const DOT: Record<ConnectorStatus["state"], string> = {
   connecting: "bg-faint motion-safe:animate-pulse",
   syncing: "bg-amber motion-safe:animate-pulse",
   retrying: "bg-amber",
@@ -17,7 +17,7 @@ const DOT: Record<ConnectorStatus["state"], string> = {
 };
 
 /** Re-renders every second while `active`, for countdowns. */
-function useTick(active: boolean): number {
+export function useTick(active: boolean): number {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     if (!active) return;
@@ -27,7 +27,7 @@ function useTick(active: boolean): number {
   return now;
 }
 
-function stateText(status: ConnectorStatus, now: number): string {
+export function stateText(status: ConnectorStatus, now: number): string {
   switch (status.state) {
     case "connecting":
       return "Connecting";

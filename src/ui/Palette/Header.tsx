@@ -38,7 +38,8 @@ function status(scan: ScanState): { text: string; dot: string } {
   }
 }
 
-export function Header({ action }: { action?: React.ReactNode }) {
+/** `trailing`: after the date (the settings cog). */
+export function Header({ action, trailing }: { action?: React.ReactNode; trailing?: React.ReactNode }) {
   const scan = useScan();
   const s = status(scan);
   return (
@@ -65,6 +66,7 @@ export function Header({ action }: { action?: React.ReactNode }) {
           <span className="tabular">{s.text}</span>
         </span>
         <span className="text-muted">{formatDay(now())}</span>
+        {trailing && <span className="-mr-1.5 font-sans text-[12px]">{trailing}</span>}
       </div>
     </header>
   );

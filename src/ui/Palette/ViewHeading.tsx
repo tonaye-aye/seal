@@ -16,8 +16,8 @@ export function ViewHeading({
   title: string;
   /** A small line above the title (an open finding's business and chips). */
   eyebrow?: React.ReactNode;
-  /** The line under the title. */
-  children: React.ReactNode;
+  /** The line under the title (optional). */
+  children?: React.ReactNode;
   /** Shown on the right (an open finding's amounts). */
   action?: React.ReactNode;
   /** The search bar, under the heading. */
@@ -26,7 +26,7 @@ export function ViewHeading({
   return (
     // The hairline marks the pinned edge the rows scroll under.
     <div className="shrink-0 border-b border-hairline">
-      <div className="flex items-start gap-3 px-4 pt-3.5 pb-3">
+      <div data-coach="view-heading" className="flex items-start gap-3 px-4 pt-3.5 pb-3">
         <span
           className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg border border-hairline bg-raised text-muted"
           aria-hidden="true"
@@ -36,7 +36,8 @@ export function ViewHeading({
         <div className="min-w-0 flex-1">
           {eyebrow && <div className="mb-1 flex items-center gap-2 text-[12px] whitespace-nowrap">{eyebrow}</div>}
           <h1 className="text-[18px] font-medium tracking-[-0.02em]">{title}</h1>
-          <p className="mt-0.5 text-[12.5px] text-muted">{children}</p>
+          {/* The line under the title is left out when there is nothing to say. */}
+          {hasContent(children) && <p className="mt-0.5 text-[12.5px] text-muted">{children}</p>}
         </div>
         {action && <div className="mt-1 shrink-0">{action}</div>}
       </div>
@@ -88,4 +89,11 @@ export function TimelineIcon() {
       <path d="M8 4h5.5M8 8h5.5M8 12h3.5" />
     </svg>
   );
+}
+
+/** True when the line under the title has something to show (not just empty or false parts). */
+function hasContent(node: React.ReactNode): boolean {
+  if (node === null || node === undefined || node === false || node === "") return false;
+  if (Array.isArray(node)) return node.some(hasContent);
+  return true;
 }

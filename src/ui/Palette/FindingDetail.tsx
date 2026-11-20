@@ -6,6 +6,7 @@ import { formatAUD } from "../../lib/money";
 import { resetEdit, setEdit } from "../../lib/scan-store";
 import { evidenceDate, lookupEvidence, type EvidenceView } from "../evidence";
 import { KIND_LABEL, SOON_DAYS, daysText, daysUntil, figureValue, isUnsure, shortDate } from "../format";
+import { ApproveIcon, CheckNowIcon, DismissIcon, EditIcon, OpenIcon, PaneIcon, SnoozeIcon, UndoIcon } from "../icons";
 import { Kbd, KeyButton, KeyHint } from "../Kbd";
 import { ViewHeading } from "./ViewHeading";
 
@@ -160,7 +161,7 @@ function EvidenceTrail({
       </>
     );
   return (
-    <div ref={ref} className={`min-h-0 overflow-y-auto rounded-lg p-1.5 ${focused ? "pane-focus" : ""}`}>
+    <div ref={ref} data-coach="evidence" className={`min-h-0 overflow-y-auto rounded-lg p-1.5 ${focused ? "pane-focus" : ""}`}>
       {group(`Evidence it relied on · ${cited.length}`, cited, 0)}
       {group(`Also gathered · ${rest.length}`, rest, cited.length)}
     </div>
@@ -201,9 +202,9 @@ function DraftPane({
   }, [editing]);
 
   return (
-    <div ref={paneRef} onClick={onFocus} className={`min-h-0 overflow-y-auto rounded-lg p-3 ${focused ? "pane-focus" : ""}`}>
+    <div ref={paneRef} onClick={onFocus} data-coach="draft" className={`min-h-0 overflow-y-auto rounded-lg p-3 ${focused ? "pane-focus" : ""}`}>
       {draft ? (
-        <>
+        <div data-coach="draft-message">
           <div className="mb-2 flex items-center gap-2">
             <h3 className="font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">Drafted email</h3>
             {edited && <span className="rounded-full border border-hairline px-1.5 text-[10.5px] text-muted">Edited by you</span>}
@@ -259,7 +260,7 @@ function DraftPane({
           ) : (
             <p className="rounded-md border border-hairline bg-bg/40 p-2.5 text-[12.5px] leading-[1.55] whitespace-pre-wrap">{draft.body}</p>
           )}
-        </>
+        </div>
       ) : finding.action.kind === "none" ? (
         <div className="rounded-md border border-hairline p-3 text-[12.5px] text-muted">
           <p className="font-medium text-text">Nothing to send yet</p>
@@ -276,6 +277,7 @@ function DraftPane({
         <p className="text-[12.5px] text-danger">Couldn't draft this one. The evidence and figures are still here to act on yourself.</p>
       )}
 
+      <div data-coach="figures">
       <h3 className="mt-4 mb-1.5 font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">Checked by code</h3>
       <dl className="flex flex-col">
         {finding.figures.map((f) => (
@@ -288,6 +290,7 @@ function DraftPane({
           </div>
         ))}
       </dl>
+      </div>
     </div>
   );
 }
@@ -451,26 +454,26 @@ export function ActionBar({
       </div>
     );
   }
-  type Hint = { keys: string[]; label: string; command: Command };
+  type Hint = { keys: string[]; label: string; command: Command; icon: React.ReactNode };
   let hints: Hint[] = [];
   if (item && "evidence" in item) {
     if (item.status === "new") {
       const approve = item.draft ? "Approve: save to Drafts" : item.action.kind === "none" ? "Mark handled" : "Approve";
       hints = [
-        { keys: ["A"], label: approve, command: "approve" },
-        ...(item.draft ? [{ keys: ["E"], label: "Edit", command: "edit" as const }] : []),
-        { keys: ["S"], label: "Snooze", command: "snooze" },
-        { keys: ["D"], label: "Not a leak", command: "dismiss" },
+        { keys: ["A"], label: approve, command: "approve", icon: <ApproveIcon /> },
+        ...(item.draft ? [{ keys: ["E"], label: "Edit", command: "edit" as const, icon: <EditIcon /> }] : []),
+        { keys: ["S"], label: "Snooze", command: "snooze", icon: <SnoozeIcon /> },
+        { keys: ["D"], label: "Not a leak", command: "dismiss", icon: <DismissIcon /> },
       ];
     } else {
-      hints = [{ keys: ["⌘", "Z"], label: "Undo", command: "undo" }];
+      hints = [{ keys: ["⌘", "Z"], label: "Undo", command: "undo", icon: <UndoIcon /> }];
     }
   } else if (item && "undecided" in item) {
-    hints = [{ keys: ["R"], label: "Check again", command: "rescan" }];
+    hints = [{ keys: ["R"], label: "Check again", command: "rescan", icon: <CheckNowIcon /> }];
   }
   const twoPanes = !!item && "evidence" in item;
   return (
-    <div className="flex h-10 shrink-0 items-center justify-between border-t border-hairline px-4 text-[12px]">
+    <div data-coach="action-bar" className="flex h-10 shrink-0 items-center justify-between border-t border-hairline px-4 text-[12px]">
       <div className="flex min-w-0 items-center gap-3">
         {/* Say which finding the actions apply to, in the list and in an open finding alike. */}
         {item && !("undecided" in item) && (detail || "evidence" in item) && (
@@ -479,23 +482,25 @@ export function ActionBar({
           </span>
         )}
         {hints.map((h) => (
+          <span key={h.label} data-coach={`action:${h.command}`} className="inline-flex">
           <KeyButton
-            key={h.label}
             keys={h.keys}
             label={h.label}
+            icon={h.icon}
             tone={h.command === "approve" ? "amber" : "muted"}
             // In an open finding the actions stay, as plain buttons once the mouse moves.
             mouse={mouse && detail}
             onClick={() => onCommand(h.command)}
           />
+          </span>
         ))}
         {item && "undecided" in item && <span className="truncate text-faint">{item.undecided}</span>}
       </div>
       <div className="flex shrink-0 items-center gap-3">
-        {!detail && item && !("undecided" in item) && <KeyButton keys={["↵"]} label="Open" tone="faint" onClick={() => onCommand("open")} />}
+        {!detail && item && !("undecided" in item) && <KeyButton keys={["↵"]} label="Open" icon={<OpenIcon />} tone="faint" onClick={() => onCommand("open")} />}
         {!detail && <KeyHint keys={["J", "K"]} label="Move" />}
         {detail && !mouse && <KeyHint keys={["J", "K"]} label={pane === "draft" ? "Scroll" : "Evidence"} />}
-        {detail && !mouse && twoPanes && <KeyButton keys={["Tab"]} label="Switch pane" tone="faint" onClick={() => onCommand("pane")} />}
+        {detail && !mouse && twoPanes && <KeyButton keys={["Tab"]} label="Switch pane" icon={<PaneIcon />} tone="faint" onClick={() => onCommand("pane")} />}
         {/* With the mouse, the click hint takes the place of the navigation keys, as in the list. */}
         {detail && mouse && (
           <span className="inline-flex items-center gap-1.5 text-muted">

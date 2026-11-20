@@ -5,9 +5,7 @@ import { formatAUD } from "../../lib/money";
 import type { ScanState } from "../../lib/scan-store";
 import { comingUp, nowIndex, type TimelineEntry, type TimelineTone } from "../timeline";
 import { clockTime, daysText, daysUntil, plural, shortDate } from "../format";
-import { KeyButton, KeyHint } from "../Kbd";
 import { ViewHeading } from "./ViewHeading";
-import { MouseIcon } from "./FindingDetail";
 
 // The case view: one vertical line through time. What already happened sits
 // above the amber "now" marker, what is coming sits below it, and today's
@@ -76,7 +74,7 @@ function Headline({
 function NowMarker() {
   const today = now();
   return (
-    <li className="relative flex h-10 items-center gap-3 px-3" aria-label={`Now: ${formatDay(today)}`}>
+    <li data-coach="timeline-now" className="relative flex h-10 items-center gap-3 px-3" aria-label={`Now: ${formatDay(today)}`}>
       <span className="w-12 shrink-0 text-right font-mono text-[10.5px] font-medium tracking-[0.08em] text-amber uppercase">Now</span>
       <span className={RAIL}>
         <span className="size-3 rounded-full bg-amber shadow-[0_0_0_5px_var(--color-amber-glow),0_0_18px_var(--color-amber-glow)]" />
@@ -194,6 +192,7 @@ export function Timeline({
     rows.push(
       <li
         key={entry.key}
+        data-coach={`timeline:${entry.key}`}
         role="option"
         aria-selected={selected}
         onClick={() => opens && onOpen(entry.key)}
@@ -211,7 +210,7 @@ export function Timeline({
   if (split === entries.length) rows.push(<div key="now" data-now="" />, <NowMarker key="now-marker" />);
 
   return (
-    <div className="timeline-in flex min-h-0 flex-1 flex-col">
+    <div data-coach="timeline" className="timeline-in flex min-h-0 flex-1 flex-col">
       {/* Pinned: the heading stays put while the timeline scrolls. */}
       <Headline entries={entries} scan={scan} search={search} query={query} />
       <div ref={listRef} className="relative min-h-0 flex-1 overflow-y-auto pb-4">
@@ -223,40 +222,6 @@ export function Timeline({
             {rows}
           </ol>
         </div>
-      </div>
-    </div>
-  );
-}
-
-/** The bar under the timeline: what Enter does on the selected line, and how to get back. */
-export function TimelineBar({ entry, mouse, onOpen }: { entry?: TimelineEntry; mouse: boolean; onOpen: () => void }) {
-  const opens = !!(entry?.findingId || entry?.clearedId);
-  const idle = entry && <span className="truncate text-faint">{entry.tone === "agent" ? "Something done today" : "Nothing to do here"}</span>;
-  // With the mouse, the right side says what a click does, the same way the list's bar does.
-  if (mouse && entry) {
-    return (
-      <div className="flex h-10 shrink-0 items-center justify-between gap-3 border-t border-hairline px-4 text-[12px]">
-        <span className="max-w-[260px] truncate font-medium text-text">{entry.who}</span>
-        {opens ? (
-          <span className="inline-flex shrink-0 items-center gap-1.5 text-muted">
-            <MouseIcon />
-            {entry.clearedId ? "Click to see why it looks fine" : "Click for more detail"}
-          </span>
-        ) : (
-          idle
-        )}
-      </div>
-    );
-  }
-  // With the keyboard: the name on the left; what Enter does, then how to move, on the right (as in the list).
-  return (
-    <div className="flex h-10 shrink-0 items-center justify-between border-t border-hairline px-4 text-[12px]">
-      <div className="flex min-w-0 items-center gap-3">
-        {entry && <span className="max-w-[260px] truncate font-medium text-text">{entry.who}</span>}
-      </div>
-      <div className="flex shrink-0 items-center gap-3">
-        {opens ? <KeyButton keys={["↵"]} label="Open" tone="amber" onClick={onOpen} /> : idle}
-        <KeyHint keys={["J", "K"]} label="Move" />
       </div>
     </div>
   );
