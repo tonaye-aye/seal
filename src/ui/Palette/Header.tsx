@@ -30,16 +30,20 @@ function status(scan: ScanState): { text: string; dot: string } {
   }
 }
 
-/** `crumbs`: the view you're in, then an open finding's business. Left out on the setup screens. */
-export function Header({ crumbs = [] }: { crumbs?: string[] }) {
+/**
+ * `crumbs`: the view you're in, then an open finding's business. `search`: the
+ * magnifier (SearchField.tsx), just left of the status. Both are left out on
+ * the setup screens.
+ */
+export function Header({ crumbs = [], search }: { crumbs?: string[]; search?: React.ReactNode }) {
   const scan = useScan();
   const s = status(scan);
   return (
     <header
-      className="flex h-12 shrink-0 items-center justify-between px-4"
+      className="flex h-12 shrink-0 items-center justify-between gap-4 px-4"
       onMouseDown={(e) => {
-        // Anything clickable in the bar stays clickable.
-        if (e.button !== 0 || (e.target as HTMLElement).closest("button")) return;
+        // Anything clickable in the bar (and the search) stays clickable.
+        if (e.button !== 0 || (e.target as HTMLElement).closest("button, [role='search']")) return;
         if (e.detail === 2) centerWindow();
         else startWindowDrag();
       }}
@@ -72,12 +76,16 @@ export function Header({ crumbs = [] }: { crumbs?: string[] }) {
           </nav>
         )}
       </div>
-      <div className="flex items-center gap-3 font-mono text-label text-faint">
-        <span className="flex items-center gap-1.5" aria-live="polite">
-          <span className={`size-1.5 rounded-full ${s.dot}`} aria-hidden="true" />
-          <span className="tabular">{s.text}</span>
-        </span>
-        <span className="text-muted">{formatDay(now())}</span>
+      {/* Never shrinks: when room runs short, the breadcrumb is what gets cut. */}
+      <div className="flex shrink-0 items-center gap-3">
+        {search}
+        <div className="flex items-center gap-3 font-mono text-label whitespace-nowrap text-faint">
+          <span className="flex items-center gap-1.5" aria-live="polite">
+            <span className={`size-1.5 rounded-full ${s.dot}`} aria-hidden="true" />
+            <span className="tabular">{s.text}</span>
+          </span>
+          <span className="text-muted">{formatDay(now())}</span>
+        </div>
       </div>
     </header>
   );

@@ -6,7 +6,7 @@ import { LivePreviewProvider } from "../connectors/live";
 import { TOAST_MS, rankedFindings, ScanPreviewProvider, type ScanState } from "../lib/scan-store";
 import { KeyButton } from "../ui/Kbd";
 import { buildTimeline, filterTimeline, nowIndex } from "../ui/timeline";
-import { CommandBar } from "../ui/Palette/CommandBar";
+import { SearchField } from "../ui/Palette/SearchField";
 import { ActionBar, FindingDetail, type Pane } from "../ui/Palette/FindingDetail";
 import { AllClear, DeadlineChip, FindingsList, Headline, NotChecked, Scanning, ScanError, listItems } from "../ui/Palette/FindingsList";
 import { ConnectorsButton, Footer } from "../ui/Palette/Footer";
@@ -186,6 +186,8 @@ type FrameProps = {
   detailFrom?: "list" | "timeline";
   /** The icon rail: one item held hovered or with its tooltip open, or the View or Settings menu open. */
   rail?: { hover?: RailItem; tip?: RailItem; view?: boolean; settings?: boolean };
+  /** The top bar's search: drawn as if focused (open, typing), or closed with its tooltip held open. */
+  search?: { focused?: boolean; tip?: boolean };
 };
 
 /**
@@ -212,6 +214,7 @@ function PaletteFrame({
   modelDemo,
   detailFrom = "list",
   rail,
+  search,
 }: FrameProps) {
   const setup = onboarding && isSetupScreen(onboarding.step);
   const shellRef = useRef<HTMLDivElement>(null);
@@ -258,7 +261,6 @@ function PaletteFrame({
         onOpen={noop}
         scan={shownScan}
         query={query}
-        search={<CommandBar value={query} onChange={noop} label={copy.search.timelineLabel} placeholder={copy.search.timelinePlaceholder} />}
       />
     );
   } else if (nothingYet && shownScan.phase === "scanning") main = <Scanning scan={shownScan} />;
@@ -280,7 +282,6 @@ function PaletteFrame({
         showHint={hint}
         onDismissHint={noop}
         query={query}
-        search={<CommandBar value={query} onChange={noop} />}
         holdHover={holdHover}
       />
     );
@@ -302,6 +303,20 @@ function PaletteFrame({
                       (inDetail ? detailFrom : view) === "timeline" ? copy.rail.timeline : copy.rail.list,
                       ...(inDetail ? [openItem.merchant] : []),
                     ]
+              }
+              search={
+                setup ? undefined : (
+                  <SearchField
+                    value={query}
+                    onChange={noop}
+                    label={(inDetail ? detailFrom : view) === "timeline" ? copy.search.timelineLabel : copy.search.findingsLabel}
+                    placeholder={
+                      (inDetail ? detailFrom : view) === "timeline" ? copy.search.timelinePlaceholder : copy.search.findingsPlaceholder
+                    }
+                    mouse={mouse}
+                    preview={search}
+                  />
+                )
               }
             />
           }
@@ -451,6 +466,7 @@ function Labelled({ label, children }: { label: string; children: React.ReactNod
 const SECTIONS = [
   ["onboarding", "Onboarding"],
   ["list", "List"],
+  ["search", "Search"],
   ["finding", "Finding"],
   ["timeline", "Timeline"],
   ["rail", "Icon rail"],
@@ -548,11 +564,38 @@ export function Gallery() {
               <Shot title="Everything dealt with" note="Every finding approved or snoozed">
                 <PaletteFrame scan={s.handled} />
               </Shot>
-              <Shot title="Search with matches" note='"sky"'>
-                <PaletteFrame scan={s.done} query="sky" />
+            </Section>
+
+            <Section id="search" title="Search">
+              <Shot title="Closed, with its tooltip" note="A magnifier in the top bar, left of the status. / or a click opens it">
+                <PaletteFrame scan={s.done} search={{ tip: true }} />
               </Shot>
-              <Shot title="Search, no matches">
-                <PaletteFrame scan={s.done} query="plumber" />
+              <Shot title="Open and empty" note="Just after /: the field slides open to the left, Esc closes it again">
+                <PaletteFrame scan={s.done} search={{ focused: true }} />
+              </Shot>
+              <Shot title="Typing, with matches" note='"sky": the heading counts the matches; Down or Enter goes to the rows'>
+                <PaletteFrame scan={s.done} query="sky" search={{ focused: true }} />
+              </Shot>
+              <Shot title="Down in the results" note="The field stays open while it holds a search, quieter (no fill); / goes back to it, Esc clears it">
+                <PaletteFrame scan={s.done} query="sky" selected="f-skylink" />
+              </Shot>
+              <Shot title="No matches">
+                <PaletteFrame scan={s.done} query="plumber" search={{ focused: true }} />
+              </Shot>
+              <Shot title="Mouse mode" note="A × clears the search instead of the key caps">
+                <PaletteFrame scan={s.done} query="sky" mouse search={{ focused: true }} />
+              </Shot>
+              <Shot title="Timeline, open and empty" note="Searches the timeline: business or date">
+                <PaletteFrame scan={s.done} view="timeline" search={{ focused: true }} />
+              </Shot>
+              <Shot title="Timeline, with matches" note='"ironworks", carried over from the list with ⌘↵'>
+                <PaletteFrame scan={s.done} view="timeline" query="ironworks" />
+              </Shot>
+              <Shot title="Timeline, no matches">
+                <PaletteFrame scan={s.done} view="timeline" query="plumber" search={{ focused: true }} />
+              </Shot>
+              <Shot title="Finding, with a search held" note="Life / Timeline / IronWorks Fitness beside the open field; / or a click goes back to the timeline">
+                <PaletteFrame scan={s.done} view="detail" selected="f-ironworks" detailFrom="timeline" query="iron" />
               </Shot>
             </Section>
 
@@ -592,12 +635,6 @@ export function Gallery() {
               </Shot>
               <Shot title="Timeline, mouse mode">
                 <PaletteFrame scan={s.done} view="timeline" mouse />
-              </Shot>
-              <Shot title="Timeline search with matches" note='"ironworks"'>
-                <PaletteFrame scan={s.done} view="timeline" query="ironworks" />
-              </Shot>
-              <Shot title="Timeline search, no matches">
-                <PaletteFrame scan={s.done} view="timeline" query="plumber" />
               </Shot>
             </Section>
 

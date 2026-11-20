@@ -123,12 +123,16 @@ export const copy = {
     },
   },
 
-  // ---------- Search bar (list and timeline) ----------
+  // ---------- Search (the top bar's magnifier; list and timeline) ----------
   search: {
+    /** Also the closed magnifier's tooltip. */
     findingsLabel: "Search findings",
-    findingsPlaceholder: "Search findings by business or problem",
+    /** Short: the open field is 248 px, and the label already says "Search". */
+    findingsPlaceholder: "Business or problem",
     timelineLabel: "Search the timeline",
-    timelinePlaceholder: "Search the timeline by business or date",
+    timelinePlaceholder: "Business or date",
+    /** The × in the open field, in mouse mode. */
+    clear: "Clear search",
     matches: (n: number, query: string) => `${plural(n, "match", "matches")} for "${query}"`,
     noMatches: (query: string) => `No matches for "${query}"`,
   },
