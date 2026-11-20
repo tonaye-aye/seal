@@ -58,7 +58,7 @@ export const copy = {
     notSure: "Not sure",
     looksFine: "Looks fine",
     /** A decided finding's chip, instead of its kind. */
-    decided: { approved: "Draft saved", snoozed: "Snoozed", dismissed: "Not a leak" },
+    decided: { approved: "Ready to send", handled: "Handled", snoozed: "Snoozed", dismissed: "Not a leak" },
     somethingWentWrong: "Something went wrong.",
   },
 
@@ -170,6 +170,8 @@ export const copy = {
     quickActionsFor: (merchant: string) => `Quick actions for ${merchant}`,
     stillDeciding: (n: number) => `Still deciding on ${plural(n, "more")}`,
     undecidedGroup: "Couldn't decide: check these yourself",
+    /** Approved findings, after the ones that still need Maya. */
+    approvedGroup: (n: number) => `Approved · ${n}`,
     clearedGroup: "Checked and left alone",
 
     /** Notes above the rows. */
@@ -200,6 +202,11 @@ export const copy = {
     edit: "Edit",
     snooze: "Snooze",
     notALeak: "Not a leak",
+    remind: "Remind me",
+    /** The ⋯ menu's Remind me, when the calendar wasn't connected. */
+    remindNoCalendar: "Remind me: connect Calendar first",
+    /** The ⋯ menu's Remind me, once one is set. */
+    remindSet: (date: string) => `Reminder set for ${date}`,
     undo: "Undo",
     checkAgain: "Check again",
     open: "Open",
@@ -243,7 +250,6 @@ export const copy = {
     /** Draft (main column). */
     draftedEmail: "Drafted email",
     editedByYou: "Edited by you",
-    inDrafts: "In Drafts",
     checkBeforeSending: "Check before sending",
     to: "To",
     subject: "Subject",
@@ -277,6 +283,40 @@ export const copy = {
     repeats: "repeats",
   },
 
+  // ---------- After approve ----------
+  /** The "Next" block on an approved finding, and the lines about what should happen once the draft is sent. */
+  next: {
+    title: "Next",
+    saved: "Saved in Drafts",
+    send: "Send it from your mail app. Nothing goes until you do.",
+    handled: "Marked as handled",
+    thenExpect: (expect: string) => `Then expect ${expect}.`,
+    /** The reminder Maya asked for (L). */
+    reminder: (date: string) => `Reminder in your calendar on ${date}.`,
+    /** The same, short, beside the next date in a finding's header. */
+    reminderShort: (date: string) => `Reminder ${date}`,
+    /** Read after "Then expect" or "Once sent, expect", so they start in lower case. Written by code from checked figures. */
+    expect: {
+      priceRestored: (back: string, price: string, on: string) => `${back} back, and ${price} on the ${on} debit`,
+      moneyBack: (back: string) => `${back} back`,
+      noChargeFrom: (amount: string, from: string, on: string) => `no ${amount} charge from ${from} on ${on}`,
+      noCharge: (amount: string, on: string) => `no ${amount} charge on ${on}`,
+      refund: (amount: string) => `a ${amount} refund`,
+      replyBefore: (until: string) => `a reply before the quote ends on ${until}`,
+      credit: (amount: string) => `a credit of about ${amount} on your next bill`,
+    },
+  },
+
+  /** The calendar event Remind me (L) adds. Titles end in "(Life)" so Maya knows where it came from. */
+  reminders: {
+    calendar: "Maya",
+    suffix: "(Life)",
+    checkReplied: (merchant: string) => `Check ${merchant} replied`,
+    beforeDeadline: (merchant: string, label: string, date: string) => `${merchant}: ${label}, ${date}`,
+    lookAgain: (merchant: string) => `Look at ${merchant} again`,
+    notes: (title: string) => `${title}. Added by Life when you asked for a reminder. Nothing was sent.`,
+  },
+
   // ---------- Timeline ----------
   timeline: {
     label: "Timeline",
@@ -303,11 +343,18 @@ export const copy = {
     nothingSent: "Nothing was sent or changed.",
     didntFinish: "Check didn't finish",
     somethingWentWrong: "Something went wrong",
-    did: { approved: "Saved a draft to Drafts", snoozed: "Snoozed", dismissed: "Marked not a leak" } as Record<string, string>,
+    did: { snoozed: "Snoozed", dismissed: "Marked not a leak" } as Record<string, string>,
     savedDraftTo: (name: string) => `Saved a draft to ${name}`,
     /** When the draft goes to the business the line already names. */
     savedDraft: "Saved a draft",
-    waitingInDrafts: "Waiting in Drafts. Nothing was sent.",
+    /** Today's line for an approved finding, with what to expect once it's sent. */
+    readyToSend: (expect?: string) => (expect ? `Ready to send. Then expect ${expect}.` : "Ready to send. Nothing was sent."),
+    /** A coming line of an approved finding, instead of its title. */
+    onceSent: (expect: string) => `Once sent, expect ${expect}`,
+    /** Remind me (L). */
+    reminder: "Reminder in your calendar",
+    addedReminder: (date: string) => `Added a reminder for ${date}`,
+    addedReminderDetail: "In your calendar. Nothing was sent.",
   },
 
   // ---------- Icon rail ----------
@@ -488,17 +535,24 @@ export const copy = {
     stillWriting: "The draft is still being written. Try again in a moment.",
     markedHandled: (merchant: string) => `Marked ${merchant} as handled.`,
     couldntSave: (error: string) => `Couldn't save the draft: ${error}`,
-    savedToDrafts: (to: string) => `Saved to Drafts for ${to}. Nothing was sent.`,
+    savedToDrafts: (to: string) => `Saved to Drafts for ${to}. Send it from your mail app when you're ready.`,
     snoozed: (merchant: string) => `Snoozed ${merchant}. It stays in the list, below the rest.`,
     dismissed: (merchant: string) => `Marked ${merchant} as not a leak.`,
     undoneDraft: (merchant?: string) => `Undone: the draft for ${merchant} was removed from Drafts.`,
     undone: (merchant?: string) => `Undone: ${merchant} is back in the list.`,
+    reminderAdded: (date: string) => `Added a reminder to your calendar for ${date}.`,
+    reminderAlready: (date: string) => `There's already a reminder for this on ${date}.`,
+    reminderReauth: "Couldn't add the reminder: Calendar needs reconnecting. Press R to reconnect.",
+    reminderFailed: (error: string) => `Couldn't add the reminder: ${error}`,
+    reminderNoCalendar: "Calendar isn't connected, so there's nowhere to add a reminder.",
+    reminderNotNow: "Reminders are for findings that still need you or are approved.",
+    undoneReminder: (merchant?: string) => `Undone: the reminder for ${merchant} was removed from your calendar.`,
     /** Stands in for the business's name when it isn't known. */
     it: "it",
     undo: "Undo",
     dismiss: "Dismiss",
     /** What each decision is called in the undo list. */
-    decision: { approved: "Saved to Drafts", snoozed: "Snoozed", dismissed: "Not a leak", new: "", handled: "Marked as handled" },
+    decision: { approved: "Saved to Drafts", snoozed: "Snoozed", dismissed: "Not a leak", new: "", handled: "Marked as handled", reminder: "Reminder added" },
   },
 
   // ---------- Onboarding ----------
@@ -561,6 +615,7 @@ export const copy = {
           [["E"], "Edit the draft"],
           [["S"], "Snooze"],
           [["D"], "Not a leak"],
+          [["L"], "Remind me: add it to your calendar"],
           [["F"], "Filter"],
           [["⌫"], "Remove the last filter"],
           [["⌘", "Z"], "Undo"],

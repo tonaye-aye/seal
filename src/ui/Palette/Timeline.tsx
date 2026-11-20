@@ -109,7 +109,7 @@ function Row({ entry, showDate }: { entry: TimelineEntry; showDate: boolean }) {
         </span>
         {entry.detail && <span className="mt-0.5 block truncate text-meta text-faint">{entry.detail}</span>}
       </span>
-      {entry.tone === "done" && <span className="shrink-0 rounded-full border border-positive/30 px-2 py-px text-meta text-positive">{copy.shared.decided.approved}</span>}
+      {entry.tone === "done" && <span className="shrink-0 rounded-full border border-positive/30 px-2 py-px text-meta text-positive">{entry.handled ? copy.shared.decided.handled : copy.shared.decided.approved}</span>}
       <span className={`w-[84px] shrink-0 text-right figure text-meta ${faded ? "text-faint" : ""}`}>
         {entry.amountCents !== undefined ? formatAUD(entry.amountCents) : ""}
       </span>

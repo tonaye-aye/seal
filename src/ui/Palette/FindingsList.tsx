@@ -9,7 +9,7 @@ import { fromSaved, mixedReplay, SavedTag } from "../replay";
 import { daysUntil, headlineAmount, isUnsure, shortDate, urgency, type Urgency } from "../format";
 import { copy } from "../../copy";
 import { KeyText } from "../KeyText";
-import { ApproveIcon, DismissIcon, SnoozeIcon } from "../icons";
+import { ApproveIcon, DismissIcon, RemindIcon, SnoozeIcon } from "../icons";
 import { Kbd } from "../Kbd";
 import { CountUp } from "../CountUp";
 import { useFlip, useGlide } from "../motion";
@@ -39,9 +39,14 @@ export function leftAlone(item: ListItem): boolean {
   return item.type === "cleared" || (item.type === "finding" && item.finding.status === "dismissed");
 }
 
+/** Approved (ready to send, or handled): drawn in their own group after the main list. */
+export function isApproved(item: ListItem): boolean {
+  return item.type === "finding" && item.finding.status === "approved";
+}
+
 /**
  * Every row that matches the search, in the order the list draws them: the
- * findings, then "Couldn't decide", then "Checked and left alone" (cleared
+ * findings (snoozed ones last), then "Approved", then "Couldn't decide", then "Checked and left alone" (cleared
  * cases first, then the ones marked "Not a leak"). The search also matches
  * words that are no longer shown on the rows (a finding's title, why a case
  * looks fine), so "price rise" still finds Skylink.
@@ -53,7 +58,8 @@ export function listItems(findings: Finding[], scan: ScanState, query: string): 
     .filter((f) => match(f.merchant, f.title, copy.shared.kind[f.kind]))
     .map((f): ListItem => ({ type: "finding", key: f.id, finding: f }));
   return [
-    ...found.filter((i) => !leftAlone(i)),
+    ...found.filter((i) => !leftAlone(i) && !isApproved(i)),
+    ...found.filter(isApproved),
     ...scan.undecided
       .filter((u) => match(u.merchant))
       .map((u): ListItem => ({ type: "undecided", key: u.id, merchant: u.merchant, error: u.error })),
@@ -224,7 +230,7 @@ export function DeadlineChip({ date }: { date: string }) {
   );
 }
 
-export type RowAction = "approve" | "snooze" | "dismiss";
+export type RowAction = "approve" | "snooze" | "dismiss" | "remind";
 
 /**
  * The selected row's quick menu: a ⋯ button that opens Approve, Snooze and
@@ -238,6 +244,12 @@ function RowMenu({ finding, onAct, startOpen = false }: { finding: Finding; onAc
   const button = useRef<HTMLButtonElement>(null);
   const approve = finding.draft ? copy.actions.approve : finding.action.kind === "none" ? copy.actions.markHandled : copy.actions.approve;
   const choose = (action: RowAction) => () => onAct(action);
+  const scan = useScan();
+  const open_ = finding.status === "new";
+  // Remind me: greyed out with the reason when there's no calendar, or once one is set.
+  const noCalendar = scan.result?.notConnected?.includes("calendar");
+  const reminder = scan.reminders[finding.id];
+  const remindLabel = noCalendar ? copy.actions.remindNoCalendar : reminder ? copy.actions.remindSet(shortDate(reminder.date)) : copy.actions.remind;
   return (
     // Clicks here act on the row; they must not also open it.
     <span className="flex w-7 shrink-0 justify-end" onClick={(e) => e.stopPropagation()}>
@@ -257,7 +269,7 @@ function RowMenu({ finding, onAct, startOpen = false }: { finding: Finding; onAc
         align="end"
         label={copy.list.quickActions}
         // A, S and D work with the menu open too, as its rows say.
-        shortcuts={{ a: choose("approve"), s: choose("snooze"), d: choose("dismiss") }}
+        shortcuts={open_ ? { a: choose("approve"), s: choose("snooze"), d: choose("dismiss"), l: choose("remind") } : { l: choose("remind") }}
         trigger={
           <Tip content={copy.list.quickActions}>
             <button
@@ -272,9 +284,14 @@ function RowMenu({ finding, onAct, startOpen = false }: { finding: Finding; onAc
           </Tip>
         }
       >
-        <MenuItem icon={<ApproveIcon />} label={approve} keys={<Kbd keys={["A"]} />} onSelect={choose("approve")} />
-        <MenuItem icon={<SnoozeIcon />} label={copy.actions.snooze} keys={<Kbd keys={["S"]} />} onSelect={choose("snooze")} />
-        <MenuItem icon={<DismissIcon />} label={copy.actions.notALeak} keys={<Kbd keys={["D"]} />} onSelect={choose("dismiss")} />
+        {open_ && (
+          <>
+            <MenuItem icon={<ApproveIcon />} label={approve} keys={<Kbd keys={["A"]} />} onSelect={choose("approve")} />
+            <MenuItem icon={<SnoozeIcon />} label={copy.actions.snooze} keys={<Kbd keys={["S"]} />} onSelect={choose("snooze")} />
+            <MenuItem icon={<DismissIcon />} label={copy.actions.notALeak} keys={<Kbd keys={["D"]} />} onSelect={choose("dismiss")} />
+          </>
+        )}
+        <MenuItem icon={<RemindIcon />} label={remindLabel} keys={<Kbd keys={["L"]} />} disabled={!!noCalendar || !!reminder} onSelect={choose("remind")} />
       </Menu>
     </span>
   );
@@ -299,6 +316,8 @@ function FindingRow({ finding }: { finding: Finding }) {
   const saved = mixedReplay(useScan()) && fromSaved(finding);
   const dot = done ? (finding.status === "approved" ? "bg-positive" : "bg-faint") : URGENCY_DOT[urgency(finding.deadline?.date)];
   const status = done ? STATUS_CHIP[finding.status as keyof typeof STATUS_CHIP] : undefined;
+  // Approved with nothing to send reads "Handled", not "Ready to send".
+  const statusText = finding.status === "approved" && !finding.draft ? copy.shared.decided.handled : status?.text;
   return (
     <>
       <span className={`size-1.5 shrink-0 rounded-full ${dot}`} aria-hidden="true" />
@@ -310,7 +329,7 @@ function FindingRow({ finding }: { finding: Finding }) {
       </span>
       <span className={COL.kind}>
         {status ? (
-          <span className={`rounded-full border px-2 py-px text-meta ${status.className}`}>{status.text}</span>
+          <span className={`rounded-full border px-2 py-px text-meta ${status.className}`}>{statusText}</span>
         ) : (
           // The kind is context, not news: quiet text, no pill.
           <span className="truncate text-meta text-faint">{copy.shared.kind[finding.kind]}</span>
@@ -330,10 +349,11 @@ export function NotSureChip() {
   return <span className="shrink-0 rounded-full border border-info/30 px-2 py-px text-meta text-info">{copy.shared.notSure}</span>;
 }
 
-function groupTitle(count: number, title: string) {
+function groupTitle(count: number, title: string, flipKey = title) {
   if (!count) return null;
   return (
-    <h2 data-flip-key={`group:${title}`} className="mt-3 mb-1 px-2.5 label text-faint">
+    // A steady key, so a title whose count changes still slides rather than reappears.
+    <h2 data-flip-key={`group:${flipKey}`} className="mt-3 mb-1 px-2.5 label text-faint">
       {title}
     </h2>
   );
@@ -402,7 +422,8 @@ export function FindingsList({
   // straight in their places instead.
   useFlip(rowsRef, `${query}|${filters.join()}|${groupIsOpen}`);
   useGlide(rowsRef, highlightRef);
-  const findings = items.flatMap((i) => (i.type === "finding" && !leftAlone(i) ? [i.finding] : []));
+  const findings = items.flatMap((i) => (i.type === "finding" && !leftAlone(i) && !isApproved(i) ? [i.finding] : []));
+  const approved = items.flatMap((i) => (isApproved(i) && i.type === "finding" ? [i.finding] : []));
   const undecided = items.filter((i) => i.type === "undecided");
   const inside = items.filter(leftAlone);
   const missing = Object.values(live.statuses).filter((s) => s && (s.state === "needs_reconnect" || s.state === "error"));
@@ -431,7 +452,7 @@ export function FindingsList({
   const row = (item: ListItem): React.ReactNode => {
     const selected = item.key === selectedKey;
     const common = {
-      ...rowProps(item.key, leftAlone(item) ? "cleared" : item.type === "finding" ? (item.finding.status === "new" ? "open" : "done") : item.type),
+      ...rowProps(item.key, leftAlone(item) ? "cleared" : isApproved(item) ? "approved" : item.type === "finding" ? (item.finding.status === "new" ? "open" : "done") : item.type),
       onClick: () => onOpen(item.key),
     };
     if (item.type === "finding")
@@ -439,7 +460,7 @@ export function FindingsList({
         <div key={item.key} {...common} className={ROW}>
           <FindingRow finding={item.finding} />
           {/* The quick menu on the selected row; the same width is kept on other rows so the columns line up. */}
-          {selected && item.finding.status === "new" ? (
+          {selected && (item.finding.status === "new" || item.finding.status === "approved") ? (
             <RowMenu finding={item.finding} onAct={(action) => onAct(action, item.key)} startOpen={holdHover} />
           ) : (
             <span className={COL.menu} aria-hidden="true" />
@@ -494,7 +515,7 @@ export function FindingsList({
         chips={<FilterChips active={filters} mouse={mouse} onRemove={onRemoveFilter} onClear={onClearFilters} />}
       />
       <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto pb-2">
-        {showHint && findings.length > 0 && <FirstRunHint onDismiss={onDismissHint} />}
+        {showHint && findings.length + approved.length > 0 && <FirstRunHint onDismiss={onDismissHint} />}
         {scan.phase === "error" && (
           <p className="mx-3 mb-2 rounded-lg border border-danger/25 bg-danger/[0.07] px-3.5 py-2 text-small text-muted">
             <KeyText text={copy.list.stoppedEarly} slots={{ error: scan.error }} />
@@ -520,6 +541,9 @@ export function FindingsList({
               <span className="shimmer ml-1 h-2 flex-1 rounded-full" aria-hidden="true" />
             </div>
           )}
+          {/* "Approved" stays open, like "Couldn't decide": a plain title, not a J/K stop. */}
+          {groupTitle(approved.length, copy.list.approvedGroup(approved.length), "approved")}
+          {approved.map((f) => row({ type: "finding", key: f.id, finding: f }))}
           {/* "Couldn't decide" stays open: it needs Maya. */}
           {groupTitle(undecided.length, copy.list.undecidedGroup)}
           {undecided.map(row)}

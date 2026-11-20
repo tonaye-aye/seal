@@ -16,7 +16,10 @@ import { discardSaved, saveDraft } from "../agent/draft.ts";
 import { copy } from "../copy.ts";
 import type { Corpus } from "../agent/corpus.ts";
 import { rank, runScan, type AgentEvent, type Cleared, type Finding, type ScanResult, type Stage } from "../agent/pipeline.ts";
-import { getConnectors, setConnectorStatus } from "../connectors/live.ts";
+import { getConnectors, markNeedsReconnect, setConnectorStatus } from "../connectors/live.ts";
+import { ConnectorError } from "../connectors/runtime.ts";
+import { reminderEvent, type Reminder } from "./reminders.ts";
+import { shortDate } from "../ui/format.ts";
 import type { ConnectorId } from "../connectors/types.ts";
 import { checkEndpoint, dropAfterCalls, markLost, usesReplay, type EndpointState, type EndpointStatus } from "./endpoint.ts";
 import { tauriTransport } from "./llm-tauri.ts";
@@ -35,6 +38,8 @@ export type TraceLine = {
 export type Toast = { id: number; text: string; undoable: boolean };
 
 type UndoEntry = {
+  /** A decision (approve, snooze, not a leak) or a reminder Maya added. Decisions when absent. */
+  kind?: "decision" | "reminder";
   findingId: string;
   before: Decision;
   /** The draft being saved for this approval: resolves to its id, or undefined if saving failed. */
@@ -75,6 +80,8 @@ export type ScanState = {
   edits: Record<string, string>;
   /** When each decision was made (real time, for "4 min ago" on the timeline). */
   decidedAt: Record<string, number>;
+  /** Calendar reminders Maya asked for (L), by finding id. */
+  reminders: Record<string, Reminder>;
   undo: UndoEntry[];
   toast?: Toast;
 };
@@ -106,6 +113,28 @@ function persist(s: ScanState) {
 /** True until the first scan after launch has put back the drafts saved before a restart. */
 let restorePending = Object.keys(loadSaved().saved).length > 0;
 
+const REMINDERS_KEY = "life.reminders";
+
+function loadReminders(): Record<string, Reminder> {
+  try {
+    const raw = JSON.parse(localStorage.getItem(REMINDERS_KEY) ?? "null") as { v?: number; reminders?: Record<string, Reminder> } | null;
+    return raw?.v === 1 && raw.reminders ? raw.reminders : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistReminders(reminders: Record<string, Reminder>) {
+  try {
+    localStorage.setItem(REMINDERS_KEY, JSON.stringify({ v: 1, reminders }));
+  } catch {
+    // Storage can be unavailable; reminders then last until the app quits.
+  }
+}
+
+/** True until the first scan after launch has put the reminders back in the calendar (the stand-in calendar lives in memory). */
+let remindersPending = Object.keys(loadReminders()).length > 0;
+
 let state: ScanState = {
   phase: "idle",
   refreshing: false,
@@ -115,6 +144,7 @@ let state: ScanState = {
   usedReplay: false,
   trace: [],
   ...loadSaved(),
+  reminders: loadReminders(),
   undo: [],
 };
 const listeners = new Set<() => void>();
@@ -143,8 +173,11 @@ export async function resetScan(): Promise<boolean> {
     const connectors = await getConnectors();
     for (const id of savedIds) await discardSaved(connectors, id).catch(() => undefined);
   }
+  for (const r of Object.values(state.reminders)) {
+    if (r.eventId) await (await getConnectors()).calendar.deleteEvent(r.eventId).catch(() => undefined);
+  }
   restorePending = false;
-  clearTimeout(toastTimer);
+  remindersPending = false;
   set({
     phase: "idle",
     refreshing: false,
@@ -165,6 +198,7 @@ export async function resetScan(): Promise<boolean> {
     saved: {},
     edits: {},
     decidedAt: {},
+    reminders: {},
     undo: [],
     toast: undefined,
   });
@@ -174,6 +208,7 @@ export async function resetScan(): Promise<boolean> {
 function set(change: Partial<ScanState>) {
   state = { ...state, ...change };
   if (("decisions" in change || "edits" in change || "saved" in change || "decidedAt" in change)) persist(state);
+  if ("reminders" in change) persistReminders(state.reminders);
   for (const listener of listeners) listener();
 }
 
@@ -353,6 +388,7 @@ export async function startScan({ background = false } = {}): Promise<void> {
       trace: trace(copy.trace.done(Date.now() - (state.startedAt ?? Date.now())), "good"),
     });
     await restoreDrafts();
+    await restoreReminders();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     // Drafts kept from before a restart can't be put back without a scan; stop waiting for them.
@@ -492,19 +528,59 @@ async function restoreDrafts(): Promise<void> {
   set({ saved });
 }
 
-/** Rebuilds the undo list from decisions kept across a restart, oldest first, so Cmd+Z still works. */
+/**
+ * After a restart, the reminders added last time are put back in the
+ * calendar (the stand-in calendar only lives in memory; a real one keeps
+ * them). Each gets a new event id. One that can't be added (calendar signed
+ * out) stays in the list without an id, so undo still clears it.
+ */
+async function restoreReminders(): Promise<void> {
+  if (!remindersPending) return;
+  remindersPending = false;
+  const connectors = await getConnectors();
+  const reminders: Record<string, Reminder> = {};
+  for (const [findingId, r] of Object.entries(state.reminders)) {
+    try {
+      const event = await connectors.calendar.createEvent({ ...reminderInput(findingId, r), start: r.date });
+      reminders[findingId] = { ...r, eventId: event.eventId };
+    } catch {
+      reminders[findingId] = { ...r, eventId: undefined };
+    }
+  }
+  set({ reminders });
+}
+
+/** The event to put back for a kept reminder: its own date and title, the finding's words for the notes. */
+function reminderInput(findingId: string, r: Reminder) {
+  const finding = state.findings.find((f) => f.id === findingId);
+  return {
+    calendar: copy.reminders.calendar,
+    title: r.title,
+    allDay: true,
+    notes: finding ? copy.reminders.notes(finding.title) : undefined,
+  };
+}
+
+/** Rebuilds the undo list from decisions and reminders kept across a restart, oldest first, so Cmd+Z still works. */
 function restoreUndo(): UndoEntry[] {
   const LABEL: Record<Decision, string> = copy.toasts.decision;
-  return Object.entries(loadSaved().decisions)
+  const decisions = Object.entries(loadSaved().decisions)
     .filter(([, d]) => d !== "new")
-    .sort(([a], [b]) => (state.decidedAt[a] ?? 0) - (state.decidedAt[b] ?? 0))
     .map(([findingId, d]) => ({
-      findingId,
-      before: "new" as Decision,
-      label: LABEL[d],
-      // The draft id is only known once restoreDrafts has saved it again.
-      saving: d === "approved" ? waitForSaved(findingId) : undefined,
+      at: state.decidedAt[findingId] ?? 0,
+      entry: {
+        findingId,
+        before: "new" as Decision,
+        label: LABEL[d],
+        // The draft id is only known once restoreDrafts has saved it again.
+        saving: d === "approved" ? waitForSaved(findingId) : undefined,
+      } as UndoEntry,
     }));
+  const reminders = Object.entries(loadReminders()).map(([findingId, r]) => ({
+    at: r.at,
+    entry: { kind: "reminder", findingId, before: "new", label: copy.toasts.decision.reminder } as UndoEntry,
+  }));
+  return [...decisions, ...reminders].sort((a, b) => a.at - b.at).map((x) => x.entry);
 }
 
 /** Resolves to the finding's saved draft id once there is one (or undefined if the first scan ends without one). */
@@ -632,11 +708,12 @@ export function dismiss(findingId: string): void {
   showToast(copy.toasts.dismissed(f?.merchant ?? copy.toasts.it), true);
 }
 
-/** Puts back the most recent decision (and removes its saved draft, if any). */
+/** Puts back the most recent decision (and removes its saved draft, if any), or removes the last reminder. */
 export async function undoLast(): Promise<void> {
   const entry = state.undo[state.undo.length - 1];
   if (!entry) return;
   set({ undo: state.undo.slice(0, -1) });
+  if (entry.kind === "reminder") return removeReminder(entry.findingId);
   const savedId = entry.saving && (await entry.saving);
   if (savedId) {
     try {
@@ -656,6 +733,66 @@ export async function undoLast(): Promise<void> {
   set({ decisions, decidedAt });
   const f = state.findings.find((x) => x.id === entry.findingId);
   showToast(savedId ? copy.toasts.undoneDraft(f?.merchant) : copy.toasts.undone(f?.merchant), false);
+}
+
+// ---------- Remind me (L) ----------
+
+/** Findings mid-way through being added, so a second L press doesn't add two. */
+const adding = new Set<string>();
+
+/** Why a reminder can't be added for this finding right now, or undefined if it can. */
+export function cannotRemind(findingId: string, s: ScanState = state): string | undefined {
+  if (s.result?.notConnected?.includes("calendar")) return copy.toasts.reminderNoCalendar;
+  const status = s.decisions[findingId] ?? "new";
+  if (status !== "new" && status !== "approved") return copy.toasts.reminderNotNow;
+  return undefined;
+}
+
+/**
+ * Adds an all-day reminder to Maya's calendar for this finding, only because
+ * she pressed L. Nothing is sent. Cmd+Z removes it again.
+ */
+export async function remind(findingId: string): Promise<void> {
+  const finding = state.findings.find((f) => f.id === findingId);
+  if (!finding || adding.has(findingId)) return;
+  const existing = state.reminders[findingId];
+  if (existing) return showToast(copy.toasts.reminderAlready(shortDate(existing.date)), false);
+  const why = cannotRemind(findingId);
+  if (why) return showToast(why, false);
+  const input = reminderEvent(finding, state.decisions[findingId] === "approved");
+  adding.add(findingId);
+  try {
+    const event = await (await getConnectors()).calendar.createEvent(input);
+    const reminder: Reminder = { eventId: event.eventId, date: input.start, title: input.title, at: Date.now() };
+    set({
+      reminders: { ...state.reminders, [findingId]: reminder },
+      undo: [...state.undo, { kind: "reminder", findingId, before: state.decisions[findingId] ?? "new", label: copy.toasts.decision.reminder }],
+    });
+    showToast(copy.toasts.reminderAdded(shortDate(input.start)), true);
+  } catch (error) {
+    const reauth = error instanceof ConnectorError && error.code === "unauthorized";
+    if (reauth) markNeedsReconnect("calendar", error.message);
+    showToast(reauth ? copy.toasts.reminderReauth : copy.toasts.reminderFailed(error instanceof Error ? error.message : String(error)), false);
+  } finally {
+    adding.delete(findingId);
+  }
+}
+
+/** Takes a reminder out of the calendar and the list (undo). */
+async function removeReminder(findingId: string): Promise<void> {
+  const reminder = state.reminders[findingId];
+  if (!reminder) return;
+  if (reminder.eventId) {
+    try {
+      await (await getConnectors()).calendar.deleteEvent(reminder.eventId);
+    } catch {
+      // The calendar is signed out or it's already gone; still forget it here.
+    }
+  }
+  const { [findingId]: _gone, ...reminders } = state.reminders;
+  set({ reminders });
+  const f = state.findings.find((x) => x.id === findingId);
+  showToast(copy.toasts.undoneReminder(f?.merchant ?? copy.toasts.it), false);
 }
 
 export function setEdit(findingId: string, body: string): void {

@@ -6,7 +6,7 @@ import { copy } from "../copy.ts";
 import { now } from "../lib/clock.ts";
 import { addDays, localDate, toZonedIso } from "../lib/dates.ts";
 import { createBankConnector, type BankConnector } from "./bank.ts";
-import { createCalendarConnector, type CalendarConnector } from "./calendar.ts";
+import { AGENT_CREATOR, createCalendarConnector, type CalendarConnector } from "./calendar.ts";
 import { createDocumentConnector, type DocumentConnector } from "./documents.ts";
 import { createEmailConnector, type EmailConnector } from "./email.ts";
 import {
@@ -227,10 +227,14 @@ export async function syncSome(
     }),
     run("calendar", async (report) => {
       report({ state: "syncing", detail: copy.connector.readingEvents });
-      snapshot.events = await connectors.calendar.listEvents({
+      // Reminders Life added are left out: they are the app's own notes, not
+      // household evidence, and leaving them out means a check after adding
+      // one asks the models exactly the same questions as before.
+      const events = await connectors.calendar.listEvents({
         from: addDays(today, -CALENDAR_WINDOW.back),
         to: addDays(today, CALENDAR_WINDOW.ahead),
       });
+      snapshot.events = events.filter((e) => e.createdBy !== AGENT_CREATOR);
       return snapshot.events.length;
     }),
   ]);

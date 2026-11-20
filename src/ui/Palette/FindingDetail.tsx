@@ -5,7 +5,8 @@ import type { Corpus } from "../../agent/corpus";
 import type { Cleared, Finding } from "../../agent/pipeline";
 import { getConnectors } from "../../connectors/live";
 import { formatAUD } from "../../lib/money";
-import { resetEdit, setEdit } from "../../lib/scan-store";
+import { cannotRemind, resetEdit, setEdit, useScan } from "../../lib/scan-store";
+import { expectation } from "../next-steps";
 import { evidenceDate, lookupEvidence, type EvidenceView } from "../evidence";
 import { daysUntil, figureValue, isUnsure, shortDate, urgency } from "../format";
 import { copy } from "../../copy";
@@ -21,6 +22,7 @@ import {
   OpenIcon,
   PaneIcon,
   PhotoIcon,
+  RemindIcon,
   SnoozeIcon,
   UndoIcon,
 } from "../icons";
@@ -300,6 +302,37 @@ function Sidebar({
   );
 }
 
+// ---------- After approve ----------
+
+/**
+ * What happens now that Maya has approved: the draft is in Drafts, she sends
+ * it herself, and what should follow. Plain words from code; the app doesn't
+ * check the outcome.
+ */
+export function NextSteps({ finding }: { finding: Finding }) {
+  const scan = useScan();
+  const expect = expectation(finding, scan);
+  const handled = !finding.draft;
+  const reminder = scan.reminders[finding.id];
+  return (
+    <div aria-label={copy.next.title} className="mb-3 rounded-md border border-hairline px-3 py-2.5 text-small">
+      <h3 className="mb-1.5 label text-faint">{copy.next.title}</h3>
+      <ul className="flex flex-col gap-1">
+        <li className="flex items-center gap-2 text-text">
+          <span className="flex w-3.5 shrink-0 justify-center text-positive">
+            <ApproveIcon />
+          </span>
+          {handled ? copy.next.handled : copy.next.saved}
+        </li>
+        {/* Handled: the step Maya takes herself; otherwise, sending the draft. */}
+        <li className="pl-5.5 text-muted">{handled ? finding.action.summary : copy.next.send}</li>
+        {expect && <li className="pl-5.5 text-muted">{copy.next.thenExpect(expect)}</li>}
+        {reminder && <li className="pl-5.5 text-muted">{copy.next.reminder(shortDate(reminder.date))}</li>}
+      </ul>
+    </div>
+  );
+}
+
 // ---------- Draft ----------
 
 function Draft({ finding, edited, editing, onStopEditing, scanning }: { finding: Finding; edited: boolean; editing: boolean; onStopEditing: () => void; scanning: boolean }) {
@@ -315,6 +348,8 @@ function Draft({ finding, edited, editing, onStopEditing, scanning }: { finding:
   }, [editing]);
 
   if (!draft) {
+    // Once handled, the Next block above says the step instead.
+    if (finding.action.kind === "none" && finding.status === "approved") return null;
     if (finding.action.kind === "none")
       return (
         <div className="rounded-md border border-hairline p-3 text-small text-muted">
@@ -339,7 +374,6 @@ function Draft({ finding, edited, editing, onStopEditing, scanning }: { finding:
       <div className="mb-2 flex items-center gap-2">
         <h3 className="label text-faint">{copy.detail.draftedEmail}</h3>
         {edited && <span className="rounded-full border border-hairline px-1.5 text-meta text-muted">{copy.detail.editedByYou}</span>}
-        {finding.status === "approved" && <span className="rounded-full border border-positive/30 px-1.5 text-meta text-positive">{copy.detail.inDrafts}</span>}
       </div>
       {!draft.grounded && (
         <div className="mb-2.5 rounded-md border border-danger/30 bg-danger/8 px-2.5 py-2 text-meta">
@@ -457,6 +491,7 @@ export function FindingDetail({
 }) {
   const finding = "evidence" in item ? item : undefined;
   const evidence = evidenceFor(item, corpus);
+  const reminder = useScan().reminders[item.id];
   // Amounts code checked, written the ways a bill or email would show them.
   const needles = finding
     ? [...new Set(finding.figures.filter((f) => f.unit === "cents").flatMap((f) => {
@@ -502,9 +537,12 @@ export function FindingDetail({
             <>
               {/* Three lines: the model's longest reasons need them at the palette's width. */}
               <span className="line-clamp-3">{item.why}</span>
-              {finding.deadline && (
+              {(finding.deadline || (reminder && finding.status === "new")) && (
                 <span className="mt-0.5 block truncate text-meta text-faint">
-                  {copy.detail.nextDate(finding.deadline.label, shortDate(finding.deadline.date))}
+                  {finding.deadline && copy.detail.nextDate(finding.deadline.label, shortDate(finding.deadline.date))}
+                  {/* Approved ones say it in the Next block instead. */}
+                  {finding.deadline && reminder && finding.status === "new" && " · "}
+                  {reminder && finding.status === "new" && copy.next.reminderShort(shortDate(reminder.date))}
                 </span>
               )}
             </>
@@ -521,6 +559,7 @@ export function FindingDetail({
         <div ref={draftRef} onClick={finding ? onFocusDraft : undefined} className="min-h-0 flex-1 overflow-y-auto p-2">
           {finding ? (
             <div className={`rounded-lg p-3 ${pane === "draft" && !mouse ? "pane-focus" : ""}`}>
+              {finding.status === "approved" && <NextSteps finding={finding} />}
               <Draft finding={finding} edited={edited} editing={editing} onStopEditing={onStopEditing} scanning={scanning} />
               <SavedNote finding={finding} />
             </div>
@@ -563,7 +602,7 @@ export function MouseIcon() {
 }
 
 /** Something the action bar (or its key) can do. */
-export type Command = "approve" | "edit" | "snooze" | "dismiss" | "undo" | "rescan" | "open" | "pane" | "toggle" | "figures";
+export type Command = "approve" | "edit" | "snooze" | "dismiss" | "remind" | "undo" | "rescan" | "open" | "pane" | "toggle" | "figures";
 
 /** The keys for what's selected, shown under the list or the open finding. Each one can also be clicked. */
 export function ActionBar({
@@ -583,6 +622,10 @@ export function ActionBar({
   mouse: boolean;
   onCommand: (command: Command) => void;
 }) {
+  const scan = useScan();
+  // Remind me (L) shows while it can still be added: calendar connected, none set yet.
+  const canRemind = !!item && "evidence" in item && !scan.reminders[item.id] && !cannotRemind(item.id, scan);
+  const remindHint = { keys: ["L"], label: copy.actions.remind, command: "remind" as const, icon: <RemindIcon /> };
   if (mouse && !detail && item && !("undecided" in item)) {
     const hint = "evidence" in item ? copy.actions.clickForDetail : copy.actions.clickWhyFine;
     return (
@@ -606,9 +649,13 @@ export function ActionBar({
         ...(item.draft ? [{ keys: ["E"], label: copy.actions.edit, command: "edit" as const, icon: <EditIcon /> }] : []),
         { keys: ["S"], label: copy.actions.snooze, command: "snooze", icon: <SnoozeIcon /> },
         { keys: ["D"], label: copy.actions.notALeak, command: "dismiss", icon: <DismissIcon /> },
+        ...(canRemind ? [remindHint] : []),
       ];
     } else {
-      hints = [{ keys: ["⌘", "Z"], label: copy.actions.undo, command: "undo", icon: <UndoIcon /> }];
+      hints = [
+        { keys: ["⌘", "Z"], label: copy.actions.undo, command: "undo", icon: <UndoIcon /> },
+        ...(canRemind && item.status === "approved" ? [remindHint] : []),
+      ];
     }
   } else if (item && "undecided" in item) {
     hints = [{ keys: ["R"], label: copy.actions.checkAgain, command: "rescan", icon: <CheckNowIcon /> }];
