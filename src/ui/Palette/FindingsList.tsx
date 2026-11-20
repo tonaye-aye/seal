@@ -45,13 +45,11 @@ export function listItems(findings: Finding[], scan: ScanState, query: string): 
 export function Headline({
   findings,
   scan,
-  search,
   query = "",
   matches = [],
 }: {
   findings: Finding[];
   scan: ScanState;
-  search?: React.ReactNode;
   /** While searching, the heading describes the matching rows instead of the month. */
   query?: string;
   matches?: ListItem[];
@@ -76,7 +74,6 @@ export function Headline({
     return (
       <ViewHeading
         title={matches.length ? copy.search.matches(matches.length, q) : copy.search.noMatches(q)}
-        search={search}
       >
         {words.join(", ")}.
       </ViewHeading>
@@ -94,7 +91,7 @@ export function Headline({
   else if (open.length === 0) line = copy.list.allDealtWithLine;
 
   return (
-    <ViewHeading title={title} search={search}>
+    <ViewHeading title={title}>
       {line}
       {scanning && <span className="text-faint">{line ? " " : ""}{copy.list.stillChecking}</span>}
     </ViewHeading>
@@ -273,7 +270,6 @@ export function FindingsList({
   showHint,
   onDismissHint,
   query,
-  search,
   holdHover = false,
 }: {
   items: ListItem[];
@@ -291,9 +287,8 @@ export function FindingsList({
   scan: ScanState;
   showHint: boolean;
   onDismissHint: () => void;
+  /** The top bar's search (the rows are already filtered by it). */
   query: string;
-  /** The search bar, pinned under the heading. */
-  search: React.ReactNode;
   /** Dev gallery only: show the selected row's quick menu open. */
   holdHover?: boolean;
 }) {
@@ -370,7 +365,7 @@ export function FindingsList({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Pinned: the heading stays put while the rows scroll. */}
-      <Headline findings={allFindings} scan={scan} search={search} query={query} matches={items} />
+      <Headline findings={allFindings} scan={scan} query={query} matches={items} />
       <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto pb-2">
         {showHint && findings.length > 0 && <FirstRunHint onDismiss={onDismissHint} />}
         {scan.phase === "error" && (

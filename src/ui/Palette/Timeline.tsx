@@ -42,12 +42,10 @@ const RAIL = "w-5 shrink-0 flex justify-center";
 function Headline({
   entries,
   scan,
-  search,
   query,
 }: {
   entries: TimelineEntry[];
   scan: ScanState;
-  search: React.ReactNode;
   /** While searching, the heading describes the matching lines (the totals already follow the filter). */
   query: string;
 }) {
@@ -61,10 +59,7 @@ function Headline({
   let title = copy.timeline.title;
   if (q) title = entries.length ? copy.search.matches(entries.length, q) : copy.search.noMatches(q);
   return (
-    <ViewHeading
-      title={title}
-      search={search}
-    >
+    <ViewHeading title={title}>
       {parts.join(", and ")}.
       {scan.phase === "scanning" && <span className="text-faint"> {copy.timeline.stillChecking}</span>}
     </ViewHeading>
@@ -141,7 +136,6 @@ export function Timeline({
   onOpen,
   scan,
   query,
-  search,
 }: {
   entries: TimelineEntry[];
   selectedKey?: string;
@@ -150,10 +144,8 @@ export function Timeline({
   onHover: (key: string) => void;
   onOpen: (key: string) => void;
   scan: ScanState;
-  /** The search, if any (the entries are already filtered by it). */
+  /** The top bar's search, if any (the entries are already filtered by it). */
   query: string;
-  /** The search bar, pinned under the heading. */
-  search: React.ReactNode;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
   const linesRef = useRef<HTMLOListElement>(null);
@@ -220,7 +212,7 @@ export function Timeline({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Pinned: the heading stays put while the timeline scrolls. */}
-      <Headline entries={entries} scan={scan} search={search} query={query} />
+      <Headline entries={entries} scan={scan} query={query} />
       <div ref={listRef} className="relative min-h-0 flex-1 overflow-y-auto pb-4">
         <div className="relative px-2">
           {/* The rail: one hairline behind every dot. It sits at the centre of the

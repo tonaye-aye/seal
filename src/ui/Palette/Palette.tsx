@@ -15,7 +15,7 @@ import { PrimaryButton, SetupScreen } from "../Onboarding/SetupScreen";
 import { approve, dismiss, rankedFindings, snooze, startScan, undoLast, useScan } from "../../lib/scan-store";
 import { ActionBar, FindingDetail, evidenceFor, type Command, type Pane } from "./FindingDetail";
 import { AllClear, FindingsList, NotChecked, Scanning, ScanError, listItems, type ListItem, type RowAction } from "./FindingsList";
-import { CommandBar } from "./CommandBar";
+import { SearchField } from "./SearchField";
 import { Footer } from "./Footer";
 import { Header } from "./Header";
 import { PaletteShell } from "./PaletteShell";
@@ -440,9 +440,8 @@ export function Palette() {
       switch (key) {
         case "/":
           event.preventDefault();
-          // From an open finding, go back to the list first, then focus its search bar.
-          if (inDetail) changeView(() => setView("list"), "back", () => inputRef.current?.focus());
-          else inputRef.current?.focus();
+          // From an open finding, the field's onFocus goes back to the list it came from.
+          inputRef.current?.focus();
           return;
         case "?":
           event.preventDefault();
@@ -516,15 +515,6 @@ export function Palette() {
         onOpen={openEntry}
         scan={scan}
         query={query}
-        search={
-          <CommandBar
-            ref={inputRef}
-            value={query}
-            onChange={setQuery}
-            label={copy.search.timelineLabel}
-            placeholder={copy.search.timelinePlaceholder}
-          />
-        }
       />
     );
   } else if (nothingYet && scan.phase === "scanning") main = <Scanning scan={scan} />;
@@ -549,7 +539,6 @@ export function Palette() {
         showHint={showHint}
         onDismissHint={dismissHint}
         query={query}
-        search={<CommandBar ref={inputRef} value={query} onChange={setQuery} />}
       />
     );
 
@@ -566,6 +555,26 @@ export function Palette() {
   const shownView = inDetail ? detailFrom : view === "timeline" ? "timeline" : "list";
   const crumbs = [shownView === "timeline" ? copy.rail.timeline : copy.rail.list, ...(inDetail ? [selectedItem.merchant] : [])];
   const actionItem = selected?.type === "undecided" ? { undecided: selected.error } : selectedItem;
+  // One search for both views, in the top bar. It searches the view you're
+  // in (an open finding: the one it was opened from).
+  const searchTimeline = shownView === "timeline";
+  const search = (
+    <SearchField
+      ref={inputRef}
+      value={query}
+      onChange={setQuery}
+      label={searchTimeline ? copy.search.timelineLabel : copy.search.findingsLabel}
+      placeholder={searchTimeline ? copy.search.timelinePlaceholder : copy.search.findingsPlaceholder}
+      mouse={mouse}
+      onFocus={() => {
+        // Searching from an open finding (/ or a click) goes back to its list
+        // or timeline first, so the matches are in view.
+        if (view !== "detail") return;
+        setEditing(false);
+        back();
+      }}
+    />
+  );
 
   return (
     <PaletteShell
@@ -579,7 +588,7 @@ export function Palette() {
       onMouseMove={(e) => {
         if (e.movementX !== 0 || e.movementY !== 0) setMouse(true);
       }}
-      header={<Header crumbs={setup ? [] : crumbs} />}
+      header={<Header crumbs={setup ? [] : crumbs} search={setup ? undefined : search} />}
       rail={
         setup ? undefined : (
           <Rail

@@ -112,9 +112,20 @@
 }
 
 /* Numbers that aren't colours. --now-halo scales the WebGL mark's glow
-   (NowVisual.tsx reads it): full on dark, softer on light. */
+   (NowVisual.tsx reads it): full on dark, softer on light. --search-width
+   is the top bar's search when open (SearchField.tsx): room for the
+   placeholder, while the breadcrumb and the status still fit beside it. */
 :root {
   --now-halo: 1;
+  --search-width: 248px;
+}
+
+/* The top bar's search opening from the magnifier into a field, and back.
+   Reduced motion: the rule further down makes it snap. */
+.search-field {
+  transition-property: width, background-color, border-color;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 
 /* The light theme: the same roles, swapped in when macOS is set to Light.

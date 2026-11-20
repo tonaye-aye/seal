@@ -1,7 +1,7 @@
-// The heading at the top of the list and the timeline, with the search bar
-// under it. Both sit outside the scrolling area, so they stay pinned while the
-// rows scroll under them. The search comes last so Down goes straight from
-// typing into the rows, and Up from the first row comes straight back.
+// The heading at the top of the list, the timeline and an open finding. It
+// sits outside the scrolling area, so it stays pinned while the rows scroll
+// under it. Search lives in the top bar (SearchField.tsx); while it holds a
+// search, the title says how many rows match.
 // Which view you are in shows on the icon rail (Rail.tsx), so the heading has no icon of its own.
 
 export function ViewHeading({
@@ -9,7 +9,6 @@ export function ViewHeading({
   eyebrow,
   children,
   action,
-  search,
 }: {
   title: string;
   /** A small line above the title (an open finding's business and chips). */
@@ -18,8 +17,6 @@ export function ViewHeading({
   children?: React.ReactNode;
   /** Shown on the right (an open finding's amounts). */
   action?: React.ReactNode;
-  /** The search bar, under the heading. */
-  search?: React.ReactNode;
 }) {
   return (
     // The hairline marks the pinned edge the rows scroll under.
@@ -33,7 +30,6 @@ export function ViewHeading({
         </div>
         {action && <div className="mt-1 shrink-0">{action}</div>}
       </div>
-      {search}
     </div>
   );
 }
