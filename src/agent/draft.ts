@@ -218,18 +218,37 @@ export function claimCheck(draft: string, allowed: string, today = localDate(now
 
 // ---------- Asking the model ----------
 
+// Up to two extra name words after the sign-off on the same line, like the
+// surname in "Thanks, Maya Whitlock". Each starts with a capital letter, so a
+// sentence ("Thanks, Maya and Ben will call") never counts as a name.
+const NAME_WORDS = /^(?:[ \t]+\p{Lu}[\p{L}'’.-]*){0,2}[ \t]*$/u;
+
 /**
  * The sign-off is a preference, not a claim, so code makes it exact instead
- * of asking for a rewrite: "Thanks,\nMaya" becomes "Thanks, Maya", and a
- * missing one is added.
+ * of asking for a rewrite: "Thanks,\nMaya" and "Thanks, Maya Whitlock" become
+ * "Thanks, Maya", extra sign-off lines stacked above it are removed, and a
+ * missing one is added. Only the very end of the draft is touched.
  */
 export function withSignOff(body: string, signOff: string): string {
   const text = body.trim();
-  if (text.endsWith(signOff)) return text;
-  const [first, ...rest] = signOff.split(/\s+/);
-  const loose = new RegExp(`${first.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*${rest.join("\\s+")}\\s*$`, "i");
-  if (loose.test(text)) return text.replace(loose, signOff);
-  return `${text}\n\n${signOff}`;
+  const [first, ...rest] = signOff.split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  // The sign-off words (any case, line breaks allowed between them), then
+  // whatever is left on that line, which must be name words.
+  const last = new RegExp(`${first}\\s*${rest.join("\\s+")}([^\\n]*)$`, "i");
+
+  let cut = -1; // where the sign-off (or the top one of a stack) starts
+  let search = text;
+  for (;;) {
+    const m = last.exec(search);
+    if (!m || !NAME_WORDS.test(m[1])) break;
+    // A second copy above the first only counts when it sits on its own line.
+    if (cut >= 0 && !/(?:^|\n)[ \t]*$/.test(search.slice(0, m.index))) break;
+    cut = m.index;
+    search = search.slice(0, cut).trimEnd();
+  }
+
+  if (cut < 0) return `${text}\n\n${signOff}`;
+  return text.slice(0, cut) + signOff;
 }
 
 const NO_REPLY = /no[-_.]?reply|do[-_.]?not[-_.]?reply/i;
