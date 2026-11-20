@@ -74,7 +74,7 @@ function Headline({
 function NowMarker() {
   const today = now();
   return (
-    <li data-coach="timeline-now" className="relative flex h-10 items-center gap-3 px-3" aria-label={`Now: ${formatDay(today)}`}>
+    <li className="relative flex h-10 items-center gap-3 px-3" aria-label={`Now: ${formatDay(today)}`}>
       <span className="w-12 shrink-0 text-right font-mono text-[10.5px] font-medium tracking-[0.08em] text-amber uppercase">Now</span>
       <span className={RAIL}>
         <span className="size-3 rounded-full bg-amber shadow-[0_0_0_5px_var(--color-amber-glow),0_0_18px_var(--color-amber-glow)]" />
@@ -192,7 +192,6 @@ export function Timeline({
     rows.push(
       <li
         key={entry.key}
-        data-coach={`timeline:${entry.key}`}
         role="option"
         aria-selected={selected}
         onClick={() => opens && onOpen(entry.key)}
@@ -210,7 +209,7 @@ export function Timeline({
   if (split === entries.length) rows.push(<div key="now" data-now="" />, <NowMarker key="now-marker" />);
 
   return (
-    <div data-coach="timeline" className="timeline-in flex min-h-0 flex-1 flex-col">
+    <div className="timeline-in flex min-h-0 flex-1 flex-col">
       {/* Pinned: the heading stays put while the timeline scrolls. */}
       <Headline entries={entries} scan={scan} search={search} query={query} />
       <div ref={listRef} className="relative min-h-0 flex-1 overflow-y-auto pb-4">

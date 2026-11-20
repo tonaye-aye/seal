@@ -8,7 +8,7 @@ type Props = { value: string; onChange: (value: string) => void; label?: string;
 export const CommandBar = forwardRef<HTMLInputElement, Props>(
   function CommandBar({ value, onChange, label = "Search findings", placeholder = "Search findings by business or problem" }, ref) {
     return (
-      <div className="px-3 pb-2" data-coach="search">
+      <div className="px-3 pb-2">
         <label className="flex h-10 items-center gap-2.5 rounded-lg border border-hairline bg-bg/60 px-3 transition-colors duration-(--duration-fast) focus-within:border-amber/50 focus-within:bg-bg/80">
           <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" className="shrink-0 text-faint">
             <circle cx="7" cy="7" r="4.75" fill="none" stroke="currentColor" strokeWidth="1.5" />

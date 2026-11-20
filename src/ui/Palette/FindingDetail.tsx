@@ -162,7 +162,7 @@ function EvidenceTrail({
       </>
     );
   return (
-    <div ref={ref} data-coach="evidence" className={`min-h-0 overflow-y-auto rounded-lg p-1.5 ${focused ? "pane-focus" : ""}`}>
+    <div ref={ref} className={`min-h-0 overflow-y-auto rounded-lg p-1.5 ${focused ? "pane-focus" : ""}`}>
       {group(`Evidence it relied on · ${cited.length}`, cited, 0)}
       {group(`Also gathered · ${rest.length}`, rest, cited.length)}
     </div>
@@ -203,9 +203,9 @@ function DraftPane({
   }, [editing]);
 
   return (
-    <div ref={paneRef} onClick={onFocus} data-coach="draft" className={`min-h-0 overflow-y-auto rounded-lg p-3 ${focused ? "pane-focus" : ""}`}>
+    <div ref={paneRef} onClick={onFocus} className={`min-h-0 overflow-y-auto rounded-lg p-3 ${focused ? "pane-focus" : ""}`}>
       {draft ? (
-        <div data-coach="draft-message">
+        <div>
           <div className="mb-2 flex items-center gap-2">
             <h3 className="font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">Drafted email</h3>
             {edited && <span className="rounded-full border border-hairline px-1.5 text-[10.5px] text-muted">Edited by you</span>}
@@ -278,7 +278,7 @@ function DraftPane({
         <p className="text-[12.5px] text-danger">Couldn't draft this one. The evidence and figures are still here to act on yourself.</p>
       )}
 
-      <div data-coach="figures">
+      <div>
       <h3 className="mt-4 mb-1.5 font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">Checked by code</h3>
       <dl className="flex flex-col">
         {finding.figures.map((f) => (
@@ -475,7 +475,7 @@ export function ActionBar({
   }
   const twoPanes = !!item && "evidence" in item;
   return (
-    <div data-coach="action-bar" className="flex h-10 shrink-0 items-center justify-between border-t border-hairline px-4 text-[12px]">
+    <div className="flex h-10 shrink-0 items-center justify-between border-t border-hairline px-4 text-[12px]">
       <div className="flex min-w-0 items-center gap-3">
         {/* Say which finding the actions apply to, in the list and in an open finding alike. */}
         {item && !("undecided" in item) && (detail || "evidence" in item) && (
@@ -484,7 +484,7 @@ export function ActionBar({
           </span>
         )}
         {hints.map((h) => (
-          <span key={h.label} data-coach={`action:${h.command}`} className="inline-flex">
+          <span key={h.label} className="inline-flex">
           <KeyButton
             keys={h.keys}
             label={h.label}

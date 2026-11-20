@@ -109,7 +109,7 @@ export function FirstRunHint({ onDismiss }: { onDismiss: () => void }) {
           Move with <Kbd keys={["J"]} /> <Kbd keys={["K"]} />, open one with <Kbd keys={["↵"]} /> to see the evidence and the draft.
         </p>
         <p>
-          <Kbd keys={["A"]} /> approves: it saves the draft to your Drafts folder. Nothing is ever sent.
+          Approve with <Kbd keys={["A"]} />: it saves the draft to your Drafts folder. Nothing is ever sent.
         </p>
         <p>
           <Kbd keys={["⌘", "Z"]} /> undoes, <Kbd keys={["?"]} /> shows every key.
@@ -170,7 +170,6 @@ function RowMenu({ finding, onAct, startOpen = false }: { finding: Finding; onAc
         type="button"
         tabIndex={-1}
         data-menu-button
-        data-coach="row-menu"
         aria-label={`Quick actions for ${finding.merchant}`}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -189,7 +188,7 @@ function RowMenu({ finding, onAct, startOpen = false }: { finding: Finding; onAc
       >
         <Ellipsis size={15} strokeWidth={1.75} aria-hidden="true" className="block" />
       </button>
-      <Menu open={open} onClose={() => setOpen(false)} align="right" placement={placement} label="Quick actions" coach="row-menu-list">
+      <Menu open={open} onClose={() => setOpen(false)} align="right" placement={placement} label="Quick actions">
         <MenuItem icon={<ApproveIcon />} label={approve} keys={<Kbd keys={["A"]} />} onSelect={choose("approve")} />
         <MenuItem icon={<SnoozeIcon />} label="Snooze" keys={<Kbd keys={["S"]} />} onSelect={choose("snooze")} />
         <MenuItem icon={<DismissIcon />} label="Not a leak" keys={<Kbd keys={["D"]} />} onSelect={choose("dismiss")} />
@@ -309,7 +308,7 @@ export function FindingsList({
     } as const;
     if (item.type === "finding")
       return (
-        <div key={item.key} {...common} data-coach="finding-row" className={rowClass(selected)}>
+        <div key={item.key} {...common} className={rowClass(selected)}>
           <FindingRow finding={item.finding} selected={selected} />
           {/* The quick menu on the selected row; the same width is kept on other rows so the columns line up. */}
           {selected && item.finding.status === "new" ? (
@@ -339,7 +338,7 @@ export function FindingsList({
   };
 
   return (
-    <div data-coach="findings" className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       {/* Pinned: the heading stays put while the rows scroll. */}
       <Headline findings={allFindings} scan={scan} search={search} query={query} matches={items} />
       <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto pb-2">

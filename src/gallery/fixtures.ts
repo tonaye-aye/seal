@@ -17,7 +17,6 @@ import { toZonedIso } from "../lib/dates";
 import type { ScanState, TraceLine } from "../lib/scan-store";
 import type { OnboardingState } from "../lib/onboarding";
 import type { EndpointStatus } from "../lib/endpoint";
-import { PRACTICE_FINDING_ID, PRACTICE_TRACE, practiceDone, practiceScanning } from "../onboarding/practice";
 
 const CHECKED_AT = toZonedIso(now());
 
@@ -462,67 +461,9 @@ export function nowSamples(corpus: Corpus | undefined) {
   };
 }
 
-
 // ---------- Onboarding ----------
 
 /** A step of first-run onboarding, as the store would hold it. */
 export function onboardingSample(change: Partial<OnboardingState>): OnboardingState {
-  return {
-    step: "welcome",
-    name: "Maya",
-    connected: [],
-    tip: "timeline",
-    moves: 0,
-    summon: "waiting",
-    practiceConnect: "idle",
-    practiceFound: false,
-    ...change,
-  };
-}
-
-/** The practice round's palette: the one made-up finding, before or after it is approved. */
-export function practiceSamples() {
-  const empty: ScanState = {
-    phase: "idle",
-    refreshing: false,
-    findings: [],
-    cleared: [],
-    undecided: [],
-    usedReplay: false,
-    trace: [],
-    decisions: {},
-    saved: {},
-    edits: {},
-    decidedAt: {},
-    undo: [],
-  };
-  const lines: TraceLine[] = PRACTICE_TRACE.map((l, i) => ({ id: -(i + 1), t: 300 + i * 650, ...l }));
-  const done: ScanState = { ...empty, ...practiceDone(lines) };
-  return {
-    scanning: { ...empty, ...practiceScanning(), trace: lines.slice(0, 3) } satisfies ScanState,
-    solution: { ...empty, ...practiceScanning(), trace: lines } satisfies ScanState,
-    found: { ...empty, ...practiceScanning(), phase: "idle", trace: lines } satisfies ScanState,
-    done,
-    dismissedToast: {
-      ...done,
-      decisions: { [PRACTICE_FINDING_ID]: "dismissed" },
-      decidedAt: { [PRACTICE_FINDING_ID]: Date.now() },
-      toast: { id: 1, text: "Marked Moonbeam Music as not a leak.", undoable: true },
-    } satisfies ScanState,
-    approved: {
-      ...done,
-      decisions: { [PRACTICE_FINDING_ID]: "approved" },
-      decidedAt: { [PRACTICE_FINDING_ID]: Date.now() },
-    } satisfies ScanState,
-    approvedToast: {
-      ...done,
-      decisions: { [PRACTICE_FINDING_ID]: "approved" },
-      decidedAt: { [PRACTICE_FINDING_ID]: Date.now() },
-      toast: { id: 1, text: "Saved to Drafts for Moonbeam Music. Practice, so nothing was really saved.", undoable: true },
-    } satisfies ScanState,
-    undoneToast: {
-      ...done,
-      toast: { id: 1, text: "Undone: Moonbeam Music is back in the list.", undoable: false },
-    } satisfies ScanState,
-  };
+  return { step: "welcome", connected: [], ...change };
 }

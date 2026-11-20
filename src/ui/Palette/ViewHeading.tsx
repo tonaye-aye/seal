@@ -26,7 +26,7 @@ export function ViewHeading({
   return (
     // The hairline marks the pinned edge the rows scroll under.
     <div className="shrink-0 border-b border-hairline">
-      <div data-coach="view-heading" className="flex items-start gap-3 px-4 pt-3.5 pb-3">
+      <div className="flex items-start gap-3 px-4 pt-3.5 pb-3">
         <span
           className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg border border-hairline bg-raised text-muted"
           aria-hidden="true"

@@ -17,8 +17,7 @@ import { DOT, stateText, useTick } from "./StatusStrip";
 // needs attention) that opens a small menu. While a demo failure is switched
 // on, an amber "Simulating" chip sits next to it, and when the model endpoint
 // isn't answering normally (or saved answers are in use), a model chip does. Settings lives in the top bar
-// (SettingsButton below, placed by Header). During the onboarding's practice
-// round this bar is replaced by the practice bar.
+// (SettingsButton below, placed by Header).
 export function Footer({ onScenarios, right }: { onScenarios: () => void; right?: React.ReactNode }) {
   return (
     <footer className="relative flex h-10 shrink-0 items-center justify-between gap-3 border-t border-hairline px-3 text-[12px]">
@@ -152,16 +151,13 @@ function ConnectorRow({
 
 /**
  * Settings, a cog in the top bar: Trace, Keyboard shortcuts and Hide Life,
- * each with the key that does the same. `peek` holds it open (the practice
- * tour's last tip); `onTourClick` replaces the toggle while that tip is up.
+ * each with the key that does the same.
  */
 export function SettingsButton({
   hotkey,
   mouse,
   onTrace,
   onKeys,
-  peek = false,
-  onTourClick,
   open: controlled,
   onOpenChange,
 }: {
@@ -169,8 +165,6 @@ export function SettingsButton({
   mouse: boolean;
   onTrace: () => void;
   onKeys: () => void;
-  peek?: boolean;
-  onTourClick?: () => void;
   /** Open state held by the palette, so ⌘, and the cog share it. Left out, the button keeps its own. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -182,7 +176,7 @@ export function SettingsButton({
     if (onOpenChange) onOpenChange(value);
     else setOwn(value);
   };
-  const open = opened || peek;
+  const open = opened;
   const choose = (run: () => void) => () => {
     setOpen(false);
     run();
@@ -197,8 +191,7 @@ export function SettingsButton({
         aria-haspopup="menu"
         aria-expanded={open}
         onMouseDown={(e) => e.preventDefault()}
-        onClick={() => (onTourClick ? onTourClick() : setOpen((o) => !o))}
-        data-coach="settings"
+        onClick={() => setOpen((o) => !o)}
         aria-label="Settings"
         title="Settings"
         className={`grid size-7 cursor-pointer place-items-center rounded-md transition-colors duration-(--duration-fast) hover:bg-raised hover:text-text ${

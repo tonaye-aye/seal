@@ -11,7 +11,6 @@ export function Menu({
   align = "left",
   placement = "above",
   label,
-  coach,
   children,
 }: {
   open: boolean;
@@ -20,8 +19,6 @@ export function Menu({
   /** Above the button (footer) or below it (top bar). */
   placement?: "above" | "below";
   label: string;
-  /** A data-coach name, so the practice tour can let clicks reach it. */
-  coach?: string;
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -54,7 +51,6 @@ export function Menu({
       ref={ref}
       role="menu"
       aria-label={label}
-      data-coach={coach}
       className={`sheet-in absolute ${placement === "above" ? "bottom-[calc(100%+6px)]" : "top-[calc(100%+6px)]"} z-40 min-w-[290px] rounded-lg border border-hairline bg-surface p-1 shadow-[0_12px_32px_rgb(0_0_0/0.45)] ${
         align === "right" ? "right-0" : "left-0"
       }`}

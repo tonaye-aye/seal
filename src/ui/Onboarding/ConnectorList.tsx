@@ -2,9 +2,9 @@ import { CalendarDays, Check, Cloud, FolderOpen, HeartPulse, Landmark, Loader2, 
 import type { LucideIcon } from "lucide-react";
 import { Kbd } from "../Kbd";
 
-// The list of things you can connect, used by both connect screens (the
-// practice Postbox and the real setup). One row per connector: an icon tile,
-// its name, one line on what it reads, who provides it, and a + to connect.
+// The list of things you can connect, on the onboarding's connect screen.
+// One row per connector: an icon tile, its name, one line on what it reads,
+// who provides it, and a + to connect.
 
 export type ConnectorRow = {
   id: string;

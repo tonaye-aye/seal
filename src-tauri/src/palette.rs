@@ -26,15 +26,6 @@ pub fn set_hide_on_blur(enabled: bool) {
     HIDE_ON_BLUR_NOW.store(enabled, Ordering::SeqCst);
 }
 
-/// Switched on by the UI on the onboarding's summon step: the hotkey then
-/// tells the UI it was pressed instead of hiding the palette (the one time it
-/// doesn't hide), so the step can say "Success" straight away.
-static HOTKEY_PRACTICE: AtomicBool = AtomicBool::new(false);
-
-pub fn set_hotkey_practice(on: bool) {
-    HOTKEY_PRACTICE.store(on, Ordering::SeqCst);
-}
-
 /// True when clicking into another app should hide the palette.
 pub fn hides_on_blur() -> bool {
     HIDE_ON_BLUR && HIDE_ON_BLUR_NOW.load(Ordering::SeqCst)
@@ -77,14 +68,6 @@ pub fn toggle<R: Runtime>(app: &AppHandle<R>) {
     let window = app.get_webview_window(LABEL);
     let visible = window.as_ref().and_then(|w| w.is_visible().ok()).unwrap_or(false);
     let focused = window.as_ref().and_then(|w| w.is_focused().ok()).unwrap_or(false);
-    if visible && HOTKEY_PRACTICE.load(Ordering::SeqCst) {
-        // Onboarding's summon step: stay open and let the UI say it worked.
-        if let Some(w) = window.as_ref() {
-            let _ = w.set_focus();
-            let _ = w.emit("palette:hotkey", ());
-        }
-        return;
-    }
     if visible && focused {
         hide(app);
     } else {
