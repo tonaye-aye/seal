@@ -75,7 +75,6 @@ export function Headline({
     }
     return (
       <ViewHeading
-        view="list"
         title={matches.length ? copy.search.matches(matches.length, q) : copy.search.noMatches(q)}
         search={search}
       >
@@ -95,7 +94,7 @@ export function Headline({
   else if (open.length === 0) line = copy.list.allDealtWithLine;
 
   return (
-    <ViewHeading view="list" title={title} search={search}>
+    <ViewHeading title={title} search={search}>
       {line}
       {scanning && <span className="text-faint">{line ? " " : ""}{copy.list.stillChecking}</span>}
     </ViewHeading>

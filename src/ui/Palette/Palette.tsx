@@ -16,12 +16,11 @@ import { approve, dismiss, rankedFindings, snooze, startScan, undoLast, useScan 
 import { ActionBar, FindingDetail, evidenceFor, type Command, type Pane } from "./FindingDetail";
 import { AllClear, FindingsList, NotChecked, Scanning, ScanError, listItems, type ListItem, type RowAction } from "./FindingsList";
 import { CommandBar } from "./CommandBar";
-import { Footer, SettingsButton } from "./Footer";
+import { Footer } from "./Footer";
 import { Header } from "./Header";
 import { PaletteShell } from "./PaletteShell";
-import { SwitchButton } from "../Kbd";
 import { copy } from "../../copy";
-import { BackIcon, ListIcon, TimelineIcon } from "./ViewHeading";
+import { Rail, SettingsButton } from "./Rail";
 import { ShortcutSheet } from "./ShortcutSheet";
 import { ScenariosSheet } from "./ScenariosSheet";
 import { layerOwns, setPaletteElement } from "../layers";
@@ -39,7 +38,7 @@ import { changeView, nativeViewTransitions } from "../motion";
 //   list    J/K move, Enter opens, A approve, E edit, S snooze, D not a leak
 //   detail  J/K move through evidence (or scroll the draft), Tab switch pane
 //   timeline  J/K move through time, Enter opens the line's finding
-//   always  Cmd+Enter timeline, Cmd+Z undo, / search, T trace, R check again, ? keys, Esc back
+//   always  Cmd+Enter timeline, V view menu, Cmd+Z undo, / search, T trace, R check again, ? keys, Esc back
 //   hidden  Cmd+Shift+D demo panel (its own keys live in ScenariosSheet)
 //   setup   (first-run onboarding screens) Enter does the screen's action, Cmd+Enter runs the first check
 //
@@ -91,6 +90,8 @@ export function Palette() {
   const [sheetOpen, setSheetOpen] = useState(false);
   // The settings menu (the cog, or ⌘,).
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // The rail's View menu (V, or a click): Findings or Timeline.
+  const [viewMenuOpen, setViewMenuOpen] = useState(false);
   // The hidden demo panel for simulated connector failures.
   const [scenariosOpen, setScenariosOpen] = useState(false);
   const [showHint, setShowHint] = useState(!hintSeen());
@@ -216,6 +217,18 @@ export function Palette() {
   function back() {
     if (view === "detail") changeView(() => setView(detailFrom), "back");
     else if (view === "timeline") changeView(() => setView("list"), "back");
+  }
+
+  /** The rail's Findings icon: back to the list from wherever you are. */
+  function goList() {
+    if (view === "timeline" || (view === "detail" && detailFrom === "list")) back();
+    else if (view === "detail") changeView(() => setView("list"), "back");
+  }
+
+  /** The rail's Timeline icon: back to it from a finding opened there, else open it (like ⌘↵). */
+  function goTimeline() {
+    if (view === "detail" && detailFrom === "timeline") back();
+    else if (view !== "timeline") openTimeline();
   }
 
   /** The next row to land on once the selected finding moves down the list. */
@@ -407,6 +420,9 @@ export function Palette() {
         } else if (lower === "t") {
           event.preventDefault();
           setTraceOpen((o) => !o);
+        } else if (lower === "v") {
+          event.preventDefault();
+          setViewMenuOpen(true);
         }
         return;
       }
@@ -451,6 +467,9 @@ export function Palette() {
       } else if (lower === "t") {
         event.preventDefault();
         setTraceOpen((o) => !o);
+      } else if (lower === "v") {
+        event.preventDefault();
+        setViewMenuOpen(true);
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -543,6 +562,9 @@ export function Palette() {
     ) : undefined;
 
   const inDetail = view === "detail" && !!selectedItem;
+  // The breadcrumb: the view you're in, then an open finding's business.
+  const shownView = inDetail ? detailFrom : view === "timeline" ? "timeline" : "list";
+  const crumbs = [shownView === "timeline" ? copy.rail.timeline : copy.rail.list, ...(inDetail ? [selectedItem.merchant] : [])];
   const actionItem = selected?.type === "undecided" ? { undecided: selected.error } : selectedItem;
 
   return (
@@ -557,33 +579,30 @@ export function Palette() {
       onMouseMove={(e) => {
         if (e.movementX !== 0 || e.movementY !== 0) setMouse(true);
       }}
-      header={
-        <Header
-          action={
-            setup ? undefined : (
-              <span className="inline-flex">
-                {view === "list" && !nothingYet ? (
-                  <SwitchButton keys={["⌘", "↵"]} label={copy.header.viewTimeline} icon={<TimelineIcon />} mouse={mouse} onClick={openTimeline} />
-                ) : view === "timeline" ? (
-                  <SwitchButton keys={["Esc"]} label={copy.header.viewList} icon={<ListIcon />} mouse={mouse} onClick={back} />
-                ) : view === "detail" ? (
-                  // "Back", not a view name: it returns to wherever the finding was opened from.
-                  <SwitchButton keys={["Esc"]} label={copy.header.back} icon={<BackIcon />} mouse={mouse} onClick={back} />
-                ) : undefined}
-              </span>
-            )
-          }
-          trailing={
-            <SettingsButton
-              hotkey={hotkey}
-              mouse={mouse}
-              onTrace={() => setTraceOpen((o) => !o)}
-              onKeys={() => setSheetOpen(true)}
-              open={settingsOpen}
-              onOpenChange={setSettingsOpen}
-            />
-          }
-        />
+      header={<Header crumbs={setup ? [] : crumbs} />}
+      rail={
+        setup ? undefined : (
+          <Rail
+            view={view === "detail" && !selectedItem ? "list" : view}
+            from={detailFrom}
+            traceOpen={traceOpen}
+            onList={goList}
+            onTimeline={goTimeline}
+            onTrace={() => setTraceOpen((o) => !o)}
+            viewOpen={viewMenuOpen}
+            onViewOpenChange={setViewMenuOpen}
+            mouse={mouse}
+            settings={
+              <SettingsButton
+                hotkey={hotkey}
+                mouse={mouse}
+                onKeys={() => setSheetOpen(true)}
+                open={settingsOpen}
+                onOpenChange={setSettingsOpen}
+              />
+            }
+          />
+        )
       }
       replay={replayNote(scan)}
       banner={banner}

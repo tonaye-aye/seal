@@ -1,15 +1,12 @@
 import { useState } from "react";
-import { CircleAlert, Plug, Settings } from "lucide-react";
+import { CircleAlert, Plug } from "lucide-react";
 import type { ConnectorStatus } from "../../connectors";
 import { orderedStatuses, reconnectCalendar, useLive } from "../../connectors/live";
 import type { ConnectorId } from "../../connectors/types";
 import { connectLater, onboardingDone } from "../../lib/onboarding";
-import { hidePalette } from "../../lib/native";
 import { startScan } from "../../lib/scan-store";
 import { copy } from "../../copy";
-import { Kbd } from "../Kbd";
-import { CloseIcon, HideIcon, KeysIcon, TraceIcon } from "../icons";
-import { Menu, MenuItem, Tip } from "../layers";
+import { Menu, Tip } from "../layers";
 import { ModelChip, ModelRow } from "./ModelChip";
 import { SimulatingChip } from "./ScenariosSheet";
 import { DOT, pillButton, stateText, StatusRow, useTick } from "./StatusStrip";
@@ -17,8 +14,8 @@ import { DOT, pillButton, stateText, StatusRow, useTick } from "./StatusStrip";
 // Bottom bar: one Connectors button (with a count, and a warning when a source
 // needs attention) that opens a small menu. While a demo failure is switched
 // on, a "Simulating" chip (info colour) sits next to it, and when the model endpoint
-// isn't answering normally (or saved answers are in use), a model chip does. Settings lives in the top bar
-// (SettingsButton below, placed by Header).
+// isn't answering normally (or saved answers are in use), a model chip does. Settings lives at the foot of
+// the icon rail (SettingsButton in Rail.tsx).
 export function Footer({ onScenarios, right }: { onScenarios: () => void; right?: React.ReactNode }) {
   return (
     <footer className="relative flex h-10 shrink-0 items-center justify-between gap-3 border-t border-hairline px-3 text-meta">
@@ -143,74 +140,5 @@ function ConnectorRow({
       tip={status?.detail}
       action={action}
     />
-  );
-}
-
-/**
- * Settings, a cog in the top bar: Trace, Keyboard shortcuts and Hide Life,
- * each with the key that does the same.
- */
-export function SettingsButton({
-  hotkey,
-  mouse,
-  onTrace,
-  onKeys,
-  open: controlled,
-  onOpenChange,
-}: {
-  hotkey: string[];
-  mouse: boolean;
-  onTrace: () => void;
-  onKeys: () => void;
-  /** Open state held by the palette, so ⌘, and the cog share it. Left out, the button keeps its own. */
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
-}) {
-  const [own, setOwn] = useState(false);
-  const opened = controlled ?? own;
-  const setOpen = (next: boolean | ((o: boolean) => boolean)) => {
-    const value = typeof next === "function" ? next(opened) : next;
-    if (onOpenChange) onOpenChange(value);
-    else setOwn(value);
-  };
-  const open = opened;
-  const choose = (run: () => void) => () => {
-    setOpen(false);
-    run();
-  };
-  const caps = (keys: string[]) => (mouse ? undefined : <Kbd keys={keys} />);
-  return (
-    <Menu
-      open={open}
-      onOpenChange={setOpen}
-      side="bottom"
-      align="end"
-      label={copy.footer.settings}
-      // The keys on the rows work while it is open; ⌘, closes it again.
-      shortcuts={{ t: onTrace, "?": onKeys, "⌘,": () => {} }}
-      trigger={
-        <Tip content={copy.footer.settings} keys={["⌘", ","]} side="bottom">
-          <button
-            type="button"
-            tabIndex={-1}
-            aria-label={copy.footer.settings}
-            className={`press grid size-7 cursor-pointer place-items-center rounded-md hover:bg-raised hover:text-text ${
-              open ? "bg-raised text-text" : "text-muted"
-            }`}
-          >
-            <Settings size={15} strokeWidth={1.75} aria-hidden="true" className="block" />
-          </button>
-        </Tip>
-      }
-    >
-      <MenuItem icon={<TraceIcon />} label={copy.footer.traceItem} keys={caps(["T"])} onSelect={choose(onTrace)} />
-      <MenuItem icon={<KeysIcon />} label={copy.footer.keysItem} keys={caps(["?"])} onSelect={choose(onKeys)} />
-      <MenuItem
-        icon={hotkey.length > 0 ? <HideIcon /> : <CloseIcon />}
-        label={hotkey.length > 0 ? copy.footer.hide : copy.footer.close}
-        keys={caps(hotkey.length > 0 ? hotkey : ["Esc"])}
-        onSelect={choose(hidePalette)}
-      />
-    </Menu>
   );
 }
