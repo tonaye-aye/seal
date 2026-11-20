@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Ellipsis } from "lucide-react";
-import { Menu, MenuItem } from "./Menu";
+import { Menu, MenuItem, Tip } from "../layers";
 import type { Cleared, Finding } from "../../agent/pipeline";
 import { useLive } from "../../connectors/live";
 import { formatAUD } from "../../lib/money";
@@ -147,12 +147,9 @@ const URGENCY_DOT: Record<Urgency, string> = {
 export function DeadlineChip({ date }: { date: string }) {
   const days = daysUntil(date);
   return (
-    <span
-      className={`inline-flex h-5 items-center rounded-full px-2 figure text-label ${DEADLINE_TONE[urgency(date)]}`}
-      title={copy.dates.days(days)}
-    >
-      {shortDate(date)}
-    </span>
+    <Tip content={copy.dates.days(days)}>
+      <span className={`inline-flex h-5 items-center rounded-full px-2 figure text-label ${DEADLINE_TONE[urgency(date)]}`}>{shortDate(date)}</span>
+    </Tip>
   );
 }
 
@@ -166,40 +163,44 @@ export type RowAction = "approve" | "snooze" | "dismiss";
  */
 function RowMenu({ finding, onAct, startOpen = false }: { finding: Finding; onAct: (action: RowAction) => void; startOpen?: boolean }) {
   const [open, setOpen] = useState(startOpen);
-  const [placement, setPlacement] = useState<"above" | "below">("below");
+  const [side, setSide] = useState<"top" | "bottom">("bottom");
   const button = useRef<HTMLButtonElement>(null);
   const approve = finding.draft ? copy.actions.approve : finding.action.kind === "none" ? copy.actions.markHandled : copy.actions.approve;
-  const choose = (action: RowAction) => () => {
-    setOpen(false);
-    onAct(action);
-  };
+  const choose = (action: RowAction) => () => onAct(action);
   return (
     // Clicks here act on the row; they must not also open it.
-    <span className="relative flex w-7 shrink-0 justify-end" onClick={(e) => e.stopPropagation()}>
-      <button
-        ref={button}
-        type="button"
-        tabIndex={-1}
-        data-menu-button
-        aria-label={copy.list.quickActionsFor(finding.merchant)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        title={copy.list.quickActions}
-        // Keep keyboard focus on the palette, so the keys keep working after a click.
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => {
-          // Open upwards when the row sits in the lower half of its list.
-          const list = button.current?.closest("[data-row-list]");
-          const r = button.current?.getBoundingClientRect();
-          const l = list?.getBoundingClientRect();
-          if (r && l) setPlacement(r.top > l.top + l.height / 2 ? "above" : "below");
-          setOpen((o) => !o);
+    <span className="flex w-7 shrink-0 justify-end" onClick={(e) => e.stopPropagation()}>
+      <Menu
+        open={open}
+        onOpenChange={(next) => {
+          if (next) {
+            // Open upwards when the row sits in the lower half of its list.
+            const list = button.current?.closest("[data-row-list]");
+            const r = button.current?.getBoundingClientRect();
+            const l = list?.getBoundingClientRect();
+            if (r && l) setSide(r.top > l.top + l.height / 2 ? "top" : "bottom");
+          }
+          setOpen(next);
         }}
-        className={`grid size-6 cursor-pointer place-items-center rounded-md transition-colors duration-(--duration-fast) hover:bg-hairline hover:text-text ${open ? "bg-hairline text-text" : "text-muted"}`}
+        side={side}
+        align="end"
+        label={copy.list.quickActions}
+        // A, S and D work with the menu open too, as its rows say.
+        shortcuts={{ a: choose("approve"), s: choose("snooze"), d: choose("dismiss") }}
+        trigger={
+          <Tip content={copy.list.quickActions}>
+            <button
+              ref={button}
+              type="button"
+              tabIndex={-1}
+              aria-label={copy.list.quickActionsFor(finding.merchant)}
+              className={`grid size-6 cursor-pointer place-items-center rounded-md transition-colors duration-(--duration-fast) hover:bg-hairline hover:text-text ${open ? "bg-hairline text-text" : "text-muted"}`}
+            >
+              <Ellipsis size={15} strokeWidth={1.75} aria-hidden="true" className="block" />
+            </button>
+          </Tip>
+        }
       >
-        <Ellipsis size={15} strokeWidth={1.75} aria-hidden="true" className="block" />
-      </button>
-      <Menu open={open} onClose={() => setOpen(false)} align="right" placement={placement} label={copy.list.quickActions}>
         <MenuItem icon={<ApproveIcon />} label={approve} keys={<Kbd keys={["A"]} />} onSelect={choose("approve")} />
         <MenuItem icon={<SnoozeIcon />} label={copy.actions.snooze} keys={<Kbd keys={["S"]} />} onSelect={choose("snooze")} />
         <MenuItem icon={<DismissIcon />} label={copy.actions.notALeak} keys={<Kbd keys={["D"]} />} onSelect={choose("dismiss")} />
@@ -335,12 +336,14 @@ export function FindingsList({
       );
     if (item.type === "undecided")
       return (
-        <div key={item.key} {...common} className={rowClass(selected)} title={item.error}>
-          <span className="size-1.5 shrink-0 rounded-full bg-danger" aria-hidden="true" />
-          <span className="w-[140px] shrink-0 truncate font-semibold">{item.merchant}</span>
-          <span className="min-w-0 flex-1 truncate text-faint">{copy.list.undecidedRow}</span>
-          <NotSureChip />
-        </div>
+        <Tip key={item.key} content={item.error}>
+          <div {...common} className={rowClass(selected)}>
+            <span className="size-1.5 shrink-0 rounded-full bg-danger" aria-hidden="true" />
+            <span className="w-[140px] shrink-0 truncate font-semibold">{item.merchant}</span>
+            <span className="min-w-0 flex-1 truncate text-faint">{copy.list.undecidedRow}</span>
+            <NotSureChip />
+          </div>
+        </Tip>
       );
     return (
       <div key={item.key} {...common} className={rowClass(selected)}>

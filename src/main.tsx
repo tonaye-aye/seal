@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import "./styles/tokens.css";
 import { Palette } from "./ui/Palette/Palette";
+import { LayerProvider } from "./ui/layers";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { isPaletteHidden } from "./lib/native";
@@ -71,7 +72,9 @@ if (import.meta.env.DEV) {
     void import("./gallery/Gallery").then(({ Gallery }) =>
       root.render(
         <React.StrictMode>
-          <Gallery />
+          <LayerProvider>
+            <Gallery />
+          </LayerProvider>
         </React.StrictMode>,
       ),
     );
@@ -103,7 +106,9 @@ if (!gallery) {
 
   root.render(
     <React.StrictMode>
-      <Palette />
+      <LayerProvider>
+        <Palette />
+      </LayerProvider>
     </React.StrictMode>,
   );
 }

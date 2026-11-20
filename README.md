@@ -204,5 +204,7 @@ error, replay, undo and more.
 - [Geist Mono](https://github.com/vercel/geist-font) by Vercel (figures, dates and small labels): SIL Open Font
   License 1.1, installed through `@fontsource-variable/geist-mono`.
 - [Lucide](https://lucide.dev) icons (`lucide-react`): ISC.
+- [Radix Primitives](https://www.radix-ui.com/primitives) (`@radix-ui/react-tooltip`, `react-dropdown-menu`,
+  `react-dialog`, `react-switch`) for tooltips, menus, sheets and switches, restyled from the app's own tokens: MIT.
 - React, Vite, Tailwind CSS: MIT. Tauri: MIT or Apache-2.0.
 - All seed data, people and brands are made up.

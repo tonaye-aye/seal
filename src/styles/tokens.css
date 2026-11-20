@@ -289,6 +289,45 @@ input:focus-visible {
   animation: drawer-up var(--duration-base) var(--ease-out);
 }
 
+/* Menus, tooltips and sheets (src/ui/layers.tsx): Radix marks each one open
+   or closed with data-state, and waits for the closing animation before it
+   removes the layer. */
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* A menu or sheet takes focus itself so its keys work; only the rows and
+   buttons inside it show the focus ring, never the whole panel. */
+.layer-pop:focus-visible,
+.layer-sheet:focus-visible {
+  outline: none;
+}
+
+.layer-pop[data-state="open"],
+.layer-pop[data-state="delayed-open"],
+.layer-pop[data-state="instant-open"],
+.layer-sheet[data-state="open"] {
+  animation: rise-in var(--duration-base) var(--ease-out);
+}
+
+.layer-pop[data-state="open"],
+.layer-pop[data-state="delayed-open"],
+.layer-pop[data-state="instant-open"] {
+  animation-duration: var(--duration-fast);
+}
+
+.layer-scrim[data-state="open"] {
+  animation: fade-in var(--duration-base) var(--ease-out);
+}
+
+.layer-pop[data-state="closed"],
+.layer-sheet[data-state="closed"],
+.layer-scrim[data-state="closed"] {
+  animation: fade-out var(--duration-fast) var(--ease-out) forwards;
+}
+
 /* The Undo countdown: a hairline that empties over the toast's lifetime. */
 @keyframes drain {
   to {

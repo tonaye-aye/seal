@@ -2,6 +2,7 @@ import { CalendarDays, Check, Cloud, FolderOpen, HeartPulse, Landmark, Loader2, 
 import type { LucideIcon } from "lucide-react";
 import { copy } from "../../copy";
 import { Kbd } from "../Kbd";
+import { Tip } from "../layers";
 
 // The list of things you can connect, on the onboarding's connect screen.
 // One row per connector: an icon tile, its name, one line on what it reads,
@@ -91,19 +92,20 @@ export function ConnectorList({
               </span>
             )}
             {row.state === "idle" && (
-              <button
-                type="button"
-                tabIndex={-1}
-                aria-label={copy.onboarding.connectSource(row.name)}
-                title={copy.onboarding.connectSource(row.name)}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => onConnect(row.id)}
-                className={`grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg border transition-colors duration-(--duration-fast) ${
-                  row.next ? "border-accent/40 text-accent hover:bg-accent-glow" : "border-hairline text-muted hover:bg-raised hover:text-text"
-                }`}
-              >
-                <Plus size={16} strokeWidth={1.75} />
-              </button>
+              <Tip content={copy.onboarding.connectSource(row.name)}>
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  aria-label={copy.onboarding.connectSource(row.name)}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => onConnect(row.id)}
+                  className={`grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg border transition-colors duration-(--duration-fast) ${
+                    row.next ? "border-accent/40 text-accent hover:bg-accent-glow" : "border-hairline text-muted hover:bg-raised hover:text-text"
+                  }`}
+                >
+                  <Plus size={16} strokeWidth={1.75} />
+                </button>
+              </Tip>
             )}
           </li>
         );

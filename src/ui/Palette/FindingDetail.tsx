@@ -12,6 +12,7 @@ import { Kbd, KeyButton, KeyHint } from "../Kbd";
 import { ViewHeading } from "./ViewHeading";
 import { DEADLINE_TONE } from "./FindingsList";
 import { SavedNote } from "../replay";
+import { Tip } from "../layers";
 
 // One finding, opened: why it was flagged, the evidence trail (cited items
 // first) on the left, and on the right the drafted fix with the figures code
@@ -290,13 +291,15 @@ function DraftPane({
         </h3>
         <dl className="flex flex-col">
           {finding.figures.map((f) => (
-            <div key={f.id} className="flex items-baseline justify-between gap-4 border-b border-hairline/60 py-1.5 last:border-0" title={f.how}>
-              <dt className="min-w-0 text-small text-muted">
-                {f.label}
-                {f.how && <span className="mt-0.5 block truncate font-mono text-label text-faint">{f.how}</span>}
-              </dt>
-              <dd className="shrink-0 figure text-small text-text">{figureValue(f)}</dd>
-            </div>
+            <Tip key={f.id} content={f.how}>
+              <div className="flex items-baseline justify-between gap-4 border-b border-hairline/60 py-1.5 last:border-0">
+                <dt className="min-w-0 text-small text-muted">
+                  {f.label}
+                  {f.how && <span className="mt-0.5 block truncate font-mono text-label text-faint">{f.how}</span>}
+                </dt>
+                <dd className="shrink-0 figure text-small text-text">{figureValue(f)}</dd>
+              </div>
+            </Tip>
           ))}
         </dl>
       </section>
@@ -376,14 +379,15 @@ export function FindingDetail({
                 {/* The kind is quiet context; the deadline is the news, coloured by how close it is. */}
                 <span className="shrink-0 text-faint">{copy.shared.kind[finding.kind]}</span>
                 {finding.deadline && (
-                  <span
-                    title={finding.deadline.label}
-                    className={`ml-1 inline-flex h-5 shrink-0 items-center rounded-full px-2 figure text-label whitespace-nowrap ${
-                      urgency(finding.deadline.date) === "soon" ? "" : "border border-hairline"
-                    } ${DEADLINE_TONE[urgency(finding.deadline.date)]}`}
-                  >
-                    {copy.detail.deadlineChip(shortDate(finding.deadline.date), copy.dates.days(daysUntil(finding.deadline.date)))}
-                  </span>
+                  <Tip content={finding.deadline.label}>
+                    <span
+                      className={`ml-1 inline-flex h-5 shrink-0 items-center rounded-full px-2 figure text-label whitespace-nowrap ${
+                        urgency(finding.deadline.date) === "soon" ? "" : "border border-hairline"
+                      } ${DEADLINE_TONE[urgency(finding.deadline.date)]}`}
+                    >
+                      {copy.detail.deadlineChip(shortDate(finding.deadline.date), copy.dates.days(daysUntil(finding.deadline.date)))}
+                    </span>
+                  </Tip>
                 )}
               </>
             ) : (
@@ -489,9 +493,9 @@ export function ActionBar({
       <div className="flex min-w-0 items-center gap-3">
         {/* Say which finding the actions apply to, in the list and in an open finding alike. */}
         {item && !("undecided" in item) && (detail || "evidence" in item) && (
-          <span className="max-w-[150px] truncate font-medium text-text" title={item.merchant}>
-            {item.merchant}
-          </span>
+          <Tip content={item.merchant}>
+            <span className="max-w-[150px] truncate font-medium text-text">{item.merchant}</span>
+          </Tip>
         )}
         {hints.map((h) => (
           <span key={h.label} className="inline-flex">

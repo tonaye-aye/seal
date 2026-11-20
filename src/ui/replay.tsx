@@ -1,4 +1,5 @@
 import type { Finding } from "../agent/pipeline";
+import { Tip } from "./layers";
 import type { ScanState } from "../lib/scan-store";
 import { copy } from "../copy";
 
@@ -64,9 +65,9 @@ export function replayNote(scan: ScanState): React.ReactNode | undefined {
 /** The small "Saved answer" tag. */
 export function SavedTag({ title }: { title?: string }) {
   return (
-    <span className="shrink-0 rounded-full border border-info/30 px-2 py-px text-meta text-info" title={title ?? copy.replay.tagTitle}>
-      {copy.replay.tag}
-    </span>
+    <Tip content={title ?? copy.replay.tagTitle}>
+      <span className="shrink-0 rounded-full border border-info/30 px-2 py-px text-meta text-info">{copy.replay.tag}</span>
+    </Tip>
   );
 }
 

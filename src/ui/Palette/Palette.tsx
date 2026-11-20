@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Cleared, Finding } from "../../agent/pipeline";
-import { reconnectCalendar, toggleScenario, useLive } from "../../connectors/live";
+import { reconnectCalendar, useLive } from "../../connectors/live";
 import { activeHotkey, hidePalette, onPaletteShown, onWindowFocus } from "../../lib/native";
 import {
   runFirstCheck,
@@ -23,11 +23,11 @@ import { SwitchButton } from "../Kbd";
 import { copy } from "../../copy";
 import { BackIcon, ListIcon, TimelineIcon } from "./ViewHeading";
 import { ShortcutSheet } from "./ShortcutSheet";
-import { SCENARIOS, ScenariosSheet } from "./ScenariosSheet";
+import { ScenariosSheet } from "./ScenariosSheet";
+import { layerOwns, setPaletteElement } from "../layers";
 import { Toast } from "./Toast";
 import { TraceDrawer } from "./Trace";
 import { replayNote } from "../replay";
-import { getModelDemo, toggleDrop, toggleSavedOnly } from "../../lib/endpoint";
 import { Timeline } from "./Timeline";
 import { buildTimeline, filterTimeline, nowIndex } from "../timeline";
 
@@ -39,8 +39,10 @@ import { buildTimeline, filterTimeline, nowIndex } from "../timeline";
 //   detail  J/K move through evidence (or scroll the draft), Tab switch pane
 //   timeline  J/K move through time, Enter opens the line's finding
 //   always  Cmd+Enter timeline, Cmd+Z undo, / search, T trace, R check again, ? keys, Esc back
-//   hidden  Cmd+Shift+D demo panel: 1/2/3 switch a simulated failure, R check again, O reset onboarding, Esc close
+//   hidden  Cmd+Shift+D demo panel (its own keys live in ScenariosSheet)
 //   setup   (first-run onboarding screens) Enter does the screen's action, Cmd+Enter runs the first check
+//
+// While a menu or a sheet is open, it owns the keys instead (src/ui/layers.tsx).
 
 const HINT_KEY = "life.hintSeen";
 
@@ -136,8 +138,10 @@ export function Palette() {
     panelRef.current?.focus();
   }, [onboarding.step]);
 
-  // Land focus on the panel (not the input) each time it opens.
+  // Land focus on the panel (not the input) each time it opens, and tell the
+  // menus and sheets where to hand focus back when they close.
   useEffect(() => {
+    setPaletteElement(panelRef.current);
     panelRef.current?.focus();
   }, [openCount]);
 
@@ -281,47 +285,13 @@ export function Palette() {
       const key = event.key;
       const lower = key.toLowerCase();
 
-      // Cmd+Shift+D opens and closes the demo panel from anywhere.
+      // An open menu or sheet has the keys (Esc closes it, and only it).
+      if (layerOwns(event)) return;
+
+      // Cmd+Shift+D opens the demo panel (it closes itself the same way).
       if (event.metaKey && event.shiftKey && lower === "d") {
         event.preventDefault();
-        setScenariosOpen((o) => !o);
-        setSheetOpen(false);
-        panelRef.current?.focus();
-        return;
-      }
-
-      // While the demo panel is open, it owns the keys.
-      if (scenariosOpen) {
-        if (key === "Escape") {
-          event.preventDefault();
-          setScenariosOpen(false);
-          return;
-        }
-        if (event.metaKey || event.ctrlKey || event.altKey) return;
-        const scenario = SCENARIOS.find((s) => s.key === key);
-        if (scenario) {
-          event.preventDefault();
-          toggleScenario(scenario.id);
-        } else if (key === "4") {
-          // The model endpoint drops out partway through the next check.
-          event.preventDefault();
-          toggleDrop();
-        } else if (lower === "m") {
-          // Saved model answers only (not while LIFE_REPLAY=1 holds it on).
-          event.preventDefault();
-          if (!getModelDemo().byFlag) toggleSavedOnly();
-        } else if (lower === "o") {
-          // Start onboarding again from an empty account (to rehearse the demo).
-          event.preventDefault();
-          void resetOnboarding().then((done) => done && setScenariosOpen(false));
-        } else if (lower === "r") {
-          // Close first, so the check and its failures are in plain view.
-          // While a check is running, R does nothing here (the button says so).
-          event.preventDefault();
-          if (scan.phase === "scanning" || scan.refreshing) return;
-          setScenariosOpen(false);
-          run("rescan");
-        }
+        setScenariosOpen(true);
         return;
       }
 
@@ -355,8 +325,7 @@ export function Palette() {
       if (key === "Escape") {
         event.preventDefault();
         // Esc steps back one level at a time, and closes the palette last.
-        if (sheetOpen) setSheetOpen(false);
-        else if (editing) {
+        if (editing) {
           setEditing(false);
           panelRef.current?.focus();
         } else if (typing && query) setQuery("");
@@ -405,11 +374,6 @@ export function Palette() {
         return;
       }
       if (event.metaKey || event.ctrlKey || event.altKey) return;
-
-      if (sheetOpen) {
-        if (key === "?") setSheetOpen(false);
-        return;
-      }
 
       const inDetail = view === "detail";
       const down = lower === "j" || key === "ArrowDown";
@@ -635,18 +599,17 @@ export function Palette() {
       overlay={
         <>
           <Toast />
-          {sheetOpen && <ShortcutSheet onClose={() => setSheetOpen(false)} />}
-          {scenariosOpen && (
-            <ScenariosSheet
-              mouse={mouse}
-              onClose={() => setScenariosOpen(false)}
-              onReset={() => void resetOnboarding().then((done) => done && setScenariosOpen(false))}
-              onCheck={() => {
-                setScenariosOpen(false);
-                run("rescan");
-              }}
-            />
-          )}
+          <ShortcutSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />
+          <ScenariosSheet
+            open={scenariosOpen}
+            mouse={mouse}
+            onClose={() => setScenariosOpen(false)}
+            onReset={() => void resetOnboarding().then((done) => done && setScenariosOpen(false))}
+            onCheck={() => {
+              setScenariosOpen(false);
+              run("rescan");
+            }}
+          />
         </>
       }
     >

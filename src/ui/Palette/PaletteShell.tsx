@@ -1,4 +1,5 @@
-import { forwardRef } from "react";
+import { forwardRef, useCallback, useState } from "react";
+import { LayerContainer } from "../layers";
 
 // The palette's frame: top bar, replay banner, the middle area, the bottom bar
 // and the footer, plus anything floating on top (toast, sheets). The real
@@ -27,28 +28,40 @@ export const PaletteShell = forwardRef<HTMLDivElement, Props>(function PaletteSh
   { header, replay, banner, children, bar, footer, overlay, className = "", ...rest },
   ref,
 ) {
+  // Menus, tooltips and sheets draw inside this panel (src/ui/layers.tsx).
+  const [element, setElement] = useState<HTMLDivElement | null>(null);
+  const setRefs = useCallback(
+    (node: HTMLDivElement | null) => {
+      setElement(node);
+      if (typeof ref === "function") ref(node);
+      else if (ref) ref.current = node;
+    },
+    [ref],
+  );
   return (
     <div
-      ref={ref}
+      ref={setRefs}
       className={`relative flex h-full flex-col overflow-hidden rounded-[14px] border border-edge bg-panel outline-none ${className}`}
       {...rest}
     >
-      {header}
-      {replay && (
-        <p role="status" className={NOTICE}>
-          <span className="min-w-0 truncate">{replay}</span>
-        </p>
-      )}
-      {banner && (
-        <p role="status" className={NOTICE}>
-          <span className="min-w-0 truncate">{banner}</span>
-        </p>
-      )}
-      <div className="h-px shrink-0 bg-hairline" />
-      <div className="relative flex min-h-0 flex-1 flex-col">{children}</div>
-      {bar}
-      {footer}
-      {overlay}
+      <LayerContainer element={element}>
+        {header}
+        {replay && (
+          <p role="status" className={NOTICE}>
+            <span className="min-w-0 truncate">{replay}</span>
+          </p>
+        )}
+        {banner && (
+          <p role="status" className={NOTICE}>
+            <span className="min-w-0 truncate">{banner}</span>
+          </p>
+        )}
+        <div className="h-px shrink-0 bg-hairline" />
+        <div className="relative flex min-h-0 flex-1 flex-col">{children}</div>
+        {bar}
+        {footer}
+        {overlay}
+      </LayerContainer>
     </div>
   );
 });
