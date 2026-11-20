@@ -526,7 +526,6 @@ export const copy = {
 
   /** The hidden demo panel (⌘⇧D). */
   demo: {
-    label: "Demo controls",
     title: "Demo controls",
     intro: "Simulate failures for demos. These are demo connectors over seed data, so nothing real breaks. Switches stay on until you turn them off.",
     badge: "Demo",

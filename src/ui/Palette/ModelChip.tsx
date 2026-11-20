@@ -5,7 +5,7 @@ import { startScan, useScan } from "../../lib/scan-store";
 import { CheckNowIcon } from "../icons";
 import { copy } from "../../copy";
 import { Kbd } from "../Kbd";
-import { Menu, MenuItem } from "./Menu";
+import { Menu, MenuItem, Tip } from "../layers";
 import { DOT } from "./StatusStrip";
 import { ago } from "./Timeline";
 
@@ -43,13 +43,15 @@ export function ModelRow() {
   const e = useEndpoint();
   const bad = CHIP[e.state]?.tone === "danger";
   return (
-    <li className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-small" title={e.detail}>
-      <span className={`size-1.5 shrink-0 rounded-full ${endpointDot(e.state)}`} aria-hidden="true" />
-      <span className="flex-1 text-text">{copy.model.title}</span>
-      <span className={`font-mono text-label ${bad ? "text-danger" : e.state === "slow" || e.state === "forced" || e.state === "browser" ? "text-info" : "text-faint"}`}>
-        {endpointText(e)}
-      </span>
-    </li>
+    <Tip content={e.detail} side="right">
+      <li className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-small">
+        <span className={`size-1.5 shrink-0 rounded-full ${endpointDot(e.state)}`} aria-hidden="true" />
+        <span className="flex-1 text-text">{copy.model.title}</span>
+        <span className={`font-mono text-label ${bad ? "text-danger" : e.state === "slow" || e.state === "forced" || e.state === "browser" ? "text-info" : "text-faint"}`}>
+          {endpointText(e)}
+        </span>
+      </li>
+    </Tip>
   );
 }
 
@@ -62,48 +64,52 @@ export function ModelChip({ defaultOpen = false }: { defaultOpen?: boolean }) {
   if (!chip) return null;
   const checking = scan.phase === "scanning" || scan.refreshing;
   const tone = chip.tone === "danger" ? "border-danger/30 text-danger hover:bg-danger/10" : "border-info/30 text-info hover:bg-info/10";
+  const canTryLive = !checking && e.state !== "forced" && e.state !== "browser";
   const choose = (run: () => void) => () => {
     setOpen(false);
     run();
   };
   return (
-    <div className="relative min-w-0">
-      <button
-        type="button"
-        tabIndex={-1}
-        data-menu-button
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onMouseDown={(ev) => ev.preventDefault()}
-        onClick={() => setOpen((o) => !o)}
-        title={e.detail}
-        className={`fade-in flex h-6 min-w-0 cursor-pointer items-center gap-1.5 truncate rounded-full border px-2.5 text-meta ${tone}`}
+    <div className="min-w-0">
+      <Menu
+        open={open}
+        onOpenChange={setOpen}
+        label={copy.model.title}
+        shortcuts={canTryLive ? { r: () => void startScan() } : undefined}
+        trigger={
+          <Tip content={e.detail}>
+            <button
+              type="button"
+              tabIndex={-1}
+              className={`fade-in flex h-6 min-w-0 cursor-pointer items-center gap-1.5 truncate rounded-full border px-2.5 text-meta ${tone}`}
+            >
+              <Cpu size={12} strokeWidth={1.75} aria-hidden="true" className="shrink-0" />
+              <span className="truncate">{chip.text}</span>
+            </button>
+          </Tip>
+        }
       >
-        <Cpu size={12} strokeWidth={1.75} aria-hidden="true" className="shrink-0" />
-        <span className="truncate">{chip.text}</span>
-      </button>
-      <Menu open={open} onClose={() => setOpen(false)} label={copy.model.title}>
-        <p className="px-2.5 pt-1.5 pb-1 label text-faint">{copy.model.title}</p>
-        <div className="w-[330px] px-2.5 pb-2 text-meta">
-          <p className="flex flex-wrap items-center gap-x-2 text-text">
-            <span className={`size-1.5 shrink-0 rounded-full ${endpointDot(e.state)}`} aria-hidden="true" />
-            {endpointText(e)}
-            {e.checkedAt && <span className="font-mono text-label whitespace-nowrap text-faint">{copy.model.checkedAgo(ago(e.checkedAt))}</span>}
-          </p>
-          {e.detail && <p className="mt-1 text-muted">{e.detail}</p>}
-          <p className="mt-1 text-faint">{copy.model.savedNote}</p>
-        </div>
-        {!checking && e.state !== "forced" && e.state !== "browser" && (
-          <MenuItem icon={<CheckNowIcon />} label={copy.model.tryLive} keys={<Kbd keys={["R"]} />} onSelect={choose(() => void startScan())} />
-        )}
-        {e.state !== "browser" && !demo.byFlag && (
-          <MenuItem
-            icon={<Cpu size={14} strokeWidth={1.75} aria-hidden="true" />}
-            label={demo.saved ? copy.model.goLive : copy.model.useSaved}
-            onSelect={choose(toggleSavedOnly)}
-          />
-        )}
-        {demo.byFlag && <p className="px-2.5 pb-1.5 text-meta text-faint">{copy.model.byFlag}</p>}
+          <p className="px-2.5 pt-1.5 pb-1 label text-faint">{copy.model.title}</p>
+          <div className="w-[330px] px-2.5 pb-2 text-meta">
+            <p className="flex flex-wrap items-center gap-x-2 text-text">
+              <span className={`size-1.5 shrink-0 rounded-full ${endpointDot(e.state)}`} aria-hidden="true" />
+              {endpointText(e)}
+              {e.checkedAt && <span className="font-mono text-label whitespace-nowrap text-faint">{copy.model.checkedAgo(ago(e.checkedAt))}</span>}
+            </p>
+            {e.detail && <p className="mt-1 text-muted">{e.detail}</p>}
+            <p className="mt-1 text-faint">{copy.model.savedNote}</p>
+          </div>
+          {canTryLive && (
+            <MenuItem icon={<CheckNowIcon />} label={copy.model.tryLive} keys={<Kbd keys={["R"]} />} onSelect={choose(() => void startScan())} />
+          )}
+          {e.state !== "browser" && !demo.byFlag && (
+            <MenuItem
+              icon={<Cpu size={14} strokeWidth={1.75} aria-hidden="true" />}
+              label={demo.saved ? copy.model.goLive : copy.model.useSaved}
+              onSelect={choose(toggleSavedOnly)}
+            />
+          )}
+          {demo.byFlag && <p className="px-2.5 pb-1.5 text-meta text-faint">{copy.model.byFlag}</p>}
       </Menu>
     </div>
   );

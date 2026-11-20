@@ -28,6 +28,8 @@ import { PrimaryButton, SetupScreen } from "../ui/Onboarding/SetupScreen";
 import { replayNote } from "../ui/replay";
 import { EndpointPreviewProvider, ModelDemoPreviewProvider, type EndpointStatus } from "../lib/endpoint";
 import { ModelChip } from "../ui/Palette/ModelChip";
+import { PreviewLayers, Tip } from "../ui/layers";
+import { Settings } from "lucide-react";
 
 // Dev only (#/gallery): every palette state drawn from fixed sample data, so
 // the visual system can be reviewed without running a scan. It draws the real
@@ -48,6 +50,8 @@ const block = (e: React.SyntheticEvent) => {
 const blockers = {
   onClickCapture: block,
   onMouseDownCapture: block,
+  // Radix menus open on pointer down, so that is stopped too.
+  onPointerDownCapture: block,
   onDoubleClickCapture: block,
   onKeyDownCapture: block,
   onBeforeInputCapture: block,
@@ -324,8 +328,8 @@ function PaletteFrame({
           overlay={
             <>
               <Toast />
-              {sheet === "keys" && <ShortcutSheet onClose={noop} />}
-              {sheet === "scenarios" && <ScenariosSheet onReset={() => {}} mouse={mouse} onClose={noop} onCheck={noop} />}
+              <ShortcutSheet open={sheet === "keys"} onClose={noop} />
+              <ScenariosSheet open={sheet === "scenarios"} onReset={noop} mouse={mouse} onClose={noop} onCheck={noop} />
             </>
           }
         >
@@ -405,6 +409,8 @@ export function Gallery() {
   const o = onboardingSample;
 
   return (
+    // Menus, tooltips and sheets are drawn as still pictures here: open, non-modal, never taking focus.
+    <PreviewLayers>
     <Scroller.Provider value={scroller}>
       <div ref={setScroller} className="h-full overflow-y-auto bg-bg text-text">
         <div className="mx-auto flex max-w-[1240px] gap-10 px-8 py-10">
@@ -747,6 +753,14 @@ export function Gallery() {
             </Section>
 
             <Section id="header" title="Top bar">
+              <Shot title="Settings menu" note="The cog or ⌘,; T and ? work with it open, ⌘, or Esc closes it" height={200}>
+                <Strip>
+                  <div className="flex h-[150px] items-start justify-end gap-24">
+                    <SettingsButton hotkey={["⌥", "Space"]} mouse={false} onTrace={noop} onKeys={noop} open onOpenChange={noop} />
+                    <SettingsButton hotkey={["⌥", "Space"]} mouse onTrace={noop} onKeys={noop} open onOpenChange={noop} />
+                  </div>
+                </Strip>
+              </Shot>
               <Shot title="Status in the top bar" height={300}>
                 <Strip>
                   {(
@@ -768,6 +782,26 @@ export function Gallery() {
               </Shot>
             </Section>
             <Section id="parts" title="Parts">
+              <Shot title="Tooltips" note="On hover (and keyboard focus where a control takes it), with the control's key when it has one" height={150}>
+                <Strip>
+                  <div className="flex h-[100px] items-end gap-48 px-12">
+                    <Tip open content={copy.footer.settings} keys={["⌘", ","]}>
+                      <span className="grid size-7 place-items-center rounded-md bg-raised text-text">
+                        <Settings size={15} strokeWidth={1.75} aria-hidden="true" className="block" />
+                      </span>
+                    </Tip>
+                    <Tip open content={copy.demo.simulatingTitle([copy.demo.scenarios.calendar_reauth.short])} keys={["⌘", "⇧", "D"]}>
+                      <span className="flex h-6 items-center gap-1.5 rounded-full border border-info/30 px-2.5 text-meta text-info">
+                        <span className="size-1.5 rounded-full bg-info" aria-hidden="true" />
+                        {copy.demo.simulating(copy.demo.scenarios.calendar_reauth.short, 0)}
+                      </span>
+                    </Tip>
+                    <Tip open content={copy.dates.days(9)}>
+                      <span className="inline-flex h-5 items-center rounded-full px-2 figure text-label text-text">28 Nov</span>
+                    </Tip>
+                  </div>
+                </Strip>
+              </Shot>
               <Shot title="Key buttons" note="Keyboard (key caps before the label), mouse (an icon instead) and disabled" height={150}>
                 <Strip>
                   <Labelled label="Keyboard">
@@ -839,5 +873,6 @@ export function Gallery() {
         </div>
       </div>
     </Scroller.Provider>
+    </PreviewLayers>
   );
 }

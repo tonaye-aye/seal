@@ -3,6 +3,7 @@ import type { ConnectorStatus } from "../../connectors";
 import { orderedStatuses, reconnectCalendar, useLive } from "../../connectors/live";
 import { startScan } from "../../lib/scan-store";
 import { copy } from "../../copy";
+import { Tip } from "../layers";
 
 // One chip per data source, showing its live state. Short labels keep the
 // strip calm; the full detail is in each chip's tooltip and screen reader text.
@@ -66,36 +67,36 @@ export function StatusStrip() {
         // Only show the state in words when it needs attention or explains a wait.
         const loud = status && (status.state === "retrying" || status.state === "error");
         return (
-          <li
-            key={id}
-            title={status?.detail ?? text}
-            className="flex h-6 shrink-0 items-center gap-1.5 rounded-full border border-hairline px-2.5 text-meta text-muted"
-          >
-            <span
-              className={`size-1.5 rounded-full ${slow ? DOT.syncing : status ? DOT[status.state] : "border border-faint"}`}
-              aria-hidden="true"
-            />
-            {LABELS[id]}
-            {loud && (
-              <span className={`font-mono text-label ${status.state === "retrying" ? "text-info" : "text-faint"}`}>{text}</span>
-            )}
-            {slow && (
-              <>
-                <span className="font-mono text-label text-faint">{copy.footer.slowShort}</span>
-                <span className="shimmer h-1.5 w-8 rounded-full" aria-hidden="true" />
-              </>
-            )}
-            <span className="sr-only">: {text}</span>
-            {status?.state === "needs_reconnect" && (
-              <button
-                type="button"
-                onClick={() => void reconnectCalendar().then(() => startScan())}
-                className="-mr-1 ml-0.5 rounded-full bg-raised px-2 text-meta text-text hover:bg-hairline"
-              >
-                {copy.footer.reconnect}
-              </button>
-            )}
-          </li>
+          <Tip key={id} content={status?.detail ?? text}>
+            <li
+              className="flex h-6 shrink-0 items-center gap-1.5 rounded-full border border-hairline px-2.5 text-meta text-muted"
+            >
+              <span
+                className={`size-1.5 rounded-full ${slow ? DOT.syncing : status ? DOT[status.state] : "border border-faint"}`}
+                aria-hidden="true"
+              />
+              {LABELS[id]}
+              {loud && (
+                <span className={`font-mono text-label ${status.state === "retrying" ? "text-info" : "text-faint"}`}>{text}</span>
+              )}
+              {slow && (
+                <>
+                  <span className="font-mono text-label text-faint">{copy.footer.slowShort}</span>
+                  <span className="shimmer h-1.5 w-8 rounded-full" aria-hidden="true" />
+                </>
+              )}
+              <span className="sr-only">: {text}</span>
+              {status?.state === "needs_reconnect" && (
+                <button
+                  type="button"
+                  onClick={() => void reconnectCalendar().then(() => startScan())}
+                  className="-mr-1 ml-0.5 rounded-full bg-raised px-2 text-meta text-text hover:bg-hairline"
+                >
+                  {copy.footer.reconnect}
+                </button>
+              )}
+            </li>
+          </Tip>
         );
       })}
     </ul>
