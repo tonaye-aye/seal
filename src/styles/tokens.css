@@ -266,6 +266,14 @@ input:focus-visible {
   outline-offset: 2px;
 }
 
+/* Menu rows show where the keys are with a filled row (data-highlighted), so
+   they never draw the ring too. Without this, a menu opened by a key ringed
+   its first row: the rule above beats Tailwind's outline-none on the rows. */
+[role="menuitem"]:focus-visible,
+[role="menuitemcheckbox"]:focus-visible {
+  outline: none;
+}
+
 /* Palette entrance: a short fade and lift each time it is summoned. */
 @keyframes palette-in {
   from {
