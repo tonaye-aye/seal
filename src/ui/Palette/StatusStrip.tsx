@@ -18,6 +18,48 @@ export const DOT: Record<ConnectorStatus["state"], string> = {
   error: "bg-danger",
 };
 
+/** The small Connect / Reconnect button on a source's row. `small` fits inside a status chip. */
+export function pillButton(small = false): string {
+  return `press inline-flex shrink-0 cursor-pointer items-center rounded-full bg-raised text-meta leading-none text-text hover:bg-hairline ${
+    small ? "-mr-1.5 ml-0.5 h-[18px] px-2" : "h-6 px-2.5"
+  }`;
+}
+
+/**
+ * One row in the Connectors menu (a data source or the model endpoint): a
+ * status dot, the name, and either the state in a few words or a button that
+ * fixes it. Every row is the same height, with or without a button.
+ */
+export function StatusRow({
+  dot,
+  label,
+  state,
+  tone = "faint",
+  tip,
+  action,
+}: {
+  /** The dot's classes (from DOT). */
+  dot: string;
+  label: string;
+  /** The state in a few words. With an action, the dot and button say it, so it goes to screen readers only. */
+  state: string;
+  tone?: "faint" | "info" | "danger";
+  tip?: string;
+  action?: React.ReactNode;
+}) {
+  const colour = tone === "danger" ? "text-danger" : tone === "info" ? "text-info" : "text-faint";
+  return (
+    <Tip content={tip} side="right">
+      <li className="flex h-8 items-center gap-2.5 rounded-md px-2.5 text-small">
+        <span className={`size-1.5 shrink-0 rounded-full ${dot}`} aria-hidden="true" />
+        <span className="min-w-0 flex-1 truncate text-text">{label}</span>
+        <span className={`shrink-0 font-mono text-label ${colour} ${action ? "sr-only" : ""}`}>{state}</span>
+        {action}
+      </li>
+    </Tip>
+  );
+}
+
 /** Re-renders every second while `active`, for countdowns. */
 export function useTick(active: boolean): number {
   const [now, setNow] = useState(Date.now());
@@ -90,7 +132,7 @@ export function StatusStrip() {
                 <button
                   type="button"
                   onClick={() => void reconnectCalendar().then(() => startScan())}
-                  className="press -mr-1 ml-0.5 cursor-pointer rounded-full bg-raised px-2 text-meta text-text hover:bg-hairline"
+                  className={pillButton(true)}
                 >
                   {copy.footer.reconnect}
                 </button>

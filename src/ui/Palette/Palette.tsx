@@ -187,7 +187,9 @@ export function Palette() {
       setEditing(false);
       setView("timeline");
       // Land on the first thing still to come, just under the "now" marker.
-      setTimelineKey(entries[nowIndex(entries)]?.key);
+      // During a check the lines are still coming in, so no line is held:
+      // the selection follows the first one to come until you move it.
+      setTimelineKey(scan.phase === "scanning" ? undefined : entries[nowIndex(entries)]?.key);
     }, "forward");
   }
 

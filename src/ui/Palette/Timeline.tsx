@@ -166,12 +166,19 @@ export function Timeline({
     listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
   }, [scrollKey]);
 
-  // On opening, put the present moment about a third of the way down.
+  // On opening, put the present moment about a third of the way down. If the
+  // timeline opens while a check is still running, the lines below "now" aren't
+  // in yet, so it is placed once more when the check ends (and never again, so
+  // it doesn't fight your scrolling).
+  const checking = scan.phase === "scanning";
+  const placed = useRef(false);
   useEffect(() => {
+    if (placed.current) return;
     const list = listRef.current;
     const marker = list?.querySelector<HTMLElement>("[data-now]");
     if (list && marker) list.scrollTop = Math.max(0, marker.offsetTop - list.clientHeight / 3);
-  }, []);
+    placed.current = !checking;
+  }, [checking]);
 
   let lastDate = "";
   let lastMonth = "";

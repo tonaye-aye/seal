@@ -807,10 +807,10 @@ export function Gallery() {
                   ))}
                 </Strip>
               </Shot>
-              <Shot title="Connectors menu, calendar signed out" height={260}>
+              <Shot title="Connectors menu, calendar signed out" height={290}>
                 <Strip>
                   <Preview scan={s.done} live="reconnect">
-                    <div className="relative mt-[190px] h-8">
+                    <div className="relative mt-[230px] h-8">
                       <ConnectorsButton defaultOpen />
                     </div>
                   </Preview>

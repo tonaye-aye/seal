@@ -351,6 +351,10 @@ export function FindingsList({
             <span className="w-[140px] shrink-0 truncate font-semibold">{item.merchant}</span>
             <span className="min-w-0 flex-1 truncate text-faint">{copy.list.undecidedRow}</span>
             <NotSureChip />
+            {/* Empty amount, deadline and menu columns, so the chip lines up with the finding rows' chips and kinds. */}
+            <span className="w-[88px] shrink-0" aria-hidden="true" />
+            <span className="w-[60px] shrink-0" aria-hidden="true" />
+            <span className="w-7 shrink-0" aria-hidden="true" />
           </div>
         </Tip>
       );

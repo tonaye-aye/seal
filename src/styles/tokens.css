@@ -551,3 +551,53 @@ html[data-view-dir="back"]::view-transition-new(palette-view) {
 .row-press:active > * {
   opacity: 0.7;
 }
+
+/* A scrolling area whose top and bottom edges fade, so rows slide under the
+   edge instead of being cut off. Where the webview supports scroll-driven
+   animation, each fade only shows while there is more to scroll that way;
+   elsewhere the bottom edge always fades a little. Masks use only alpha, so
+   the colour here doesn't matter. */
+@property --fade-top {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --fade-bottom {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+.scroll-fade {
+  --fade-bottom: 20px;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    black var(--fade-top),
+    black calc(100% - var(--fade-bottom)),
+    transparent 100%
+  );
+}
+@keyframes scroll-fade {
+  0% {
+    --fade-top: 0px;
+    --fade-bottom: 20px;
+  }
+  8% {
+    --fade-top: 20px;
+  }
+  92% {
+    --fade-bottom: 20px;
+  }
+  100% {
+    --fade-top: 20px;
+    --fade-bottom: 0px;
+  }
+}
+@supports (animation-timeline: scroll()) {
+  .scroll-fade {
+    /* Nothing to scroll: no fade at all. */
+    --fade-bottom: 0px;
+    animation: scroll-fade linear both;
+    animation-timeline: scroll(self);
+  }
+}

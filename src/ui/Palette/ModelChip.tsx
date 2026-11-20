@@ -6,7 +6,7 @@ import { CheckNowIcon } from "../icons";
 import { copy } from "../../copy";
 import { Kbd } from "../Kbd";
 import { Menu, MenuItem, Tip } from "../layers";
-import { DOT } from "./StatusStrip";
+import { DOT, StatusRow } from "./StatusStrip";
 import { ago } from "./Timeline";
 
 // The model endpoint in the footer. Hidden while it answers normally, so the
@@ -42,17 +42,8 @@ export function endpointDot(state: EndpointState): string {
 export function ModelRow() {
   const e = useEndpoint();
   const bad = CHIP[e.state]?.tone === "danger";
-  return (
-    <Tip content={e.detail} side="right">
-      <li className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-small">
-        <span className={`size-1.5 shrink-0 rounded-full ${endpointDot(e.state)}`} aria-hidden="true" />
-        <span className="flex-1 text-text">{copy.model.title}</span>
-        <span className={`font-mono text-label ${bad ? "text-danger" : e.state === "slow" || e.state === "forced" || e.state === "browser" ? "text-info" : "text-faint"}`}>
-          {endpointText(e)}
-        </span>
-      </li>
-    </Tip>
-  );
+  const note = e.state === "slow" || e.state === "forced" || e.state === "browser";
+  return <StatusRow dot={endpointDot(e.state)} label={copy.model.title} state={endpointText(e)} tone={bad ? "danger" : note ? "info" : "faint"} tip={e.detail} />;
 }
 
 export function ModelChip({ defaultOpen = false }: { defaultOpen?: boolean }) {

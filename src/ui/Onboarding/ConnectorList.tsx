@@ -3,6 +3,7 @@ import type { LucideIcon } from "lucide-react";
 import { copy } from "../../copy";
 import { Kbd } from "../Kbd";
 import { Tip } from "../layers";
+import { pillButton } from "../Palette/StatusStrip";
 
 // The list of things you can connect, on the onboarding's connect screen.
 // One row per connector: an icon tile, its name, one line on what it reads,
@@ -42,12 +43,16 @@ export function ConnectorList({
       {rows.map((row) => {
         const Icon = row.icon;
         const off = row.state === "disabled";
+        // A source still to connect: the whole row connects it, not just the +.
+        const idle = row.state === "idle";
         return (
           <li
             key={row.id}
+            onMouseDown={idle ? (e) => e.preventDefault() : undefined}
+            onClick={idle ? () => onConnect(row.id) : undefined}
             className={`flex items-center gap-3.5 rounded-xl border px-3.5 py-2.5 transition-colors duration-(--duration-fast) ${
               row.next ? "border-accent/35 bg-accent-glow/10" : "border-hairline bg-surface/60"
-            } ${off ? "opacity-45" : ""}`}
+            } ${idle ? `row-press cursor-pointer ${row.next ? "hover:border-accent/60" : "hover:border-muted/40 hover:bg-surface"}` : ""} ${off ? "opacity-45" : ""}`}
           >
             <span className="grid size-10 shrink-0 place-items-center rounded-lg border border-hairline bg-raised text-muted" aria-hidden="true">
               <Icon size={18} strokeWidth={1.6} />
@@ -78,7 +83,7 @@ export function ConnectorList({
                     tabIndex={-1}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => onFix(row.id)}
-                    className="press cursor-pointer rounded-full bg-raised px-2.5 py-1 text-meta text-text hover:bg-hairline"
+                    className={pillButton()}
                   >
                     {row.fix}
                   </button>
@@ -98,7 +103,11 @@ export function ConnectorList({
                   tabIndex={-1}
                   aria-label={copy.onboarding.connectSource(row.name)}
                   onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => onConnect(row.id)}
+                  onClick={(e) => {
+                    // The row would connect it too.
+                    e.stopPropagation();
+                    onConnect(row.id);
+                  }}
                   className={`press grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg border ${
                     row.next ? "border-accent/40 text-accent hover:bg-accent-glow" : "border-hairline text-muted hover:bg-raised hover:text-text"
                   }`}
