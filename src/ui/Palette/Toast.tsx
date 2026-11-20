@@ -19,13 +19,13 @@ export function Toast() {
         <button
           type="button"
           onClick={() => void undoLast()}
-          className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-meta text-accent hover:bg-hairline"
+          className="press flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-meta text-accent hover:bg-hairline"
         >
           <UndoIcon />
           {copy.toasts.undo} <Kbd keys={["⌘", "Z"]} />
         </button>
       ) : (
-        <button type="button" onClick={dismissToast} aria-label={copy.toasts.dismiss} className="px-1.5 text-faint hover:text-muted">
+        <button type="button" onClick={dismissToast} aria-label={copy.toasts.dismiss} className="press cursor-pointer px-1.5 text-faint hover:text-muted">
           ×
         </button>
       )}

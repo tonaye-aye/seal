@@ -78,7 +78,7 @@ export function ConnectorList({
                     tabIndex={-1}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => onFix(row.id)}
-                    className="cursor-pointer rounded-full bg-raised px-2.5 py-1 text-meta text-text hover:bg-hairline"
+                    className="press cursor-pointer rounded-full bg-raised px-2.5 py-1 text-meta text-text hover:bg-hairline"
                   >
                     {row.fix}
                   </button>
@@ -99,7 +99,7 @@ export function ConnectorList({
                   aria-label={copy.onboarding.connectSource(row.name)}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => onConnect(row.id)}
-                  className={`grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg border transition-colors duration-(--duration-fast) ${
+                  className={`press grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg border ${
                     row.next ? "border-accent/40 text-accent hover:bg-accent-glow" : "border-hairline text-muted hover:bg-raised hover:text-text"
                   }`}
                 >

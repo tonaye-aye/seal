@@ -3,7 +3,6 @@ import { Ellipsis } from "lucide-react";
 import { Menu, MenuItem, Tip } from "../layers";
 import type { Cleared, Finding } from "../../agent/pipeline";
 import { useLive } from "../../connectors/live";
-import { formatAUD } from "../../lib/money";
 import { useScan, type ScanState } from "../../lib/scan-store";
 import { fromSaved, mixedReplay, SavedTag } from "../replay";
 import { daysUntil, headlineAmount, isUnsure, shortDate, urgency, type Urgency } from "../format";
@@ -11,6 +10,8 @@ import { copy } from "../../copy";
 import { KeyText } from "../KeyText";
 import { ApproveIcon, DismissIcon, SnoozeIcon } from "../icons";
 import { Kbd } from "../Kbd";
+import { CountUp } from "../CountUp";
+import { useFlip, useGlide } from "../motion";
 import { TraceLines } from "./Trace";
 import { ViewHeading } from "./ViewHeading";
 
@@ -113,7 +114,7 @@ export function FirstRunHint({ onDismiss }: { onDismiss: () => void }) {
           </p>
         ))}
       </div>
-      <button type="button" onClick={onDismiss} className="shrink-0 cursor-pointer rounded-md px-2 py-1 text-meta text-text hover:bg-hairline">
+      <button type="button" onClick={onDismiss} className="press shrink-0 cursor-pointer rounded-md px-2 py-1 text-meta text-text hover:bg-hairline">
         {copy.list.hintDismiss}
       </button>
     </div>
@@ -194,7 +195,7 @@ function RowMenu({ finding, onAct, startOpen = false }: { finding: Finding; onAc
               type="button"
               tabIndex={-1}
               aria-label={copy.list.quickActionsFor(finding.merchant)}
-              className={`grid size-6 cursor-pointer place-items-center rounded-md transition-colors duration-(--duration-fast) hover:bg-hairline hover:text-text ${open ? "bg-hairline text-text" : "text-muted"}`}
+              className={`press grid size-6 cursor-pointer place-items-center rounded-md hover:bg-hairline hover:text-text ${open ? "bg-hairline text-text" : "text-muted"}`}
             >
               <Ellipsis size={15} strokeWidth={1.75} aria-hidden="true" className="block" />
             </button>
@@ -234,7 +235,7 @@ function FindingRow({ finding, selected }: { finding: Finding; selected: boolean
       )}
       {/* Amount and deadline lead the row: the brightest figures, in fixed columns. */}
       <span className={`w-[88px] shrink-0 text-right figure text-body ${done ? "text-faint line-through decoration-faint/60" : "text-text"}`}>
-        {amount ? formatAUD(amount.cents) : ""}
+        {amount ? <CountUp id={`row:${finding.id}`} cents={amount.cents} /> : ""}
       </span>
       <span className="flex w-[60px] shrink-0 justify-end">{finding.deadline && !done ? <DeadlineChip date={finding.deadline.date} /> : null}</span>
     </>
@@ -248,17 +249,18 @@ export function NotSureChip() {
 
 function groupTitle(count: number, title: string) {
   if (!count) return null;
-  return <h2 className="mt-3 mb-1 px-2.5 label text-faint">{title}</h2>;
+  return (
+    <h2 data-flip-key={`group:${title}`} className="mt-3 mb-1 px-2.5 label text-faint">
+      {title}
+    </h2>
+  );
 }
 
-// The selected row (the bar on its left) is the only highlighted one. Moving the
-// mouse moves it; so do J/K. There is no separate hover style, so the two
-// can never point at different rows.
-function rowClass(selected: boolean): string {
-  return `group/row relative flex h-9 cursor-pointer items-center gap-3 rounded-md px-2.5 text-body ${
-    selected ? "bg-raised before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-focus" : ""
-  }`;
-}
+// The selected row is the only highlighted one: one highlight (the raised
+// block with the bar on its left) slides to it (useGlide). Moving the mouse
+// moves it; so do J/K. There is no separate hover style, so the two can never
+// point at different rows.
+const ROW = "row-press group/row relative flex h-9 cursor-pointer items-center gap-3 rounded-md px-2.5 text-body";
 
 export function FindingsList({
   items,
@@ -298,6 +300,11 @@ export function FindingsList({
 }) {
   const live = useLive();
   const listRef = useRef<HTMLDivElement>(null);
+  const rowsRef = useRef<HTMLDivElement>(null);
+  const highlightRef = useRef<HTMLDivElement>(null);
+  // Rows slide to their new places when one is decided or undone (not while searching).
+  useFlip(rowsRef, query);
+  useGlide(rowsRef, highlightRef);
   const findings = items.flatMap((i) => (i.type === "finding" ? [i.finding] : []));
   const rest = items.filter((i) => i.type !== "finding");
   const missing = Object.values(live.statuses).filter((s) => s && (s.state === "needs_reconnect" || s.state === "error"));
@@ -310,9 +317,11 @@ export function FindingsList({
     listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
   }, [scrollKey]);
 
-  const row = (item: ListItem) => {
+  const row = (item: ListItem): React.ReactNode => {
     const selected = item.key === selectedKey;
     const common = {
+      "data-flip-key": item.key,
+      "data-flip-group": item.type === "finding" ? (item.finding.status === "new" ? "open" : "done") : item.type,
       role: "option",
       "aria-selected": selected,
       onClick: () => onOpen(item.key),
@@ -324,7 +333,7 @@ export function FindingsList({
     } as const;
     if (item.type === "finding")
       return (
-        <div key={item.key} {...common} className={rowClass(selected)}>
+        <div key={item.key} {...common} className={ROW}>
           <FindingRow finding={item.finding} selected={selected} />
           {/* The quick menu on the selected row; the same width is kept on other rows so the columns line up. */}
           {selected && item.finding.status === "new" ? (
@@ -337,7 +346,7 @@ export function FindingsList({
     if (item.type === "undecided")
       return (
         <Tip key={item.key} content={item.error}>
-          <div {...common} className={rowClass(selected)}>
+          <div {...common} className={ROW}>
             <span className="size-1.5 shrink-0 rounded-full bg-danger" aria-hidden="true" />
             <span className="w-[140px] shrink-0 truncate font-semibold">{item.merchant}</span>
             <span className="min-w-0 flex-1 truncate text-faint">{copy.list.undecidedRow}</span>
@@ -346,7 +355,7 @@ export function FindingsList({
         </Tip>
       );
     return (
-      <div key={item.key} {...common} className={rowClass(selected)}>
+      <div key={item.key} {...common} className={ROW}>
         <span className="size-1.5 shrink-0 rounded-full border border-positive/70" aria-hidden="true" />
         <span className="w-[140px] shrink-0 truncate text-muted">{item.cleared.merchant}</span>
         <span className="min-w-0 flex-1 truncate text-faint">{item.cleared.why}</span>
@@ -376,10 +385,11 @@ export function FindingsList({
             <KeyText text={copy.list.couldntRead(missing.map((s) => s!.name))} />
           </p>
         )}
-        <div role="listbox" aria-label={copy.list.label} data-row-list className="flex flex-col px-1.5">
+        <div ref={rowsRef} role="listbox" aria-label={copy.list.label} data-row-list className="relative flex flex-col px-1.5">
+          <div ref={highlightRef} className="glide inset-x-1.5" aria-hidden="true" />
           {findings.length > 0 && findings.map((f) => row({ type: "finding", key: f.id, finding: f }))}
           {remaining !== undefined && remaining > 0 && (
-            <div className="flex h-9 items-center gap-2.5 px-2.5 text-small text-faint">
+            <div data-flip-key="pending" className="flex h-9 items-center gap-2.5 px-2.5 text-small text-faint">
               <span className="size-1.5 rounded-full bg-info/60 motion-safe:animate-pulse" aria-hidden="true" />
               {copy.list.stillDeciding(remaining)}
               <span className="shimmer ml-1 h-2 flex-1 rounded-full" aria-hidden="true" />
@@ -389,7 +399,7 @@ export function FindingsList({
           {rest.filter((i) => i.type === "undecided").map(row)}
           {groupTitle(rest.filter((i) => i.type === "cleared").length, copy.list.clearedGroup)}
           {rest.filter((i) => i.type === "cleared").map(row)}
-          </div>
+        </div>
       </div>
     </div>
   );

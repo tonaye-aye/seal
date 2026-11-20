@@ -7,6 +7,7 @@ import { comingUp, nowIndex, type TimelineEntry, type TimelineTone } from "../ti
 import { clockTime, daysUntil, shortDate } from "../format";
 import { copy } from "../../copy";
 import { ViewHeading } from "./ViewHeading";
+import { useCountUp, useGlide } from "../motion";
 
 // The case view: one vertical line through time. What already happened sits
 // above the violet "now" marker, what is coming sits below it, and today's
@@ -52,7 +53,9 @@ function Headline({
 }) {
   const q = query.trim();
   const next = comingUp(entries);
-  const parts = [copy.timeline.expected(next.totalCents)];
+  // The total counts up the first time the timeline opens; while searching it just follows the filter.
+  const counted = useCountUp(q ? "timeline:search" : "timeline:total", next.totalCents);
+  const parts = [copy.timeline.expected(q ? next.totalCents : counted)];
   if (next.soon && next.lastSoon) parts.push(copy.timeline.soonDates(next.soon, shortDate(next.lastSoon)));
   if (q && entries.length === 0) parts.splice(0, parts.length, copy.timeline.searchHelp);
   let title = copy.timeline.title;
@@ -154,6 +157,9 @@ export function Timeline({
   search: React.ReactNode;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
+  const linesRef = useRef<HTMLOListElement>(null);
+  const highlightRef = useRef<HTMLLIElement>(null);
+  useGlide(linesRef, highlightRef);
   const split = nowIndex(entries);
 
   useEffect(() => {
@@ -196,9 +202,8 @@ export function Timeline({
         onMouseMove={(e) => {
           if (e.movementX !== 0 || e.movementY !== 0) onHover(entry.key);
         }}
-        className={`relative flex min-h-11 items-center gap-3 rounded-md px-3 py-1.5 text-body ${opens ? "cursor-pointer" : ""} ${
-          selected ? "bg-raised before:absolute before:inset-y-2.5 before:left-0 before:w-0.5 before:rounded-full before:bg-focus" : ""
-        }`}
+        // The highlight behind the selected line is one block that slides (useGlide).
+        className={`relative flex min-h-11 items-center gap-3 rounded-md px-3 py-1.5 text-body ${opens ? "row-press cursor-pointer" : ""}`}
       >
         <Row entry={entry} showDate={showDate} />
       </li>,
@@ -207,7 +212,7 @@ export function Timeline({
   if (split === entries.length) rows.push(<div key="now" data-now="" />, <NowMarker key="now-marker" />);
 
   return (
-    <div className="timeline-in flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       {/* Pinned: the heading stays put while the timeline scrolls. */}
       <Headline entries={entries} scan={scan} search={search} query={query} />
       <div ref={listRef} className="relative min-h-0 flex-1 overflow-y-auto pb-4">
@@ -215,7 +220,8 @@ export function Timeline({
           {/* The rail: one hairline behind every dot. It sits at the centre of the
               dot column: 8px outer padding + 12px row padding + 48px date + 12px gap + 10px. */}
           <span className="pointer-events-none absolute inset-y-0 left-[89.5px] w-px bg-hairline" aria-hidden="true" />
-          <ol role="listbox" aria-label={copy.timeline.label} className="relative flex flex-col">
+          <ol ref={linesRef} role="listbox" aria-label={copy.timeline.label} className="relative flex flex-col">
+            <li ref={highlightRef} role="presentation" aria-hidden="true" className="glide inset-x-0 [--glide-bar-inset:10px]" />
             {rows}
           </ol>
         </div>

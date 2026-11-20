@@ -71,7 +71,7 @@ export function KeyButton({
       // Keep keyboard focus on the palette, so the keys keep working after a click.
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-md leading-none transition-colors duration-(--duration-fast) ${shape} ${disabled ? "cursor-default opacity-60" : "cursor-pointer"} ${colour}`}
+      className={`press inline-flex items-center gap-1.5 rounded-md leading-none ${shape} ${disabled ? "cursor-default opacity-60" : "cursor-pointer"} ${colour}`}
     >
       {/* An exact 16 px box with a block-level icon, so icon and text share one centre line. */}
       {mouse ? icon && <span className="grid size-4 shrink-0 place-items-center [&>svg]:block">{icon}</span> : <Kbd keys={keys} onAccent={primary} />}
@@ -106,7 +106,7 @@ export function SwitchButton({
       // Keep keyboard focus on the palette, so the keys keep working after a click.
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
-      className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md border border-transparent px-2 text-meta text-faint transition-colors duration-(--duration-fast) hover:border-hairline hover:bg-raised hover:text-text"
+      className="press inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md border border-transparent px-2 text-meta text-faint hover:border-hairline hover:bg-raised hover:text-text"
     >
       {mouse ? <span className="inline-grid size-4 place-items-center [&>svg]:size-3.5">{icon}</span> : <Kbd keys={keys} />}
       {label}

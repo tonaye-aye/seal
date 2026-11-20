@@ -90,7 +90,7 @@ export function StatusStrip() {
                 <button
                   type="button"
                   onClick={() => void reconnectCalendar().then(() => startScan())}
-                  className="-mr-1 ml-0.5 rounded-full bg-raised px-2 text-meta text-text hover:bg-hairline"
+                  className="press -mr-1 ml-0.5 cursor-pointer rounded-full bg-raised px-2 text-meta text-text hover:bg-hairline"
                 >
                   {copy.footer.reconnect}
                 </button>
