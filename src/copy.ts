@@ -315,6 +315,37 @@ export const copy = {
     list: "Findings",
     timeline: "Timeline",
     trace: "Trace",
+    /** The Filter button (its menu is under `filters`). */
+    filter: "Filter findings",
+    /** Its tooltip in the timeline: F takes you back to the findings first. */
+    filterFromTimeline: "Filter findings (back to Findings)",
+    /** Screen reader text for the small count on the button. */
+    filtersOn: (n: number) => `${plural(n, "filter")} on`,
+  },
+
+  // ---------- Filters (the findings list) ----------
+  filters: {
+    label: "Filter findings",
+    soon: "Due within 7 days",
+    unsure: "Not sure",
+    clear: "Clear filters",
+    /** The menu with nothing in the list to filter yet. */
+    nothing: "Nothing to filter yet",
+    /** In front of the chips under the heading. */
+    filteredBy: "Filtered by",
+    remove: (label: string) => `Remove the ${label} filter`,
+    /** The chips line's key hint (keyboard mode) and button (mouse mode). */
+    removeLast: "Remove last",
+    clearAll: "Clear all",
+    /** The heading while filtered. */
+    of: (hits: number, open: number) => `${hits} of ${open} ${pick(open, "needs", "need")} attention`,
+    showing: (n: number) => `${plural(n, "match", "matches")}`,
+    /** Filtered, and nothing that still needs Maya passes (only decided or left-alone rows do). */
+    noneOpen: "Nothing here needs attention",
+    noMatches: "Nothing matches these filters",
+    noMatchesHelp: "Press [⌫] to remove the last filter, [Esc] to clear them, or [F] to change them.",
+    /** The same, with a search held too: Esc clears that first. */
+    noMatchesSearchHelp: "[Esc] clears the search, then [⌫] removes the last filter or [F] changes them.",
   },
 
   // ---------- Footer ----------
@@ -524,6 +555,8 @@ export const copy = {
           [["E"], "Edit the draft"],
           [["S"], "Snooze"],
           [["D"], "Not a leak"],
+          [["F"], "Filter"],
+          [["⌫"], "Remove the last filter"],
           [["⌘", "Z"], "Undo"],
         ],
       },

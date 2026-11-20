@@ -188,8 +188,12 @@ export function Menu({
   side?: "top" | "bottom" | "right";
   /** Line up with the button's left edge ("start") or right edge ("end"). */
   align?: "start" | "end";
-  /** Keys that run a row while the menu is open: "a", "?", "⌘,". */
-  shortcuts?: Record<string, () => void>;
+  /**
+   * Keys that run a row while the menu is open: "a", "?", "⌘,". The menu
+   * closes after, unless the row returns true (the filter menu's toggles,
+   * so several can be picked in a row).
+   */
+  shortcuts?: Record<string, () => void | boolean>;
   children: React.ReactNode;
 }) {
   const { container, preview } = useContext(LayerScope);
@@ -215,8 +219,7 @@ export function Menu({
             const run = shortcuts[`${e.metaKey ? "⌘" : ""}${e.key.toLowerCase()}`];
             if (!run) return;
             e.preventDefault();
-            onOpenChange(false);
-            run();
+            if (run() !== true) onOpenChange(false);
           }}
           {...previewProps(preview)}
           className="layer-pop z-40 min-w-[290px] rounded-lg border border-hairline bg-surface p-1 shadow-(--shadow-menu) outline-none"
@@ -235,6 +238,8 @@ export function MenuItem({
   keys,
   current = false,
   focusOnOpen = false,
+  disabled = false,
+  stayOpen = false,
   onSelect,
 }: {
   icon: React.ReactNode;
@@ -247,6 +252,10 @@ export function MenuItem({
    * the first one (the View menu: the view you'd switch to, so Enter does it).
    */
   focusOnOpen?: boolean;
+  /** Greyed out and skipped by the arrow keys (the filter menu's Clear, with nothing to clear). */
+  disabled?: boolean;
+  /** Choosing it leaves the menu open. */
+  stayOpen?: boolean;
   onSelect: () => void;
 }) {
   const { preview } = useContext(LayerScope);
@@ -261,17 +270,67 @@ export function MenuItem({
   return (
     <DropdownMenu.Item
       ref={ref}
-      onSelect={onSelect}
+      disabled={disabled}
+      onSelect={(e) => {
+        if (stayOpen) e.preventDefault();
+        onSelect();
+      }}
       aria-current={current || undefined}
-      className={`flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-small outline-none data-highlighted:bg-raised data-highlighted:text-text ${
-        current ? "text-text" : "text-muted"
-      }`}
+      className={`${MENU_ROW} ${current ? "text-text" : "text-muted"}`}
     >
       <span className="grid size-4 shrink-0 place-items-center [&>svg]:block">{icon}</span>
       <span className="flex-1">{label}</span>
       {keys}
     </DropdownMenu.Item>
   );
+}
+
+const MENU_ROW =
+  "flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-small outline-none data-highlighted:bg-raised data-highlighted:text-text data-disabled:cursor-default data-disabled:text-faint";
+
+/**
+ * A row that is ticked or not (the filter menu). Choosing it flips the tick
+ * and leaves the menu open, so several can be picked one after another.
+ */
+export function MenuCheckItem({
+  label,
+  checked,
+  onToggle,
+  end,
+}: {
+  label: string;
+  checked: boolean;
+  onToggle: () => void;
+  /** Shown on the right: a count, the row's key. */
+  end?: React.ReactNode;
+}) {
+  return (
+    <DropdownMenu.CheckboxItem
+      checked={checked}
+      onSelect={(e) => e.preventDefault()}
+      onCheckedChange={onToggle}
+      className={`${MENU_ROW} ${checked ? "text-text" : "text-muted"}`}
+    >
+      {/* A small box, filled with the text colour when ticked: a plain on/off, not the violet of a main action. */}
+      <span
+        aria-hidden="true"
+        className={`grid size-3.5 shrink-0 place-items-center rounded-[4px] border ${checked ? "border-text bg-text text-bg" : "border-faint"}`}
+      >
+        {checked && (
+          <svg width="10" height="10" viewBox="0 0 10 10" className="block">
+            <path d="m2.2 5.2 1.9 1.9 3.7-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </span>
+      <span className="flex-1">{label}</span>
+      {end}
+    </DropdownMenu.CheckboxItem>
+  );
+}
+
+/** A thin line between groups of rows. */
+export function MenuSeparator() {
+  return <DropdownMenu.Separator className="mx-1 my-1 h-px bg-hairline" />;
 }
 
 // ---------- Sheet ----------

@@ -30,6 +30,8 @@ import {
   type RowAction,
 } from "./FindingsList";
 import { SearchField } from "./SearchField";
+import { FilterButton } from "./Filters";
+import { applyFilters, filterOptions, toggleFilter, type FilterId } from "../filters";
 import { Footer } from "./Footer";
 import { Header } from "./Header";
 import { PaletteShell } from "./PaletteShell";
@@ -53,6 +55,7 @@ import { changeView, nativeViewTransitions } from "../motion";
 //           Enter or Space on "Checked and left alone" opens or closes it
 //   detail  J/K move through evidence (or scroll the draft), Tab switch pane
 //   timeline  J/K move through time, Enter opens the line's finding
+//   list    F filter menu, Backspace removes the newest filter (Esc clears them all, after the search)
 //   always  Cmd+Enter timeline, V view menu, Cmd+Z undo, / search, T trace, R check again, ? keys, Esc back
 //   hidden  Cmd+Shift+D demo panel (its own keys live in ScenariosSheet)
 //   setup   (first-run onboarding screens) Enter does the screen's action, Cmd+Enter runs the first check
@@ -107,6 +110,11 @@ export function Palette() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   // The rail's View menu (V, or a click): Findings or Timeline.
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
+  // The findings list's filters, newest last, and the rail's Filter menu (F, or a click).
+  // Like the search, they are cleared on every summon: the palette opens on
+  // everything that needs Maya, and a filter left on could hide a new one.
+  const [filters, setFilters] = useState<FilterId[]>([]);
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   // The hidden demo panel for simulated connector failures.
   const [scenariosOpen, setScenariosOpen] = useState(false);
   const [showHint, setShowHint] = useState(!hintSeen());
@@ -114,12 +122,16 @@ export function Palette() {
   // row inside opens it by itself, unless it was closed during that search.
   const [groupOpened, setGroupOpened] = useState(false);
   const [groupClosedInSearch, setGroupClosedInSearch] = useState(false);
-  useEffect(() => setGroupClosedInSearch(false), [query]);
+  const filterKey = filters.join();
+  useEffect(() => setGroupClosedInSearch(false), [query, filterKey]);
 
   const findings = rankedFindings(scan);
-  // Every matching row, then the stops J/K move through (the closed group's rows left out).
-  const rows = listItems(findings, scan, query);
-  const isGroupOpen = groupOpen(rows, query, groupOpened, groupClosedInSearch);
+  // Every row that matches the search and the filters, then the stops J/K move
+  // through (the closed group's rows left out).
+  const everyRow = listItems(findings, scan, "");
+  const rows = applyFilters(query ? listItems(findings, scan, query) : everyRow, filters);
+  const narrowed = !!query.trim() || filters.length > 0;
+  const isGroupOpen = groupOpen(rows, narrowed, groupOpened, groupClosedInSearch);
   const items = listStops(rows, isGroupOpen);
   const selected: ListItem | undefined = pickSelected(rows, items, selectedKey, view === "list");
   const selectedItem: Finding | Cleared | undefined =
@@ -139,6 +151,7 @@ export function Palette() {
         setEditing(false);
         setSheetOpen(false);
         setGroupOpened(false);
+        setFilters([]);
       }
       setOpenCount((n) => n + 1);
     });
@@ -156,6 +169,7 @@ export function Palette() {
     setPane("evidence");
     setDetailFrom("list");
     setQuery("");
+    setFilters([]);
     setEditing(false);
     setSheetOpen(false);
     setTraceOpen(false);
@@ -196,7 +210,7 @@ export function Palette() {
 
   /** Opens or closes "Checked and left alone". Closing it with a row inside selected lands on its header. */
   function toggleGroup(next = !isGroupOpen) {
-    if (query.trim()) setGroupClosedInSearch(!next);
+    if (narrowed) setGroupClosedInSearch(!next);
     setGroupOpened(next);
     // The header keeps the selection either way (it may only be standing in for
     // a hidden row, which must not grab the selection back when the rows show).
@@ -265,6 +279,18 @@ export function Palette() {
   function goTimeline() {
     if (view === "detail" && detailFrom === "timeline") back();
     else if (view !== "timeline") openTimeline();
+  }
+
+  /**
+   * Opens or closes the Filter menu. Filters are for the findings list, so
+   * from the timeline or an open finding it goes back to the list first.
+   */
+  function setFilterMenu(next: boolean) {
+    if (next && view !== "list") {
+      setEditing(false);
+      changeView(() => setView("list"), "back");
+    }
+    setFilterMenuOpen(next);
   }
 
   /** The next row to land on once the selected finding moves down the list. */
@@ -391,6 +417,7 @@ export function Palette() {
         else if (view === "timeline") back();
         else if (traceOpen) setTraceOpen(false);
         else if (query) setQuery("");
+        else if (filters.length) setFilters([]);
         else hidePalette();
         return;
       }
@@ -460,6 +487,9 @@ export function Palette() {
         } else if (lower === "v") {
           event.preventDefault();
           setViewMenuOpen(true);
+        } else if (lower === "f") {
+          event.preventDefault();
+          setFilterMenu(true);
         }
         return;
       }
@@ -501,6 +531,13 @@ export function Palette() {
             run("pane");
           }
           return;
+        case "Backspace":
+          // Takes the newest filter off (the chips under the heading).
+          if (!inDetail && filters.length) {
+            event.preventDefault();
+            setFilters((f) => f.slice(0, -1));
+          }
+          return;
       }
 
       const byLetter: Record<string, Command> = { a: "approve", s: "snooze", d: "dismiss", e: "edit", r: "rescan" };
@@ -513,6 +550,9 @@ export function Palette() {
       } else if (lower === "v") {
         event.preventDefault();
         setViewMenuOpen(true);
+      } else if (lower === "f") {
+        event.preventDefault();
+        setFilterMenu(true);
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -520,7 +560,7 @@ export function Palette() {
   });
 
   // What fills the middle of the palette.
-  const nothingYet = items.length === 0 && !query;
+  const nothingYet = items.length === 0 && !query && !filters.length;
   let main: React.ReactNode;
   if (setup) {
     main = <SetupScreen onboarding={onboarding} hotkey={hotkey} onHotkey={setHotkey} mouse={mouse} />;
@@ -585,6 +625,9 @@ export function Palette() {
         query={query}
         open={isGroupOpen}
         onToggleGroup={toggleGroup}
+        filters={filters}
+        onRemoveFilter={(id) => setFilters((f) => f.filter((x) => x !== id))}
+        onClearFilters={() => setFilters([])}
       />
     );
 
@@ -647,6 +690,18 @@ export function Palette() {
             viewOpen={viewMenuOpen}
             onViewOpenChange={setViewMenuOpen}
             mouse={mouse}
+            filter={
+              <FilterButton
+                options={filterOptions(everyRow, filters)}
+                active={filters}
+                onToggle={(id) => setFilters((f) => toggleFilter(f, id))}
+                onClear={() => setFilters([])}
+                open={filterMenuOpen}
+                onOpenChange={setFilterMenu}
+                mouse={mouse}
+                away={shownView === "timeline"}
+              />
+            }
             settings={
               <SettingsButton
                 hotkey={hotkey}

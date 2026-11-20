@@ -15,6 +15,8 @@ import { CountUp } from "../CountUp";
 import { useFlip, useGlide } from "../motion";
 import { TraceLines } from "./Trace";
 import { ViewHeading } from "./ViewHeading";
+import { FilterChips } from "./Filters";
+import type { FilterId } from "../filters";
 
 // The palette's main view: a plain-words headline, then one row per finding,
 // most urgent first. Keyboard first (J/K/Enter/A/S/D); the Palette owns the
@@ -64,10 +66,11 @@ export function listItems(findings: Finding[], scan: ScanState, query: string): 
 
 /**
  * Whether "Checked and left alone" is open: as Maya left it, or open by itself
- * while a search matches a row inside it (unless she closed it during that search).
+ * while a search or a filter (`narrowed`) matches a row inside it (unless she
+ * closed it during that search or filter).
  */
-export function groupOpen(items: ListItem[], query: string, opened: boolean, closedInSearch: boolean): boolean {
-  return opened || (!!query.trim() && !closedInSearch && items.some(leftAlone));
+export function groupOpen(items: ListItem[], narrowed: boolean, opened: boolean, closedInSearch: boolean): boolean {
+  return opened || (narrowed && !closedInSearch && items.some(leftAlone));
 }
 
 /**
@@ -99,35 +102,54 @@ export function Headline({
   scan,
   query = "",
   matches = [],
+  filters = [],
+  chips,
 }: {
   findings: Finding[];
   scan: ScanState;
   /** While searching, the heading describes the matching rows instead of the month. */
   query?: string;
   matches?: ListItem[];
+  /** The filters that are on (the rows in `matches` already pass them). */
+  filters?: FilterId[];
+  /** The filter chips, drawn under the heading. */
+  chips?: React.ReactNode;
 }) {
   const open = findings.filter((f) => f.status === "new");
   const scanning = scan.phase === "scanning";
   const q = query.trim();
+  const filtered = filters.length > 0;
 
-  if (q) {
+  if (q || filtered) {
     const hits = matches.flatMap((i) => (i.type === "finding" && i.finding.status === "new" ? [i.finding] : []));
     const fine = matches.filter(leftAlone).length;
     const hitBack = hits.reduce((n, f) => n + (f.amounts.recoverable ?? 0), 0);
     const hitMonthly = hits.reduce((n, f) => n + (f.amounts.perMonth ?? 0), 0);
     const words: string[] = [];
-    if (matches.length === 0) words.push(copy.list.searchHelp);
-    else {
-      words.push(copy.list.searchOfOpen(hits.length, open.length));
+    if (matches.length > 0) {
+      if (q) words.push(copy.list.searchOfOpen(hits.length, open.length));
       if (fine) words.push(copy.list.searchCleared(fine));
       if (hitBack > 0) words.push(copy.list.searchBack(hitBack));
       if (hitMonthly > 0) words.push(copy.list.searchMonthly(hitMonthly));
     }
+    let title: string;
+    if (q) title = matches.length ? copy.search.matches(matches.length, q) : copy.search.noMatches(q);
+    else if (!matches.length) title = copy.filters.noMatches;
+    else if (!open.length) title = copy.filters.showing(matches.length);
+    else title = hits.length ? copy.filters.of(hits.length, open.length) : copy.filters.noneOpen;
+    const sentence = words.join(", ");
     return (
-      <ViewHeading
-        title={matches.length ? copy.search.matches(matches.length, q) : copy.search.noMatches(q)}
-      >
-        {words.join(", ")}.
+      <ViewHeading title={title} below={chips}>
+        {matches.length === 0 ? (
+          // Nothing left: say how to get back. Filters are the likelier cause, so they come first.
+          filtered ? (
+            <KeyText text={q ? copy.filters.noMatchesSearchHelp : copy.filters.noMatchesHelp} />
+          ) : (
+            `${copy.list.searchHelp}.`
+          )
+        ) : sentence ? (
+          `${sentence.charAt(0).toUpperCase()}${sentence.slice(1)}.`
+        ) : null}
       </ViewHeading>
     );
   }
@@ -338,6 +360,9 @@ export function FindingsList({
   query,
   open: groupIsOpen,
   onToggleGroup,
+  filters = [],
+  onRemoveFilter,
+  onClearFilters,
   holdHover = false,
 }: {
   /** Every row that matches the search (listItems), the closed group's rows included. */
@@ -361,6 +386,10 @@ export function FindingsList({
   /** Whether "Checked and left alone" is open (groupOpen). */
   open: boolean;
   onToggleGroup: (open: boolean) => void;
+  /** The filters that are on (the rows in `items` already pass them). */
+  filters?: FilterId[];
+  onRemoveFilter: (id: FilterId) => void;
+  onClearFilters: () => void;
   /** Dev gallery only: show the selected row's quick menu open. */
   holdHover?: boolean;
 }) {
@@ -369,9 +398,9 @@ export function FindingsList({
   const rowsRef = useRef<HTMLDivElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
   // Rows slide to their new places when one is decided or undone. Searching,
-  // and opening or closing the group (it animates its own height), put rows
+  // filtering, and opening or closing the group (it animates its own height), put rows
   // straight in their places instead.
-  useFlip(rowsRef, `${query}|${groupIsOpen}`);
+  useFlip(rowsRef, `${query}|${filters.join()}|${groupIsOpen}`);
   useGlide(rowsRef, highlightRef);
   const findings = items.flatMap((i) => (i.type === "finding" && !leftAlone(i) ? [i.finding] : []));
   const undecided = items.filter((i) => i.type === "undecided");
@@ -456,7 +485,14 @@ export function FindingsList({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Pinned: the heading stays put while the rows scroll. */}
-      <Headline findings={allFindings} scan={scan} query={query} matches={items} />
+      <Headline
+        findings={allFindings}
+        scan={scan}
+        query={query}
+        matches={items}
+        filters={filters}
+        chips={<FilterChips active={filters} mouse={mouse} onRemove={onRemoveFilter} onClear={onClearFilters} />}
+      />
       <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto pb-2">
         {showHint && findings.length > 0 && <FirstRunHint onDismiss={onDismissHint} />}
         {scan.phase === "error" && (

@@ -9,6 +9,7 @@ export function ViewHeading({
   eyebrow,
   children,
   action,
+  below,
 }: {
   title: string;
   /** A small line above the title (an open finding's business and chips). */
@@ -17,6 +18,8 @@ export function ViewHeading({
   children?: React.ReactNode;
   /** Shown on the right (an open finding's amounts). */
   action?: React.ReactNode;
+  /** Under the title and its line (the findings list's filter chips). */
+  below?: React.ReactNode;
 }) {
   return (
     // The hairline marks the pinned edge the rows scroll under.
@@ -27,6 +30,7 @@ export function ViewHeading({
           <h1 className="heading text-heading font-semibold">{title}</h1>
           {/* The line under the title is left out when there is nothing to say. */}
           {hasContent(children) && <p className="mt-0.5 text-small text-muted">{children}</p>}
+          {below}
         </div>
         {action && <div className="mt-1 shrink-0">{action}</div>}
       </div>

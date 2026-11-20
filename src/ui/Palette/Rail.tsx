@@ -7,7 +7,7 @@ import { CloseIcon, HideIcon, KeysIcon, ListIcon, TimelineIcon } from "../icons"
 import { Menu, MenuItem, Tip } from "../layers";
 
 // The icon rail down the left of the palette (Linear and Slack have one like
-// it): View at the top, Trace and Settings at the foot. Icons only, to leave
+// it): View and Filter at the top, Trace and Settings at the foot. Icons only, to leave
 // the rows their width; each one names itself and its key in a tooltip.
 //
 // View is one button with a menu (V, or a click): Findings or Timeline, the
@@ -16,7 +16,7 @@ import { Menu, MenuItem, Tip } from "../layers";
 // the view it was opened from counts as current, and choosing it goes back.
 
 export type RailView = "list" | "timeline" | "detail";
-export type RailItem = "view" | "trace" | "settings";
+export type RailItem = "view" | "filter" | "trace" | "settings";
 
 export function Rail({
   view,
@@ -28,6 +28,7 @@ export function Rail({
   viewOpen,
   onViewOpenChange,
   mouse,
+  filter,
   settings,
   preview,
 }: {
@@ -43,6 +44,8 @@ export function Rail({
   onViewOpenChange: (open: boolean) => void;
   /** Mouse mode: the menu rows leave out their key caps. */
   mouse: boolean;
+  /** The Filter button and its menu (FilterButton in Filters.tsx), under View. */
+  filter?: React.ReactNode;
   /** The Settings button and its menu (SettingsButton below). */
   settings: React.ReactNode;
   /** The dev gallery only: hold one item hovered, or its tooltip open. */
@@ -64,6 +67,7 @@ export function Rail({
 
   return (
     <nav aria-label={copy.rail.label} className="flex w-12 shrink-0 flex-col items-center justify-between border-r border-hairline py-2">
+      <div className="flex flex-col gap-1">
       <Menu
         open={viewOpen}
         onOpenChange={onViewOpenChange}
@@ -89,6 +93,8 @@ export function Rail({
         <MenuItem icon={<ListIcon />} label={copy.rail.list} current={current === "list"} focusOnOpen={!mouse && current !== "list"} keys={end("list")} onSelect={choose(onList)} />
         <MenuItem icon={<TimelineIcon />} label={copy.rail.timeline} current={current === "timeline"} focusOnOpen={!mouse && current !== "timeline"} keys={end("timeline")} onSelect={choose(onTimeline)} />
       </Menu>
+      {filter}
+      </div>
       <div className="flex flex-col gap-1">
         <RailButton
           label={copy.rail.trace}
@@ -109,7 +115,7 @@ export function Rail({
  * The look every rail button shares: a 32 px square, muted until hovered.
  * "on": the View or Settings menu is open, or Trace's drawer is.
  */
-function railButton(state: "on" | "off", hover: boolean) {
+export function railButton(state: "on" | "off", hover: boolean) {
   const look =
     state === "on"
       ? "bg-raised text-text"
