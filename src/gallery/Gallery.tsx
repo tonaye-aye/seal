@@ -8,7 +8,20 @@ import { KeyButton } from "../ui/Kbd";
 import { buildTimeline, filterTimeline, nowIndex } from "../ui/timeline";
 import { SearchField } from "../ui/Palette/SearchField";
 import { ActionBar, FindingDetail, type Pane } from "../ui/Palette/FindingDetail";
-import { AllClear, DeadlineChip, FindingsList, Headline, NotChecked, Scanning, ScanError, listItems } from "../ui/Palette/FindingsList";
+import {
+  AllClear,
+  CLEARED_GROUP,
+  DeadlineChip,
+  FindingsList,
+  Headline,
+  NotChecked,
+  Scanning,
+  ScanError,
+  groupOpen,
+  listItems,
+  listStops,
+  pickSelected,
+} from "../ui/Palette/FindingsList";
 import { ConnectorsButton, Footer } from "../ui/Palette/Footer";
 import { Rail, SettingsButton, type RailItem } from "../ui/Palette/Rail";
 import { Header } from "../ui/Palette/Header";
@@ -188,6 +201,8 @@ type FrameProps = {
   rail?: { hover?: RailItem; tip?: RailItem; view?: boolean; settings?: boolean };
   /** The top bar's search: drawn as if focused (open, typing), or closed with its tooltip held open. */
   search?: { focused?: boolean; tip?: boolean };
+  /** "Checked and left alone" opened (it is closed by default, and opens by itself for a search that matches inside). */
+  group?: boolean;
 };
 
 /**
@@ -215,6 +230,7 @@ function PaletteFrame({
   detailFrom = "list",
   rail,
   search,
+  group = false,
 }: FrameProps) {
   const setup = onboarding && isSetupScreen(onboarding.step);
   const shellRef = useRef<HTMLDivElement>(null);
@@ -224,8 +240,10 @@ function PaletteFrame({
   const shownScan = scan.toast ? { ...scan, toast: { ...scan.toast, id: toastLoop + 1 } } : scan;
 
   const findings = rankedFindings(shownScan);
-  const items = listItems(findings, shownScan, query);
-  const item = items.find((i) => i.key === selected) ?? items[0];
+  const rows = listItems(findings, shownScan, query);
+  const isGroupOpen = groupOpen(rows, query, group, false);
+  const items = listStops(rows, isGroupOpen);
+  const item = pickSelected(rows, items, selected, view === "list");
   const openItem = item?.type === "finding" ? item.finding : item?.type === "cleared" ? item.cleared : undefined;
   const entries = filterTimeline(buildTimeline(shownScan), query);
   const entry = entries[nowIndex(entries)] ?? entries[entries.length - 1];
@@ -270,7 +288,7 @@ function PaletteFrame({
   else
     main = (
       <FindingsList
-        items={items}
+        items={rows}
         allFindings={findings}
         selectedKey={item?.key}
         scrollKey={0}
@@ -282,11 +300,14 @@ function PaletteFrame({
         showHint={hint}
         onDismissHint={noop}
         query={query}
+        open={isGroupOpen}
+        onToggleGroup={noop}
         holdHover={holdHover}
       />
     );
 
   const actionItem = item?.type === "undecided" ? { undecided: item.error } : openItem;
+  const hintItem = item?.type === "group" ? { group: item.open } : actionItem;
   return (
     <Preview scan={shownScan} live={live} endpoint={endpoint} modelDemo={modelDemo}>
       <div data-gallery-frame style={{ width: 1000, height: 680 }} {...blockers}>
@@ -365,7 +386,7 @@ function PaletteFrame({
                 ) : view === "timeline" ? (
                   <TimelineHint entry={entry} mouse={mouse} onOpen={noop} />
                 ) : view === "list" && !nothingYet ? (
-                  <ListHint item={actionItem} mouse={mouse} onOpen={noop} onRescan={noop} />
+                  <ListHint item={hintItem} mouse={mouse} onOpen={noop} onRescan={noop} />
                 ) : undefined
               }
             />
@@ -492,6 +513,8 @@ export function Gallery() {
   // The top finding, and the list once it is approved (for the motion stills).
   const [top, second] = rankedFindings(s.done);
   const approvedTop: ScanState = { ...s.done, decisions: { ...s.done.decisions, [top.id]: "approved" } };
+  // The top finding marked "Not a leak": it goes into "Checked and left alone".
+  const dismissedTop: ScanState = { ...s.done, decisions: { ...s.done.decisions, [top.id]: "dismissed" } };
   const now = nowSamples(corpus);
   const o = onboardingSample;
 
@@ -549,7 +572,7 @@ export function Gallery() {
             </Section>
 
             <Section id="list" title="List">
-              <Shot title="Findings, first run" note="Headline, hint, Couldn't decide, Checked and left alone">
+              <Shot title="Findings, first run" note="Compact rows: name, kind, amount, date. Couldn't decide stays open; Checked and left alone is closed">
                 <PaletteFrame scan={s.done} hint />
               </Shot>
               <Shot title="After some decisions" note="Approved and snoozed rows, mouse mode">
@@ -560,6 +583,18 @@ export function Gallery() {
               </Shot>
               <Shot title="Couldn't decide, selected" note="The action bar for a case the model couldn't settle">
                 <PaletteFrame scan={s.done} selected="u-council" />
+              </Shot>
+              <Shot title="Checked and left alone, header selected" note="Closed by default, with a count. J/K stop on its header; Enter or Space opens it">
+                <PaletteFrame scan={s.done} selected={CLEARED_GROUP} />
+              </Shot>
+              <Shot title="Checked and left alone, open, a row selected" note="J carries on into its rows; Enter on the header (or Space) closes it again">
+                <PaletteFrame scan={s.done} group selected="c-kookaburra" />
+              </Shot>
+              <Shot title="Checked and left alone, mouse mode" note="A click on the header opens or closes it">
+                <PaletteFrame scan={s.done} group mouse selected={CLEARED_GROUP} />
+              </Shot>
+              <Shot title="Not a leak goes in the group" note="D: Maya says it's fine, so it joins the cases the agent left alone (⌘Z brings it back)">
+                <PaletteFrame scan={dismissedTop} group selected={top.id} />
               </Shot>
               <Shot title="Everything dealt with" note="Every finding approved or snoozed">
                 <PaletteFrame scan={s.handled} />
@@ -581,6 +616,9 @@ export function Gallery() {
               </Shot>
               <Shot title="No matches">
                 <PaletteFrame scan={s.done} query="plumber" search={{ focused: true }} />
+              </Shot>
+              <Shot title="Matching a row that was left alone" note='"cpi" is only in why Kookaburra looks fine (no longer on the row): the group opens by itself while the search holds'>
+                <PaletteFrame scan={s.done} query="cpi" selected="c-kookaburra" />
               </Shot>
               <Shot title="Mouse mode" note="A × clears the search instead of the key caps">
                 <PaletteFrame scan={s.done} query="sky" mouse search={{ focused: true }} />
@@ -671,6 +709,15 @@ export function Gallery() {
               </Shot>
               <Shot title="Undo, halfway" note="⌘Z: the rows below make room and the row fades back into its place">
                 <Midway at={{ flip: 0.5 }} before={{ scan: approvedTop, selected: second.id }} after={{ scan: s.done, selected: second.id }} />
+              </Shot>
+              <Shot title="Not a leak, into the closed group, halfway" note="D: the row fades out where it was, the rows below slide up, and the group's count goes up">
+                <Midway at={{ flip: 0.5 }} before={{ scan: s.done, selected: top.id }} after={{ scan: dismissedTop, selected: second.id }} />
+              </Shot>
+              <Shot title="Not a leak, into the open group, halfway" note="With the group open, the row fades in among its rows">
+                <Midway at={{ flip: 0.5 }} before={{ scan: s.done, group: true, selected: top.id }} after={{ scan: dismissedTop, group: true, selected: second.id }} />
+              </Shot>
+              <Shot title="Undo, out of the closed group, halfway" note="⌘Z: the rows make room and the row fades back into its place">
+                <Midway at={{ flip: 0.5 }} before={{ scan: dismissedTop, selected: second.id }} after={{ scan: s.done, selected: second.id }} />
               </Shot>
               <Shot title="Selection gliding, halfway" note="J from the first row: the highlight slides; a quick run of J keeps up">
                 <Midway at={{ glide: 0.5 }} before={{ scan: s.done, selected: top.id }} after={{ scan: s.done, selected: second.id }} />

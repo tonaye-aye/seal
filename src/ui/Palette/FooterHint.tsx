@@ -9,12 +9,22 @@ import { copy } from "../../copy";
 // footer in the list and the timeline (there is no separate bar for it).
 // With the keyboard: Enter opens, J/K move. With the mouse: what a click does.
 
-type Item = Finding | Cleared | { undecided: string } | undefined;
+type Item = Finding | Cleared | { undecided: string } | { group: boolean } | undefined;
 
 export function ListHint({ item, mouse, onOpen, onRescan }: { item: Item; mouse: boolean; onOpen: () => void; onRescan: () => void }) {
   if (!item) return null;
   if ("undecided" in item) {
     return <KeyButton keys={["R"]} label={copy.actions.checkAgain} icon={<CheckNowIcon />} tone="muted" mouse={mouse} onClick={onRescan} />;
+  }
+  // The "Checked and left alone" header: Enter (or Space, or a click) opens and closes it.
+  if ("group" in item) {
+    if (mouse) return <ClickHint text={item.group ? copy.actions.clickToHide : copy.actions.clickToShow} />;
+    return (
+      <>
+        <KeyButton keys={["↵"]} label={item.group ? copy.actions.hide : copy.actions.show} tone="faint" onClick={onOpen} />
+        <KeyHint keys={["J", "K"]} label={copy.actions.move} />
+      </>
+    );
   }
   if (mouse) return <ClickHint text={"evidence" in item ? copy.actions.clickForDetail : copy.actions.clickWhyFine} />;
   return (

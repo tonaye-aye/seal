@@ -14,7 +14,21 @@ import { ListHint, TimelineHint } from "./FooterHint";
 import { PrimaryButton, SetupScreen } from "../Onboarding/SetupScreen";
 import { approve, dismiss, rankedFindings, snooze, startScan, undoLast, useScan } from "../../lib/scan-store";
 import { ActionBar, FindingDetail, evidenceFor, type Command, type Pane } from "./FindingDetail";
-import { AllClear, FindingsList, NotChecked, Scanning, ScanError, listItems, type ListItem, type RowAction } from "./FindingsList";
+import {
+  AllClear,
+  CLEARED_GROUP,
+  FindingsList,
+  NotChecked,
+  Scanning,
+  ScanError,
+  groupOpen,
+  leftAlone,
+  listItems,
+  listStops,
+  pickSelected,
+  type ListItem,
+  type RowAction,
+} from "./FindingsList";
 import { SearchField } from "./SearchField";
 import { Footer } from "./Footer";
 import { Header } from "./Header";
@@ -35,7 +49,8 @@ import { changeView, nativeViewTransitions } from "../motion";
 // transparent with a macOS blur behind, so this panel adds the warm tint.
 //
 // It owns every key, in one handler, so nothing else can fight over them:
-//   list    J/K move, Enter opens, A approve, E edit, S snooze, D not a leak
+//   list    J/K move, Enter opens, A approve, E edit, S snooze, D not a leak,
+//           Enter or Space on "Checked and left alone" opens or closes it
 //   detail  J/K move through evidence (or scroll the draft), Tab switch pane
 //   timeline  J/K move through time, Enter opens the line's finding
 //   always  Cmd+Enter timeline, V view menu, Cmd+Z undo, / search, T trace, R check again, ? keys, Esc back
@@ -95,10 +110,18 @@ export function Palette() {
   // The hidden demo panel for simulated connector failures.
   const [scenariosOpen, setScenariosOpen] = useState(false);
   const [showHint, setShowHint] = useState(!hintSeen());
+  // "Checked and left alone": closed on every summon. A search that matches a
+  // row inside opens it by itself, unless it was closed during that search.
+  const [groupOpened, setGroupOpened] = useState(false);
+  const [groupClosedInSearch, setGroupClosedInSearch] = useState(false);
+  useEffect(() => setGroupClosedInSearch(false), [query]);
 
   const findings = rankedFindings(scan);
-  const items = listItems(findings, scan, query);
-  const selected: ListItem | undefined = items.find((i) => i.key === selectedKey) ?? items[0];
+  // Every matching row, then the stops J/K move through (the closed group's rows left out).
+  const rows = listItems(findings, scan, query);
+  const isGroupOpen = groupOpen(rows, query, groupOpened, groupClosedInSearch);
+  const items = listStops(rows, isGroupOpen);
+  const selected: ListItem | undefined = pickSelected(rows, items, selectedKey, view === "list");
   const selectedItem: Finding | Cleared | undefined =
     selected?.type === "finding" ? selected.finding : selected?.type === "cleared" ? selected.cleared : undefined;
   const evidenceCount = selectedItem ? evidenceFor(selectedItem, scan.corpus).length : 0;
@@ -115,6 +138,7 @@ export function Palette() {
         setDetailFrom("list");
         setEditing(false);
         setSheetOpen(false);
+        setGroupOpened(false);
       }
       setOpenCount((n) => n + 1);
     });
@@ -170,9 +194,21 @@ export function Palette() {
     setScrollKey((n) => n + 1);
   }
 
+  /** Opens or closes "Checked and left alone". Closing it with a row inside selected lands on its header. */
+  function toggleGroup(next = !isGroupOpen) {
+    if (query.trim()) setGroupClosedInSearch(!next);
+    setGroupOpened(next);
+    // The header keeps the selection either way (it may only be standing in for
+    // a hidden row, which must not grab the selection back when the rows show).
+    if (selected?.type === "group" || (!next && selected && leftAlone(selected))) select(CLEARED_GROUP);
+  }
+
   function open(key: string, from: "list" | "timeline" = "list") {
-    const item = items.find((i) => i.key === key);
-    if (!item || item.type === "undecided") return;
+    if (key === CLEARED_GROUP) return toggleGroup();
+    const item = rows.find((i) => i.key === key);
+    if (!item || item.type === "undecided" || item.type === "group") return;
+    // A case opened from the timeline is shown in its group when you come back to the list.
+    if (leftAlone(item)) setGroupOpened(true);
     changeView(() => {
       select(key);
       setView("detail");
@@ -245,7 +281,7 @@ export function Palette() {
    * selection steps on to the next finding that still needs Maya.
    */
   function act(kind: RowAction, key = selected?.key) {
-    const item = items.find((i) => i.key === key);
+    const item = rows.find((i) => i.key === key);
     if (item?.type !== "finding" || item.finding.status !== "new") return;
     const id = item.finding.id;
     if (kind === "approve" && (item.finding.draft || item.finding.action.kind === "none")) dismissHint();
@@ -382,7 +418,8 @@ export function Palette() {
           event.preventDefault();
           panelRef.current?.focus();
           if (view === "timeline") setTimelineKey((entries[nowIndex(entries)] ?? entries[0])?.key);
-          else select(items[0]?.key);
+          // The first matching row, not the "Checked and left alone" header in front of it.
+          else select((items.find((i) => i.type !== "group") ?? items[0])?.key);
           setScrollKey((n) => n + 1);
         }
         return;
@@ -450,6 +487,13 @@ export function Palette() {
         case "Enter":
           event.preventDefault();
           if (!inDetail) run("open");
+          return;
+        case " ":
+          // Space opens and closes "Checked and left alone", like Enter.
+          if (!inDetail && selected?.type === "group") {
+            event.preventDefault();
+            toggleGroup();
+          }
           return;
         case "Tab":
           if (inDetail) {
@@ -524,7 +568,7 @@ export function Palette() {
   else
     main = (
       <FindingsList
-        items={items}
+        items={rows}
         allFindings={findings}
         selectedKey={selected?.key}
         scrollKey={scrollKey}
@@ -539,6 +583,8 @@ export function Palette() {
         showHint={showHint}
         onDismissHint={dismissHint}
         query={query}
+        open={isGroupOpen}
+        onToggleGroup={toggleGroup}
       />
     );
 
@@ -627,7 +673,12 @@ export function Palette() {
             ) : view === "timeline" ? (
               <TimelineHint entry={selectedEntry} mouse={mouse} onOpen={() => openEntry()} />
             ) : view === "list" && !nothingYet ? (
-              <ListHint item={actionItem} mouse={mouse} onOpen={() => run("open")} onRescan={() => run("rescan")} />
+              <ListHint
+                item={selected?.type === "group" ? { group: selected.open } : actionItem}
+                mouse={mouse}
+                onOpen={() => run("open")}
+                onRescan={() => run("rescan")}
+              />
             ) : undefined
           }
         />

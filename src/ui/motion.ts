@@ -138,6 +138,10 @@ export function useFlip(listRef: React.RefObject<HTMLElement | null>, reset: unk
     const startedBefore = started;
 
     for (const el of list.querySelectorAll<HTMLElement>("[data-flip-key]")) {
+      // Rows in a closed group (marked data-flip-off) are not tracked: they are
+      // folding away, or not drawn at all. A row moving into a closed group
+      // counts as gone (it fades out), and one coming out of it as new.
+      if (el.closest("[data-flip-off]")) continue;
       const key = el.dataset.flipKey!;
       const group = el.dataset.flipGroup ?? "";
       const was = before.get(key);
@@ -192,7 +196,11 @@ export function useGlide(
     const list = listRef.current;
     const highlight = highlightRef.current;
     if (!list || !highlight) return;
-    const row = [...list.querySelectorAll<HTMLElement>('[aria-selected="true"]')].find((el) => el.parentElement === list);
+    // Rows sit right in the list, or in a group inside it marked data-glide-rows
+    // (the findings list's "Checked and left alone").
+    const row = [...list.querySelectorAll<HTMLElement>('[aria-selected="true"]')].find(
+      (el) => el.parentElement === list || el.parentElement?.hasAttribute("data-glide-rows"),
+    );
     if (!row) {
       highlight.style.opacity = "0";
       last.current = undefined;

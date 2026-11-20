@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Ellipsis } from "lucide-react";
+import { ChevronRight, Ellipsis } from "lucide-react";
+import * as Accordion from "@radix-ui/react-accordion";
 import { Menu, MenuItem, Tip } from "../layers";
 import type { Cleared, Finding } from "../../agent/pipeline";
 import { useLive } from "../../connectors/live";
@@ -22,22 +23,73 @@ import { ViewHeading } from "./ViewHeading";
 export type ListItem =
   | { type: "finding"; key: string; finding: Finding }
   | { type: "undecided"; key: string; merchant: string; error: string }
-  | { type: "cleared"; key: string; cleared: Cleared };
+  | { type: "cleared"; key: string; cleared: Cleared }
+  /** The "Checked and left alone" header: a stop of its own that opens and closes the group. */
+  | { type: "group"; key: typeof CLEARED_GROUP; count: number; open: boolean };
 
+export const CLEARED_GROUP = "group:cleared";
+
+/**
+ * Rows that belong in "Checked and left alone": the cases the agent cleared,
+ * and findings Maya marked "Not a leak" (she has said they are fine too).
+ */
+export function leftAlone(item: ListItem): boolean {
+  return item.type === "cleared" || (item.type === "finding" && item.finding.status === "dismissed");
+}
+
+/**
+ * Every row that matches the search, in the order the list draws them: the
+ * findings, then "Couldn't decide", then "Checked and left alone" (cleared
+ * cases first, then the ones marked "Not a leak"). The search also matches
+ * words that are no longer shown on the rows (a finding's title, why a case
+ * looks fine), so "price rise" still finds Skylink.
+ */
 export function listItems(findings: Finding[], scan: ScanState, query: string): ListItem[] {
   const q = query.trim().toLowerCase();
   const match = (...texts: string[]) => !q || texts.some((t) => t.toLowerCase().includes(q));
+  const found = findings
+    .filter((f) => match(f.merchant, f.title, copy.shared.kind[f.kind]))
+    .map((f): ListItem => ({ type: "finding", key: f.id, finding: f }));
   return [
-    ...findings
-      .filter((f) => match(f.merchant, f.title, copy.shared.kind[f.kind]))
-      .map((f): ListItem => ({ type: "finding", key: f.id, finding: f })),
+    ...found.filter((i) => !leftAlone(i)),
     ...scan.undecided
       .filter((u) => match(u.merchant))
       .map((u): ListItem => ({ type: "undecided", key: u.id, merchant: u.merchant, error: u.error })),
     ...scan.cleared
-      .filter((c) => match(c.merchant, c.title))
+      .filter((c) => match(c.merchant, c.title, c.why))
       .map((c): ListItem => ({ type: "cleared", key: c.id, cleared: c })),
+    ...found.filter(leftAlone),
   ];
+}
+
+/**
+ * Whether "Checked and left alone" is open: as Maya left it, or open by itself
+ * while a search matches a row inside it (unless she closed it during that search).
+ */
+export function groupOpen(items: ListItem[], query: string, opened: boolean, closedInSearch: boolean): boolean {
+  return opened || (!!query.trim() && !closedInSearch && items.some(leftAlone));
+}
+
+/**
+ * The stops J/K move through: every row, with the group's header in front of
+ * its rows, and those rows left out while the group is closed.
+ */
+export function listStops(items: ListItem[], open: boolean): ListItem[] {
+  const inside = items.filter(leftAlone);
+  if (!inside.length) return items;
+  const header: ListItem = { type: "group", key: CLEARED_GROUP, count: inside.length, open };
+  return [...items.filter((i) => !leftAlone(i)), header, ...(open ? inside : [])];
+}
+
+/**
+ * The selected row. A row that is hidden in the closed group is still found
+ * (an open finding can be one, opened from the timeline), but in the list it
+ * stands for the group's header, so the highlight stays on something visible.
+ */
+export function pickSelected(items: ListItem[], stops: ListItem[], key: string | undefined, inList: boolean): ListItem | undefined {
+  const picked = stops.find((i) => i.key === key) ?? items.find((i) => i.key === key);
+  if (picked && inList && !stops.includes(picked)) return stops.find((i) => i.type === "group");
+  return picked ?? stops[0];
 }
 
 // ---------- Headline ----------
@@ -60,7 +112,7 @@ export function Headline({
 
   if (q) {
     const hits = matches.flatMap((i) => (i.type === "finding" && i.finding.status === "new" ? [i.finding] : []));
-    const fine = matches.filter((i) => i.type === "cleared").length;
+    const fine = matches.filter(leftAlone).length;
     const hitBack = hits.reduce((n, f) => n + (f.amounts.recoverable ?? 0), 0);
     const hitMonthly = hits.reduce((n, f) => n + (f.amounts.perMonth ?? 0), 0);
     const words: string[] = [];
@@ -206,34 +258,47 @@ function RowMenu({ finding, onAct, startOpen = false }: { finding: Finding; onAc
   );
 }
 
-function FindingRow({ finding, selected }: { finding: Finding; selected: boolean }) {
+// Column widths, shared by every kind of row so the columns line up. The
+// name gets the room the description used to take; kind (or a row's status)
+// is a fixed column, so every kind starts at the same place; amount and date
+// stay on the right edge, where all the money in the app lines up.
+const COL = {
+  name: "w-[220px] shrink-0 truncate",
+  kind: "flex w-[150px] shrink-0 items-center",
+  amount: "w-[88px] shrink-0 text-right",
+  date: "flex w-[60px] shrink-0 justify-end",
+  menu: "w-7 shrink-0",
+};
+
+function FindingRow({ finding }: { finding: Finding }) {
   const amount = headlineAmount(finding);
   const done = finding.status !== "new";
   // Only a check that is part live, part saved labels rows; otherwise the banner says it.
   const saved = mixedReplay(useScan()) && fromSaved(finding);
   const dot = done ? (finding.status === "approved" ? "bg-positive" : "bg-faint") : URGENCY_DOT[urgency(finding.deadline?.date)];
+  const status = done ? STATUS_CHIP[finding.status as keyof typeof STATUS_CHIP] : undefined;
   return (
     <>
       <span className={`size-1.5 shrink-0 rounded-full ${dot}`} aria-hidden="true" />
-      <span className={`w-[140px] shrink-0 truncate font-semibold ${done ? "font-normal text-muted" : ""}`}>{finding.merchant}</span>
-      <span className={`min-w-0 flex-1 truncate ${selected ? "text-muted" : "text-faint"}`}>{finding.title}</span>
-      {done ? (
-        <span className={`shrink-0 rounded-full border px-2 py-px text-meta ${STATUS_CHIP[finding.status as keyof typeof STATUS_CHIP].className}`}>
-          {STATUS_CHIP[finding.status as keyof typeof STATUS_CHIP].text}
-        </span>
-      ) : (
-        <>
-          {saved && <SavedTag />}
-          {isUnsure(finding) && <NotSureChip />}
-          {/* The kind is context, not news: quiet text, no pill. */}
-          <span className="shrink-0 text-meta text-faint">{copy.shared.kind[finding.kind]}</span>
-        </>
-      )}
+      <span className={`${COL.name} font-semibold ${done ? "font-normal text-muted" : ""}`}>{finding.merchant}</span>
+      {/* The chips belong to the name's side of the gap, right up against the kind. */}
+      <span className="flex min-w-0 flex-1 items-center justify-end gap-2">
+        {!done && saved && <SavedTag />}
+        {!done && isUnsure(finding) && <NotSureChip />}
+      </span>
+      <span className={COL.kind}>
+        {status ? (
+          <span className={`rounded-full border px-2 py-px text-meta ${status.className}`}>{status.text}</span>
+        ) : (
+          // The kind is context, not news: quiet text, no pill.
+          <span className="truncate text-meta text-faint">{copy.shared.kind[finding.kind]}</span>
+        )}
+      </span>
       {/* Amount and deadline lead the row: the brightest figures, in fixed columns. */}
-      <span className={`w-[88px] shrink-0 text-right figure text-body ${done ? "text-faint line-through decoration-faint/60" : "text-text"}`}>
+      <span className={`${COL.amount} figure text-body ${done ? "text-faint line-through decoration-faint/60" : "text-text"}`}>
         {amount ? <CountUp id={`row:${finding.id}`} cents={amount.cents} /> : ""}
       </span>
-      <span className="flex w-[60px] shrink-0 justify-end">{finding.deadline && !done ? <DeadlineChip date={finding.deadline.date} /> : null}</span>
+      <span className={COL.date}>{finding.deadline && !done ? <DeadlineChip date={finding.deadline.date} /> : null}</span>
     </>
   );
 }
@@ -256,13 +321,14 @@ function groupTitle(count: number, title: string) {
 // block with the bar on its left) slides to it (useGlide). Moving the mouse
 // moves it; so do J/K. There is no separate hover style, so the two can never
 // point at different rows.
-const ROW = "row-press group/row relative flex h-9 cursor-pointer items-center gap-3 rounded-md px-2.5 text-body";
+const ROW = "row-press group/row relative flex h-8 cursor-pointer items-center gap-3 rounded-md px-2.5 text-body";
 
 export function FindingsList({
   items,
   allFindings,
   selectedKey,
   scrollKey,
+  mouse,
   onHover,
   onOpen,
   onAct,
@@ -270,8 +336,11 @@ export function FindingsList({
   showHint,
   onDismissHint,
   query,
+  open: groupIsOpen,
+  onToggleGroup,
   holdHover = false,
 }: {
+  /** Every row that matches the search (listItems), the closed group's rows included. */
   items: ListItem[];
   /** Every finding, before search filters the list (the headline counts these). */
   allFindings: Finding[];
@@ -289,6 +358,9 @@ export function FindingsList({
   onDismissHint: () => void;
   /** The top bar's search (the rows are already filtered by it). */
   query: string;
+  /** Whether "Checked and left alone" is open (groupOpen). */
+  open: boolean;
+  onToggleGroup: (open: boolean) => void;
   /** Dev gallery only: show the selected row's quick menu open. */
   holdHover?: boolean;
 }) {
@@ -296,11 +368,14 @@ export function FindingsList({
   const listRef = useRef<HTMLDivElement>(null);
   const rowsRef = useRef<HTMLDivElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
-  // Rows slide to their new places when one is decided or undone (not while searching).
-  useFlip(rowsRef, query);
+  // Rows slide to their new places when one is decided or undone. Searching,
+  // and opening or closing the group (it animates its own height), put rows
+  // straight in their places instead.
+  useFlip(rowsRef, `${query}|${groupIsOpen}`);
   useGlide(rowsRef, highlightRef);
-  const findings = items.flatMap((i) => (i.type === "finding" ? [i.finding] : []));
-  const rest = items.filter((i) => i.type !== "finding");
+  const findings = items.flatMap((i) => (i.type === "finding" && !leftAlone(i) ? [i.finding] : []));
+  const undecided = items.filter((i) => i.type === "undecided");
+  const inside = items.filter(leftAlone);
   const missing = Object.values(live.statuses).filter((s) => s && (s.state === "needs_reconnect" || s.state === "error"));
     const notConnected = (scan.result?.notConnected ?? []).map((id) => copy.shared.source[id]);
   const remaining =
@@ -311,29 +386,34 @@ export function FindingsList({
     listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
   }, [scrollKey]);
 
-  const row = (item: ListItem): React.ReactNode => {
-    const selected = item.key === selectedKey;
-    const common = {
-      "data-flip-key": item.key,
-      "data-flip-group": item.type === "finding" ? (item.finding.status === "new" ? "open" : "done") : item.type,
+  const rowProps = (key: string, group: string) =>
+    ({
+      "data-flip-key": key,
+      "data-flip-group": group,
       role: "option",
-      "aria-selected": selected,
-      onClick: () => onOpen(item.key),
+      "aria-selected": key === selectedKey,
       // Only real pointer movement counts: when the list scrolls under a still
       // pointer the browser can send a move event with no movement.
       onMouseMove: (e: React.MouseEvent) => {
-        if (e.movementX !== 0 || e.movementY !== 0) onHover(item.key);
+        if (e.movementX !== 0 || e.movementY !== 0) onHover(key);
       },
-    } as const;
+    }) as const;
+
+  const row = (item: ListItem): React.ReactNode => {
+    const selected = item.key === selectedKey;
+    const common = {
+      ...rowProps(item.key, leftAlone(item) ? "cleared" : item.type === "finding" ? (item.finding.status === "new" ? "open" : "done") : item.type),
+      onClick: () => onOpen(item.key),
+    };
     if (item.type === "finding")
       return (
         <div key={item.key} {...common} className={ROW}>
-          <FindingRow finding={item.finding} selected={selected} />
+          <FindingRow finding={item.finding} />
           {/* The quick menu on the selected row; the same width is kept on other rows so the columns line up. */}
           {selected && item.finding.status === "new" ? (
             <RowMenu finding={item.finding} onAct={(action) => onAct(action, item.key)} startOpen={holdHover} />
           ) : (
-            <span className="w-7 shrink-0" aria-hidden="true" />
+            <span className={COL.menu} aria-hidden="true" />
           )}
         </div>
       );
@@ -342,25 +422,36 @@ export function FindingsList({
         <Tip key={item.key} content={item.error}>
           <div {...common} className={ROW}>
             <span className="size-1.5 shrink-0 rounded-full bg-danger" aria-hidden="true" />
-            <span className="w-[140px] shrink-0 truncate font-semibold">{item.merchant}</span>
-            <span className="min-w-0 flex-1 truncate text-faint">{copy.list.undecidedRow}</span>
-            <NotSureChip />
-            {/* Empty amount, deadline and menu columns, so the chip lines up with the finding rows' chips and kinds. */}
-            <span className="w-[88px] shrink-0" aria-hidden="true" />
-            <span className="w-[60px] shrink-0" aria-hidden="true" />
-            <span className="w-7 shrink-0" aria-hidden="true" />
+            <span className={`${COL.name} font-semibold`}>{item.merchant}</span>
+            {/* The reason is in the tooltip; screen readers get it with the row. */}
+            <span className="sr-only">{item.error}</span>
+            <span className="min-w-0 flex-1" aria-hidden="true" />
+            {/* In the kind column, like a finding's chips and kinds; empty amount, date and menu columns. */}
+            <span className={COL.kind}>
+              <NotSureChip />
+            </span>
+            <span className={COL.amount} aria-hidden="true" />
+            <span className={COL.date} aria-hidden="true" />
+            <span className={COL.menu} aria-hidden="true" />
           </div>
         </Tip>
       );
-    return (
-      <div key={item.key} {...common} className={ROW}>
-        <span className="size-1.5 shrink-0 rounded-full border border-positive/70" aria-hidden="true" />
-        <span className="w-[140px] shrink-0 truncate text-muted">{item.cleared.merchant}</span>
-        <span className="min-w-0 flex-1 truncate text-faint">{item.cleared.why}</span>
-        <span className="shrink-0 text-meta text-positive">{copy.shared.looksFine}</span>
-      </div>
-    );
+    if (item.type === "cleared")
+      return (
+        <div key={item.key} {...common} className={ROW}>
+          <span className="size-1.5 shrink-0 rounded-full border border-positive/70" aria-hidden="true" />
+          <span className={`${COL.name} text-muted`}>{item.cleared.merchant}</span>
+          <span className="min-w-0 flex-1" aria-hidden="true" />
+          <span className={`${COL.kind} text-meta text-positive`}>{copy.shared.looksFine}</span>
+          <span className={COL.amount} aria-hidden="true" />
+          <span className={COL.date} aria-hidden="true" />
+          <span className={COL.menu} aria-hidden="true" />
+        </div>
+      );
+    return null;
   };
+
+  const headerSelected = selectedKey === CLEARED_GROUP;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -385,18 +476,51 @@ export function FindingsList({
         )}
         <div ref={rowsRef} role="listbox" aria-label={copy.list.label} data-row-list className="relative flex flex-col px-1.5">
           <div ref={highlightRef} className="glide inset-x-1.5" aria-hidden="true" />
-          {findings.length > 0 && findings.map((f) => row({ type: "finding", key: f.id, finding: f }))}
+          {findings.map((f) => row({ type: "finding", key: f.id, finding: f }))}
           {remaining !== undefined && remaining > 0 && (
-            <div data-flip-key="pending" className="flex h-9 items-center gap-2.5 px-2.5 text-small text-faint">
+            <div data-flip-key="pending" className="flex h-8 items-center gap-2.5 px-2.5 text-small text-faint">
               <span className="size-1.5 rounded-full bg-info/60 motion-safe:animate-pulse" aria-hidden="true" />
               {copy.list.stillDeciding(remaining)}
               <span className="shimmer ml-1 h-2 flex-1 rounded-full" aria-hidden="true" />
             </div>
           )}
-          {groupTitle(rest.filter((i) => i.type === "undecided").length, copy.list.undecidedGroup)}
-          {rest.filter((i) => i.type === "undecided").map(row)}
-          {groupTitle(rest.filter((i) => i.type === "cleared").length, copy.list.clearedGroup)}
-          {rest.filter((i) => i.type === "cleared").map(row)}
+          {/* "Couldn't decide" stays open: it needs Maya. */}
+          {groupTitle(undecided.length, copy.list.undecidedGroup)}
+          {undecided.map(row)}
+          {/* "Checked and left alone" folds away: nothing in it needs her. The
+              palette owns the keys (J/K stop on the header, Enter or Space
+              opens it), so the header never takes focus from the panel. */}
+          {inside.length > 0 && (
+            <Accordion.Root
+              type="single"
+              collapsible
+              value={groupIsOpen ? CLEARED_GROUP : ""}
+              onValueChange={(value) => onToggleGroup(value === CLEARED_GROUP)}
+              className="mt-2"
+            >
+              <Accordion.Item value={CLEARED_GROUP} data-glide-rows>
+                <Accordion.Trigger asChild>
+                  <div {...rowProps(CLEARED_GROUP, "header")} className={ROW}>
+                    {/* Starts where the "Couldn't decide" title does, so the two group names line up. */}
+                    <span className={`label ${headerSelected ? "text-muted" : "text-faint"}`}>{copy.list.clearedGroup}</span>
+                    <span className="-ml-1.5 rounded-full border border-hairline px-1.5 figure text-label text-faint">{inside.length}</span>
+                    <ChevronRight
+                      size={12}
+                      strokeWidth={2}
+                      aria-hidden="true"
+                      className={`accordion-chevron -ml-1.5 shrink-0 ${headerSelected ? "text-muted" : "text-faint"}`}
+                    />
+                    <span className="flex-1" />
+                    {headerSelected && !mouse && <Kbd keys={["↵"]} />}
+                    <span className={COL.menu} aria-hidden="true" />
+                  </div>
+                </Accordion.Trigger>
+                <Accordion.Content data-glide-rows data-flip-off={groupIsOpen ? undefined : ""} className="accordion-content flex flex-col">
+                  {inside.map(row)}
+                </Accordion.Content>
+              </Accordion.Item>
+            </Accordion.Root>
+          )}
         </div>
       </div>
     </div>
