@@ -1,0 +1,626 @@
+import { createContext, useContext, useEffect, useRef, useState } from "react";
+import type { Corpus } from "../agent/corpus";
+import { formatAUD } from "../lib/money";
+import { LivePreviewProvider } from "../connectors/live";
+import { rankedFindings, ScanPreviewProvider, type ScanState } from "../lib/scan-store";
+import { KeyButton, SwitchButton } from "../ui/Kbd";
+import { buildTimeline, filterTimeline, nowIndex } from "../ui/timeline";
+import { CommandBar } from "../ui/Palette/CommandBar";
+import { ActionBar, FindingDetail, type Pane } from "../ui/Palette/FindingDetail";
+import { AllClear, DeadlineChip, FindingsList, Headline, NotChecked, Scanning, ScanError, listItems } from "../ui/Palette/FindingsList";
+import { Footer } from "../ui/Palette/Footer";
+import { Header } from "../ui/Palette/Header";
+import { NowVisual } from "../ui/Palette/NowVisual";
+import { PaletteShell } from "../ui/Palette/PaletteShell";
+import { ScenariosSheet } from "../ui/Palette/ScenariosSheet";
+import { ShortcutSheet } from "../ui/Palette/ShortcutSheet";
+import { StatusStrip } from "../ui/Palette/StatusStrip";
+import { Timeline, TimelineBar } from "../ui/Palette/Timeline";
+import { Toast } from "../ui/Palette/Toast";
+import { TraceDrawer } from "../ui/Palette/Trace";
+import { BackIcon, ListIcon, TimelineIcon, ViewHeading } from "../ui/Palette/ViewHeading";
+import { FINDINGS, liveSamples, nowSamples, sampleCorpus, scanSamples, type LiveSample } from "./fixtures";
+
+// Dev only (#/gallery): every palette state drawn from fixed sample data, so
+// the visual system can be reviewed without running a scan. It draws the real
+// components. Frames are look-only: clicks, key presses and typing are
+// stopped before they reach the components, so nothing starts a check,
+// saves a decision or moves the window.
+
+type LiveName = keyof ReturnType<typeof liveSamples>;
+const noop = () => {};
+
+// ---------- Look-only frames ----------
+
+/** Stops clicks, keys and typing at the frame's edge. Hover still works. */
+const block = (e: React.SyntheticEvent) => {
+  e.preventDefault();
+  e.stopPropagation();
+};
+const blockers = {
+  onClickCapture: block,
+  onMouseDownCapture: block,
+  onDoubleClickCapture: block,
+  onKeyDownCapture: block,
+  onBeforeInputCapture: block,
+  onPasteCapture: block,
+  onSubmitCapture: block,
+};
+
+/** The scrolling page, so frames know what "on screen" means. */
+const Scroller = createContext<HTMLDivElement | null>(null);
+
+/**
+ * Draws its children only while near the screen. Each palette frame carries a
+ * WebGL canvas, and browsers allow only about 16 at once, so frames far off
+ * screen are taken down (which also stops their drawing).
+ */
+function LazyMount({ height, children }: { height: number; children: React.ReactNode }) {
+  const root = useContext(Scroller);
+  const box = useRef<HTMLDivElement>(null);
+  const [shown, setShown] = useState(false);
+
+  useEffect(() => {
+    const el = box.current;
+    if (!el || !root) return;
+    const observer = new IntersectionObserver(([entry]) => setShown(entry.isIntersecting), { root, rootMargin: "200px 0px" });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [root]);
+
+  return (
+    <div ref={box} style={{ minHeight: height }}>
+      {shown ? children : null}
+    </div>
+  );
+}
+
+// The components keep their selected row in view (scrollIntoView) and focus
+// the draft when editing. Inside a frame, that would drag the whole gallery
+// page along, so on this page only, both stay within the frame's own lists.
+const FRAME = "[data-gallery-frame]";
+const scrollIntoView = Element.prototype.scrollIntoView;
+Element.prototype.scrollIntoView = function (this: Element, arg?: boolean | ScrollIntoViewOptions) {
+  if (!this.closest(FRAME)) return scrollIntoView.call(this, arg);
+  for (let p = this.parentElement; p && !p.matches(FRAME); p = p.parentElement) {
+    if (p.scrollHeight <= p.clientHeight || !/(auto|scroll)/.test(getComputedStyle(p).overflowY)) continue;
+    const box = this.getBoundingClientRect();
+    const view = p.getBoundingClientRect();
+    if (box.top < view.top) p.scrollTop -= view.top - box.top;
+    else if (box.bottom > view.bottom) p.scrollTop += box.bottom - view.bottom;
+    return;
+  }
+};
+const focus = HTMLElement.prototype.focus;
+HTMLElement.prototype.focus = function (this: HTMLElement, options?: FocusOptions) {
+  return focus.call(this, this.closest(FRAME) ? { ...options, preventScroll: true } : options);
+};
+
+/** Counts up every `ms` while `active`, to replay a timed state (the retry countdown, the toast's bar). */
+function useLoop(ms: number, active: boolean): number {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    const id = setInterval(() => setN((x) => x + 1), ms);
+    return () => clearInterval(id);
+  }, [ms, active]);
+  return n;
+}
+
+/** Fixed connector state for one frame. The retry countdown restarts every 3 s. */
+function useLiveSample(name: LiveName): LiveSample {
+  const loop = useLoop(3000, name === "retrying");
+  const [retryAt, setRetryAt] = useState(() => Date.now() + 3000);
+  useEffect(() => setRetryAt(Date.now() + 3000), [loop]);
+  return liveSamples(retryAt)[name];
+}
+
+function Preview({ scan, live, children }: { scan: ScanState; live: LiveName; children: React.ReactNode }) {
+  const sample = useLiveSample(live);
+  return (
+    <ScanPreviewProvider value={scan}>
+      <LivePreviewProvider value={sample}>{children}</LivePreviewProvider>
+    </ScanPreviewProvider>
+  );
+}
+
+// ---------- A whole palette ----------
+
+type FrameProps = {
+  scan: ScanState;
+  live?: LiveName;
+  view?: "list" | "detail" | "timeline";
+  /** The finding (or cleared case) selected or open. */
+  selected?: string;
+  query?: string;
+  pane?: Pane;
+  evidenceIndex?: number;
+  editing?: boolean;
+  mouse?: boolean;
+  hint?: boolean;
+  trace?: boolean;
+  sheet?: "keys" | "scenarios";
+  /** Shows the selected row's click buttons as if the pointer were on it. */
+  holdHover?: boolean;
+};
+
+/**
+ * The palette at its real size, in one fixed state. The choice of what fills
+ * each slot follows Palette.tsx; the slots themselves are the real components.
+ */
+function PaletteFrame({
+  scan,
+  live = "ok",
+  view = "list",
+  selected,
+  query = "",
+  pane = "evidence",
+  evidenceIndex = 0,
+  editing = false,
+  mouse = false,
+  hint = false,
+  trace = false,
+  sheet,
+  holdHover = false,
+}: FrameProps) {
+  const draftRef = useRef<HTMLDivElement>(null);
+  // Replays the toast so its 10 second bar keeps running.
+  const toastLoop = useLoop(10_000, !!scan.toast);
+  const shownScan = scan.toast ? { ...scan, toast: { ...scan.toast, id: toastLoop + 1 } } : scan;
+
+  const findings = rankedFindings(shownScan);
+  const items = listItems(findings, shownScan, query);
+  const item = items.find((i) => i.key === selected) ?? items[0];
+  const openItem = item?.type === "finding" ? item.finding : item?.type === "cleared" ? item.cleared : undefined;
+  const entries = filterTimeline(buildTimeline(shownScan), query);
+  const entry = entries[nowIndex(entries)] ?? entries[entries.length - 1];
+  const nothingYet = items.length === 0 && !query;
+  const inDetail = view === "detail" && !!openItem;
+
+  let main: React.ReactNode;
+  if (inDetail) {
+    main = (
+      <FindingDetail
+        item={openItem}
+        corpus={shownScan.corpus}
+        edited={"evidence" in openItem && shownScan.edits[openItem.id] !== undefined}
+        pane={pane}
+        evidenceIndex={evidenceIndex}
+        editing={editing}
+        onStopEditing={noop}
+        onFocusDraft={noop}
+        onSelectEvidence={noop}
+        draftRef={draftRef}
+        scanning={shownScan.phase === "scanning"}
+      />
+    );
+  } else if (view === "timeline") {
+    main = (
+      <Timeline
+        entries={entries}
+        selectedKey={entry?.key}
+        scrollKey={0}
+        onHover={noop}
+        onOpen={noop}
+        scan={shownScan}
+        query={query}
+        search={<CommandBar value={query} onChange={noop} label="Search the timeline" placeholder="Search the timeline by business or date" />}
+      />
+    );
+  } else if (nothingYet && shownScan.phase === "scanning") main = <Scanning scan={shownScan} />;
+  else if (nothingYet && shownScan.phase === "error") main = <ScanError message={shownScan.error ?? "Something went wrong."} />;
+  else if (nothingYet && shownScan.phase === "done") main = <AllClear checked={0} />;
+  else if (nothingYet) main = <NotChecked />;
+  else
+    main = (
+      <FindingsList
+        items={items}
+        allFindings={findings}
+        selectedKey={item?.key}
+        scrollKey={0}
+        mouse={mouse}
+        onHover={noop}
+        onOpen={noop}
+        onAct={noop}
+        scan={shownScan}
+        showHint={hint}
+        onDismissHint={noop}
+        query={query}
+        search={<CommandBar value={query} onChange={noop} />}
+        holdHover={holdHover}
+      />
+    );
+
+  const actionItem = item?.type === "undecided" ? { undecided: item.error } : openItem;
+  const action =
+    view === "list" && !nothingYet ? (
+      <SwitchButton keys={["⌘", "↵"]} label="View timeline" icon={<TimelineIcon />} mouse={mouse} onClick={noop} />
+    ) : view === "timeline" ? (
+      <SwitchButton keys={["Esc"]} label="View list" icon={<ListIcon />} mouse={mouse} onClick={noop} />
+    ) : view === "detail" ? (
+      <SwitchButton keys={["Esc"]} label="Back" icon={<BackIcon />} mouse={mouse} onClick={noop} />
+    ) : undefined;
+
+  return (
+    <Preview scan={shownScan} live={live}>
+      <div data-gallery-frame style={{ width: 1000, height: 680 }} {...blockers}>
+        <PaletteShell
+          // The same entrance as a summon: it plays as each frame scrolls into view.
+          className="palette-enter"
+          header={<Header action={action} />}
+          replay={shownScan.usedReplay}
+          bar={
+            view === "timeline" ? (
+              <TimelineBar entry={entry} mouse={mouse} onOpen={noop} />
+            ) : (
+              !nothingYet && <ActionBar item={actionItem} detail={inDetail} pane={pane} mouse={mouse} onCommand={noop} />
+            )
+          }
+          footer={<Footer hotkey={["⌥", "Space"]} mouse={mouse} onTrace={noop} onKeys={noop} onScenarios={noop} />}
+          overlay={
+            <>
+              <Toast />
+              {sheet === "keys" && <ShortcutSheet onClose={noop} />}
+              {sheet === "scenarios" && <ScenariosSheet mouse={mouse} onClose={noop} onCheck={noop} />}
+            </>
+          }
+        >
+          {main}
+          {trace && <TraceDrawer lines={shownScan.trace} onClose={noop} />}
+        </PaletteShell>
+      </div>
+    </Preview>
+  );
+}
+
+// ---------- Page layout ----------
+
+function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
+  return (
+    <section id={id} className="scroll-mt-6">
+      <h2 className="mb-5 text-[18px] font-semibold tracking-tight text-text">{title}</h2>
+      <div className="flex flex-col gap-10">{children}</div>
+    </section>
+  );
+}
+
+function Shot({ title, note, height = 680, children }: { title: string; note?: string; height?: number; children: React.ReactNode }) {
+  return (
+    <figure className="m-0">
+      <figcaption className="mb-2.5 flex items-baseline gap-3">
+        <span className="text-[13px] font-medium text-text">{title}</span>
+        {note && <span className="text-[12px] text-faint">{note}</span>}
+      </figcaption>
+      <LazyMount height={height}>{children}</LazyMount>
+    </figure>
+  );
+}
+
+/** A small strip of single components on the palette's own background. */
+function Strip({ children }: { children: React.ReactNode }) {
+  return (
+    <div data-gallery-frame className="flex w-[1000px] flex-col gap-3 rounded-[14px] border border-white/[0.06] bg-bg/[0.86] p-4" {...blockers}>
+      {children}
+    </div>
+  );
+}
+
+function Labelled({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-4">
+      <span className="w-40 shrink-0 font-mono text-[11px] text-faint">{label}</span>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  );
+}
+
+const SECTIONS = [
+  ["list", "List"],
+  ["finding", "Finding"],
+  ["timeline", "Timeline"],
+  ["states", "Scan states"],
+  ["overlays", "Overlays"],
+  ["now", "Now mark"],
+  ["connections", "Connections"],
+  ["header", "Top bar"],
+  ["parts", "Parts"],
+] as const;
+
+export function Gallery() {
+  // State, not a ref, so the frames see the page once it exists.
+  const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
+  const [corpus, setCorpus] = useState<Corpus>();
+  useEffect(() => {
+    void sampleCorpus().then(setCorpus);
+  }, []);
+
+  const s = scanSamples(corpus);
+  const now = nowSamples(corpus);
+
+  return (
+    <Scroller.Provider value={scroller}>
+      <div ref={setScroller} className="h-full overflow-y-auto bg-bg text-text">
+        <div className="mx-auto flex max-w-[1240px] gap-10 px-8 py-10">
+          <nav className="sticky top-10 h-max w-40 shrink-0">
+            <p className="mb-1 text-[15px] font-semibold">Gallery</p>
+            <p className="mb-5 text-[11.5px] leading-snug text-faint">
+              Dev only. Sample data from the seed household, look only. {corpus ? "" : "Loading evidence…"}
+            </p>
+            <ul className="flex flex-col gap-1.5 text-[12.5px] text-muted">
+              {SECTIONS.map(([id, label]) => (
+                <li key={id}>
+                  <a href={`#/gallery`} onClick={(e) => {
+                      e.preventDefault();
+                      document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className="hover:text-text"
+                  >
+                    {label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          <main className="flex min-w-0 flex-col gap-16">
+            <Section id="list" title="List">
+              <Shot title="Findings, first run" note="Headline, hint, Couldn't decide, Checked and left alone">
+                <PaletteFrame scan={s.done} hint />
+              </Shot>
+              <Shot title="After some decisions" note="Approved and snoozed rows, mouse mode">
+                <PaletteFrame scan={s.decided} mouse selected="f-ironworks" />
+              </Shot>
+              <Shot title="Row buttons under the pointer" note="Mouse mode, held open here (normally CSS hover)">
+                <PaletteFrame scan={s.done} mouse holdHover selected="f-ironworks" />
+              </Shot>
+              <Shot title="Couldn't decide, selected" note="The action bar for a case the model couldn't settle">
+                <PaletteFrame scan={s.done} selected="u-council" />
+              </Shot>
+              <Shot title="Everything dealt with" note="Every finding approved or snoozed">
+                <PaletteFrame scan={s.handled} />
+              </Shot>
+              <Shot title="Search with matches" note='"sky"'>
+                <PaletteFrame scan={s.done} query="sky" />
+              </Shot>
+              <Shot title="Search, no matches">
+                <PaletteFrame scan={s.done} query="plumber" />
+              </Shot>
+            </Section>
+
+            <Section id="finding" title="Finding">
+              <Shot title="Evidence and draft" note="Cited item open, amounts checked by code highlighted">
+                <PaletteFrame scan={s.done} view="detail" selected="f-skylink" />
+              </Shot>
+              <Shot title="Not sure: check evidence" note="Medium confidence with a doubt">
+                <PaletteFrame scan={s.done} view="detail" selected="f-ironworks" pane="draft" />
+              </Shot>
+              <Shot title="Check before sending" note="Draft the claim check couldn't fully match">
+                <PaletteFrame scan={s.done} view="detail" selected="f-brightpage" pane="draft" />
+              </Shot>
+              <Shot title="Meter photo inline" note="Evidence with no text layer">
+                <PaletteFrame scan={s.done} view="detail" selected="f-redgum" evidenceIndex={1} />
+              </Shot>
+              <Shot title="Editing the draft" note="Typing is blocked here">
+                <PaletteFrame scan={s.edited} view="detail" selected="f-skylink" pane="draft" editing />
+              </Shot>
+              <Shot title="Nothing to send" note="The fix is a step Maya takes herself">
+                <PaletteFrame scan={s.done} view="detail" selected="f-streambox" />
+              </Shot>
+              <Shot title="Finding, mouse mode" note="Plain action buttons, click any evidence">
+                <PaletteFrame scan={s.done} view="detail" selected="f-skylink" mouse />
+              </Shot>
+              <Shot title="Checked and left alone" note="Why the mobile rise was fine">
+                <PaletteFrame scan={s.done} view="detail" selected="c-kookaburra" />
+              </Shot>
+              <Shot title="Still drafting" note="A finding whose draft hasn't arrived during a check">
+                <PaletteFrame scan={s.scanning} view="detail" selected="f-redgum" pane="draft" />
+              </Shot>
+            </Section>
+
+            <Section id="timeline" title="Timeline">
+              <Shot title="Timeline" note="Past dates, today's activity, NOW, upcoming with amber deadlines">
+                <PaletteFrame scan={s.decided} view="timeline" />
+              </Shot>
+              <Shot title="Timeline, mouse mode">
+                <PaletteFrame scan={s.done} view="timeline" mouse />
+              </Shot>
+              <Shot title="Timeline search with matches" note='"ironworks"'>
+                <PaletteFrame scan={s.done} view="timeline" query="ironworks" />
+              </Shot>
+              <Shot title="Timeline search, no matches">
+                <PaletteFrame scan={s.done} view="timeline" query="plumber" />
+              </Shot>
+            </Section>
+
+            <Section id="states" title="Scan states">
+              <Shot title="Checking, nothing yet" note="Trace lines and the slow documents skeleton">
+                <PaletteFrame scan={s.scanningEmpty} live="slow" />
+              </Shot>
+              <Shot title="Checking, first findings in">
+                <PaletteFrame scan={s.scanning} live="syncing" />
+              </Shot>
+              <Shot title="All clear">
+                <PaletteFrame scan={s.allClear} />
+              </Shot>
+              <Shot title="Check didn't finish">
+                <PaletteFrame scan={s.error} live="error" />
+              </Shot>
+              <Shot title="Not checked yet">
+                <PaletteFrame scan={s.idle} live="none" />
+              </Shot>
+            </Section>
+
+            <Section id="overlays" title="Overlays">
+              <Shot title="Replay mode banner">
+                <PaletteFrame scan={s.replay} />
+              </Shot>
+              <Shot title="Toast with undo" note="Replays every 10 s">
+                <PaletteFrame scan={s.toast} selected="f-ironworks" />
+              </Shot>
+              <Shot title="Toast without undo">
+                <PaletteFrame scan={s.toastNoUndo} />
+              </Shot>
+              <Shot title="Trace drawer">
+                <PaletteFrame scan={s.done} trace />
+              </Shot>
+              <Shot title="Shortcut sheet">
+                <PaletteFrame scan={s.done} sheet="keys" />
+              </Shot>
+              <Shot title="Scenarios panel, all off">
+                <PaletteFrame scan={s.done} sheet="scenarios" />
+              </Shot>
+              <Shot title="Scenarios panel, check running" note="Check now is disabled until it finishes">
+                <PaletteFrame scan={s.scanning} live="syncing" sheet="scenarios" />
+              </Shot>
+              <Shot title="Scenarios panel, one switched on" note="Calendar on, waiting for the next check; Simulating chip behind">
+                <PaletteFrame scan={s.done} live="pending" sheet="scenarios" />
+              </Shot>
+              <Shot title="Calendar needs reconnecting" note="List banner and the Reconnect chip">
+                <PaletteFrame scan={s.done} live="reconnect" />
+              </Shot>
+            </Section>
+
+            <Section id="now" title="Now mark">
+              <Shot title="States" note="Animated, reduced motion (one still frame), and the CSS fallback" height={220}>
+                <Strip>
+                  {(
+                    [
+                      ["Idle", now.idle],
+                      ["Working", now.working],
+                      ["Needs you, low", now.low],
+                      ["Needs you, mid", now.mid],
+                      ["Needs you, high", now.high],
+                    ] as const
+                  ).map(([label, scan]) => (
+                    <Preview key={label} scan={scan} live="ok">
+                      <Labelled label={label}>
+                        <div className="flex items-center gap-16">
+                          <NowVisual />
+                          <NowVisual still />
+                          <NowVisual fallback />
+                        </div>
+                      </Labelled>
+                    </Preview>
+                  ))}
+                </Strip>
+              </Shot>
+            </Section>
+
+            <Section id="connections" title="Connections">
+              <Shot title="Status strip" height={330}>
+                <Strip>
+                  {(
+                    [
+                      ["Not connected", "none"],
+                      ["Connecting, syncing", "syncing"],
+                      ["All up to date", "ok"],
+                      ["Bank retrying", "retrying"],
+                      ["Calendar reconnect", "reconnect"],
+                      ["Email error", "error"],
+                      ["Documents slow", "slow"],
+                    ] as const
+                  ).map(([label, live]) => (
+                    <Preview key={label} scan={s.done} live={live}>
+                      <Labelled label={label}>
+                        <StatusStrip />
+                      </Labelled>
+                    </Preview>
+                  ))}
+                </Strip>
+              </Shot>
+            </Section>
+
+            <Section id="header" title="Top bar">
+              <Shot title="Status in the top bar" height={300}>
+                <Strip>
+                  {(
+                    [
+                      ["Not checked", s.idle],
+                      ["Checking", s.scanning],
+                      ["Checked", s.done],
+                      ["Checking again", s.refreshing],
+                      ["Didn't finish", s.error],
+                    ] as const
+                  ).map(([label, scan]) => (
+                    <Preview key={label} scan={scan} live="ok">
+                      <Labelled label={label}>
+                        <Header />
+                      </Labelled>
+                    </Preview>
+                  ))}
+                </Strip>
+              </Shot>
+            </Section>
+            <Section id="parts" title="Parts">
+              <Shot title="Key buttons" note="Keyboard, mouse (no caps) and disabled" height={150}>
+                <Strip>
+                  <Labelled label="Keyboard">
+                    <div className="flex items-center gap-6 text-[12px]">
+                      <KeyButton keys={["A"]} label="Approve" tone="amber" onClick={noop} />
+                      <KeyButton keys={["S"]} label="Snooze" onClick={noop} />
+                      <KeyButton keys={["T"]} label="Trace" tone="faint" onClick={noop} />
+                      <KeyButton keys={["R"]} label="Check in progress" onClick={noop} disabled />
+                    </div>
+                  </Labelled>
+                  <Labelled label="Mouse">
+                    <div className="flex items-center gap-6 text-[12px]">
+                      <KeyButton keys={["A"]} label="Approve" tone="amber" onClick={noop} mouse />
+                      <KeyButton keys={["S"]} label="Snooze" onClick={noop} mouse />
+                      <KeyButton keys={["T"]} label="Trace" tone="faint" onClick={noop} mouse />
+                      <KeyButton keys={["R"]} label="Check in progress" onClick={noop} mouse disabled />
+                    </div>
+                  </Labelled>
+                </Strip>
+              </Shot>
+              <Shot title="View switch" note="Top bar, keyboard and mouse" height={150}>
+                <Strip>
+                  <Labelled label="Keyboard">
+                    <div className="flex items-center gap-4">
+                      <SwitchButton keys={["⌘", "↵"]} label="View timeline" icon={<TimelineIcon />} mouse={false} onClick={noop} />
+                      <SwitchButton keys={["Esc"]} label="View list" icon={<ListIcon />} mouse={false} onClick={noop} />
+                      <SwitchButton keys={["Esc"]} label="Back" icon={<BackIcon />} mouse={false} onClick={noop} />
+                    </div>
+                  </Labelled>
+                  <Labelled label="Mouse">
+                    <div className="flex items-center gap-4">
+                      <SwitchButton keys={["⌘", "↵"]} label="View timeline" icon={<TimelineIcon />} mouse onClick={noop} />
+                      <SwitchButton keys={["Esc"]} label="View list" icon={<ListIcon />} mouse onClick={noop} />
+                      <SwitchButton keys={["Esc"]} label="Back" icon={<BackIcon />} mouse onClick={noop} />
+                    </div>
+                  </Labelled>
+                </Strip>
+              </Shot>
+              <Shot title="Deadline chips" note="Past or within 14 days is amber, later is faint" height={110}>
+                <Strip>
+                  <Labelled label="14 Nov, 21 Nov, 18 Dec">
+                    <div className="flex items-center gap-4">
+                      <DeadlineChip date="2026-11-14" />
+                      <DeadlineChip date="2026-11-21" />
+                      <DeadlineChip date="2026-12-18" />
+                    </div>
+                  </Labelled>
+                </Strip>
+              </Shot>
+              <Shot title="View headings" note="List, timeline and an open finding, on their own" height={330}>
+                <Strip>
+                  <Headline findings={rankedFindings(s.done)} scan={s.done} />
+                  <ViewHeading view="timeline" title="What's coming">
+                    Expected charges and deadlines, with today marked.
+                  </ViewHeading>
+                  <ViewHeading
+                    view="finding"
+                    eyebrow={<span className="font-medium text-text">{FINDINGS.skylink.merchant}</span>}
+                    title={FINDINGS.skylink.title}
+                    action={<span className="font-mono text-[13px] tabular">{formatAUD(FINDINGS.skylink.amounts.atStake!)}</span>}
+                  >
+                    {FINDINGS.skylink.why}
+                  </ViewHeading>
+                </Strip>
+              </Shot>
+            </Section>
+          </main>
+        </div>
+      </div>
+    </Scroller.Provider>
+  );
+}
