@@ -8,7 +8,7 @@ type Props = Omit<React.HTMLAttributes<HTMLDivElement>, "children"> & {
   header: React.ReactNode;
   /** The "Replay mode" banner under the top bar (src/ui/replay.tsx says what it reads). */
   replay?: React.ReactNode;
-  /** Another one-line note under the top bar (onboarding: practice, first check). */
+  /** Another one-line note under the top bar (onboarding: the first check). */
   banner?: React.ReactNode;
   /** What fills the middle (a view, plus the trace drawer when open). */
   children: React.ReactNode;

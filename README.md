@@ -42,8 +42,8 @@ pnpm tauri dev
 
 The first build compiles the Rust side and takes a few minutes. Later starts are quick.
 
-The first launch opens a short onboarding: a practice round on one made-up finding (press Esc to skip it), then
-you connect the household's four sources and the first check runs. After that, the app sits in the menu bar.
+The first launch opens a short setup: a welcome screen, then you connect the household's four sources and the
+first check runs. After that, the app sits in the menu bar.
 Press **⌥Space** to bring it up (or **⌘⇧Space** if ⌥Space is taken). The app's clock is fixed at
 **Thu 19 Nov 2026, 9:30am Melbourne**, so the dates line up with the seed data.
 

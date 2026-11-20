@@ -177,7 +177,7 @@ export function buildTimeline(scan: ScanState): TimelineEntry[] {
   // 4. Today: what the agent and Maya did.
   if (scan.phase === "scanning") {
     entries.push({ key: "agent:scanning", date: today, side: "past", who: "Checking now", what: "Reading your bank, email, documents and calendar", tone: "agent", at: scan.startedAt });
-  } else if (scan.phase === "done" && scan.result && !scan.practice) {
+  } else if (scan.phase === "done" && scan.result) {
     const open = findings.filter((f) => f.status === "new").length;
     entries.push({
       key: "agent:scan",

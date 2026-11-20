@@ -84,12 +84,6 @@ fn set_hide_on_blur(enabled: bool) {
     palette::set_hide_on_blur(enabled);
 }
 
-/// Onboarding's summon step: the hotkey answers the step instead of hiding the palette.
-#[tauri::command]
-fn set_hotkey_practice(on: bool) {
-    palette::set_hotkey_practice(on);
-}
-
 /// Whether the palette is on screen right now. The UI asks after a page
 /// reload, when it has missed the shown/hidden events.
 #[tauri::command]
@@ -201,7 +195,6 @@ pub fn run() {
             launch_flags,
             use_fallback_hotkey,
             set_hide_on_blur,
-            set_hotkey_practice,
             palette_visible,
             llm::llm_request,
             llm::llm_configured,

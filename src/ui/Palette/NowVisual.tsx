@@ -238,9 +238,9 @@ export function NowVisual({ still: forceStill = false, fallback = false }: { sti
 
 /**
  * Compiles a shader and uploads one triangle that covers the whole canvas.
- * Returns undefined on failure. Also used by the onboarding's celebration.
+ * Returns undefined on failure.
  */
-export function build(gl: WebGLRenderingContext, fragment = FRAGMENT): WebGLProgram | undefined {
+function build(gl: WebGLRenderingContext): WebGLProgram | undefined {
   const compile = (type: number, source: string) => {
     const shader = gl.createShader(type);
     if (!shader) return undefined;
@@ -251,7 +251,7 @@ export function build(gl: WebGLRenderingContext, fragment = FRAGMENT): WebGLProg
     return undefined;
   };
   const vs = compile(gl.VERTEX_SHADER, VERTEX);
-  const fs = compile(gl.FRAGMENT_SHADER, fragment);
+  const fs = compile(gl.FRAGMENT_SHADER, FRAGMENT);
   const program = gl.createProgram();
   if (!vs || !fs || !program) return undefined;
   gl.attachShader(program, vs);

@@ -16,7 +16,6 @@ import {
   Plus,
   RotateCcw,
   ScanSearch,
-  SkipForward,
   Undo2,
   X,
   type LucideIcon,
@@ -40,7 +39,6 @@ export const HideIcon = icon(EyeOff);
 export const CloseIcon = icon(X);
 export const UndoIcon = icon(Undo2);
 export const NextIcon = icon(ArrowRight);
-export const SkipIcon = icon(SkipForward);
 export const ConnectIcon = icon(Plus);
 export const CheckNowIcon = icon(ScanSearch);
 export const ResetIcon = icon(RotateCcw);

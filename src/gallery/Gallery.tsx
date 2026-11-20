@@ -19,16 +19,11 @@ import { Timeline } from "../ui/Palette/Timeline";
 import { Toast } from "../ui/Palette/Toast";
 import { TraceDrawer } from "../ui/Palette/Trace";
 import { BackIcon, ListIcon, TimelineIcon, ViewHeading } from "../ui/Palette/ViewHeading";
-import { FINDINGS, endpointSamples, liveSamples, nowSamples, onboardingSample, practiceSamples, sampleCorpus, scanSamples, type LiveSample } from "./fixtures";
-import { PRACTICE_FINDING_ID } from "../onboarding/practice";
-import { TIPS, chapterPlace, isPracticeStep, isSetupScreen, tipFor, type OnboardingState } from "../lib/onboarding";
-import { PracticeBar, PrimaryButton } from "../ui/Onboarding/PracticeBar";
+import { FINDINGS, endpointSamples, liveSamples, nowSamples, onboardingSample, sampleCorpus, scanSamples, type LiveSample } from "./fixtures";
+import { isSetupScreen, type OnboardingState } from "../lib/onboarding";
 import { ListHint, TimelineHint } from "../ui/Palette/FooterHint";
-import { Spotlight } from "../ui/Onboarding/Spotlight";
 import { ApproveIcon, CheckNowIcon, SnoozeIcon, TraceIcon } from "../ui/icons";
-import { TrainingShader } from "../ui/Onboarding/TrainingShader";
-import { tipText } from "../ui/Onboarding/tips";
-import { SetupScreen } from "../ui/Onboarding/SetupScreen";
+import { PrimaryButton, SetupScreen } from "../ui/Onboarding/SetupScreen";
 import { replayNote } from "../ui/replay";
 import { EndpointPreviewProvider, ModelDemoPreviewProvider, type EndpointStatus } from "../lib/endpoint";
 import { ModelChip } from "../ui/Palette/ModelChip";
@@ -174,8 +169,10 @@ type FrameProps = {
   sheet?: "keys" | "scenarios";
   /** Shows the selected row's click buttons as if the pointer were on it. */
   holdHover?: boolean;
-  /** A first-run onboarding step: its setup screen, or the practice round's coach. */
+  /** A first-run onboarding step: its setup screen, or the first check. */
   onboarding?: OnboardingState;
+  /** Draw the setup screens as the desktop app would (the welcome's ⌘⇧Space link). */
+  desktop?: boolean;
   endpoint?: EndpointStatus;
   modelDemo?: ModelDemo;
 };
@@ -199,13 +196,11 @@ function PaletteFrame({
   sheet,
   holdHover = false,
   onboarding,
+  desktop = false,
   endpoint,
   modelDemo,
 }: FrameProps) {
   const setup = onboarding && isSetupScreen(onboarding.step);
-  const practicing = onboarding?.step === "practice";
-  const tip = onboarding && tipFor(onboarding.tip);
-  const place = onboarding && chapterPlace(onboarding.tip);
   const shellRef = useRef<HTMLDivElement>(null);
   const draftRef = useRef<HTMLDivElement>(null);
   // Replays the toast so its bar keeps running.
@@ -223,7 +218,7 @@ function PaletteFrame({
 
   let main: React.ReactNode;
   if (setup) {
-    main = <SetupScreen onboarding={onboarding} hotkey={["⌥", "Space"]} onHotkey={noop} mouse={mouse} />;
+    main = <SetupScreen onboarding={onboarding} hotkey={["⌥", "Space"]} onHotkey={noop} mouse={mouse} desktop={desktop} />;
   } else if (inDetail) {
     main = (
       <FindingDetail
@@ -279,7 +274,7 @@ function PaletteFrame({
 
   const actionItem = item?.type === "undecided" ? { undecided: item.error } : openItem;
   const action = setup ? undefined : (
-    <span data-coach="view-switch" className="inline-flex">{
+    <span className="inline-flex">{
     view === "list" && !nothingYet ? (
       <SwitchButton keys={["⌘", "↵"]} label="View timeline" icon={<TimelineIcon />} mouse={mouse} onClick={noop} />
     ) : view === "timeline" ? (
@@ -299,16 +294,12 @@ function PaletteFrame({
           header={
             <Header
               action={action}
-              trailing={<SettingsButton hotkey={["⌥", "Space"]} mouse={mouse} onTrace={noop} onKeys={noop} peek={!!onboarding?.peek} />}
+              trailing={<SettingsButton hotkey={["⌥", "Space"]} mouse={mouse} onTrace={noop} onKeys={noop} />}
             />
           }
           replay={replayNote(shownScan)}
           banner={
-            practicing ? (
-              <>
-                <span className="font-medium text-amber">Practice.</span> A made-up example to learn the keys on. Nothing real is read, saved or sent.
-              </>
-            ) : onboarding?.step === "first-scan" ? (
+            onboarding?.step === "first-scan" ? (
               <>
                 <span className="font-medium text-amber">Your first check.</span> It reads everything, so it takes a little while. You can hide me, I'll keep going.
               </>
@@ -316,39 +307,22 @@ function PaletteFrame({
           }
           bar={!setup && inDetail ? <ActionBar item={actionItem} detail pane={pane} mouse={mouse} onCommand={noop} /> : undefined}
           footer={
-            onboarding && isPracticeStep(onboarding.step) && onboarding.step !== "training-complete" ? (
-              <PracticeBar onboarding={onboarding} mouse={mouse} />
-            ) : (
-              <Footer
-                onScenarios={noop}
-                right={
-                  setup ? (
-                    <PrimaryButton onboarding={onboarding} mouse={mouse} />
-                  ) : view === "timeline" ? (
-                    <TimelineHint entry={entry} mouse={mouse} onOpen={noop} />
-                  ) : view === "list" && !nothingYet ? (
-                    <ListHint item={actionItem} mouse={mouse} onOpen={noop} onRescan={noop} />
-                  ) : undefined
-                }
-              />
-            )
+            <Footer
+              onScenarios={noop}
+              right={
+                setup ? (
+                  <PrimaryButton onboarding={onboarding} mouse={mouse} />
+                ) : view === "timeline" ? (
+                  <TimelineHint entry={entry} mouse={mouse} onOpen={noop} />
+                ) : view === "list" && !nothingYet ? (
+                  <ListHint item={actionItem} mouse={mouse} onOpen={noop} onRescan={noop} />
+                ) : undefined
+              }
+            />
           }
           overlay={
             <>
               <Toast />
-              {practicing && shownScan.phase === "done" && tip && !onboarding.peek && (
-                <Spotlight
-                  rootRef={shellRef}
-                  targets={tip.target}
-                  label={place && `${place.chapter} · ${place.index} of ${place.of}`}
-                  flash={onboarding.flash}
-                  next={tip.waitFor === "next"}
-                  mouse={mouse}
-                  onNext={noop}
-                >
-                  {tipText(tip.id, { moves: onboarding.moves, approved: shownScan.decisions[PRACTICE_FINDING_ID] === "approved" })}
-                </Spotlight>
-              )}
               {sheet === "keys" && <ShortcutSheet onClose={noop} />}
               {sheet === "scenarios" && <ScenariosSheet onReset={() => {}} mouse={mouse} onClose={noop} onCheck={noop} />}
             </>
@@ -427,7 +401,6 @@ export function Gallery() {
 
   const s = scanSamples(corpus);
   const now = nowSamples(corpus);
-  const p = { idle: s.idle, ...practiceSamples() };
   const o = onboardingSample;
 
   return (
@@ -457,86 +430,26 @@ export function Gallery() {
 
           <main className="flex min-w-0 flex-col gap-16">
             <Section id="onboarding" title="Onboarding">
-              <Shot title="1. Welcome" note="Practice round starts; name prefilled">
-                <PaletteFrame scan={p.idle} live="none" onboarding={o({ step: "welcome" })} />
+              <Shot title="1. Welcome" note="What Life does and the key that opens it; Enter gets started">
+                <PaletteFrame scan={s.idle} live="none" onboarding={o({ step: "welcome" })} />
               </Shot>
-              <Shot title="2. Summon, waiting" note="Press the hotkey twice">
-                <PaletteFrame scan={p.idle} live="none" onboarding={o({ step: "summon" })} />
+              <Shot title="1. Welcome, desktop app" note="The quiet link for when another app already has ⌥Space">
+                <PaletteFrame scan={s.idle} live="none" desktop onboarding={o({ step: "welcome" })} />
               </Shot>
-              <Shot title="2. Summon, hotkey seems taken" note="After 8 s with nothing; the switch button shows in the desktop app">
-                <PaletteFrame scan={p.idle} live="none" onboarding={o({ step: "summon", summon: "trouble" })} />
+              <Shot title="2. Connect your data, nothing yet" note="Four demo connectors, four more not in this demo; Enter connects the next">
+                <PaletteFrame scan={s.idle} live="none" onboarding={o({ step: "connect" })} />
               </Shot>
-              <Shot title="2. Summon, success" note="Waits for Continue (or Skip)">
-                <PaletteFrame scan={p.idle} live="none" onboarding={o({ step: "summon", summon: "success" })} />
+              <Shot title="2. Connect your data, part way" note="Bank and Email in, Documents reading; mouse mode">
+                <PaletteFrame scan={s.idle} live="connecting" mouse onboarding={o({ step: "connect", connected: ["bank", "email"], connecting: "documents" })} />
               </Shot>
-              <Shot title="3. Connect your data (practice)" note="One pretend Postbox row, + to connect">
-                <PaletteFrame scan={p.idle} live="none" onboarding={o({ step: "practice-connect" })} />
+              <Shot title="2. Connect your data, calendar signed out" note="All four in, calendar sign-in expiry switched on; ⌘↵ runs the check">
+                <PaletteFrame scan={s.idle} live="connectedReconnect" onboarding={o({ step: "connect", connected: ["bank", "email", "documents", "calendar"] })} />
               </Shot>
-              <Shot title="3. Connecting">
-                <PaletteFrame scan={p.idle} live="none" onboarding={o({ step: "practice-connect", practiceConnect: "connecting" })} mouse />
-              </Shot>
-              <Shot title="3. Connected" note="Success, then Check email">
-                <PaletteFrame scan={p.idle} live="none" onboarding={o({ step: "practice-connect", practiceConnect: "ok" })} />
-              </Shot>
-              <Shot title="4. Practice check" note="Scripted trace, no model calls">
-                <PaletteFrame scan={p.scanning} live="none" onboarding={o({ step: "practice-check" })} />
-              </Shot>
-              <Shot title="4. Practice check, part way" note="A cross on the problem it found, a tick on the fix it drafted; See items found disabled">
-                <PaletteFrame scan={p.solution} live="none" onboarding={o({ step: "practice-check" })} />
-              </Shot>
-              <Shot title="4. Practice check, found" note="Success, then See items found">
-                <PaletteFrame scan={p.found} live="none" onboarding={o({ step: "practice-check", practiceFound: true })} />
-              </Shot>
-              {TIPS.map((t, i) => (
-                <Shot key={t.id} title={`5. Tour ${i + 1}/${TIPS.length} (${t.chapter}): ${t.id}`} note={t.waitFor === "next" ? "Explains: Enter or Next" : `Waits for: ${t.waitFor}`}>
-                  <PaletteFrame
-                    scan={t.id === "approved" ? p.approvedToast : ["detail-back", "settings", "done"].includes(t.id) ? p.approved : p.done}
-                    live="none"
-                    view={t.view}
-                    onboarding={o({ step: "practice", tip: t.id })}
-                  />
-                </Shot>
-              ))}
-              <Shot title="5. Tour: the key lights up" note="The right key was just used; the next tip follows">
-                <PaletteFrame scan={p.done} live="none" onboarding={o({ step: "practice", tip: "approve", flash: true })} />
-              </Shot>
-              <Shot title="1. Welcome, no name" note="Get started stays disabled until there is a name">
-                <PaletteFrame scan={p.idle} live="none" onboarding={o({ step: "welcome", name: "" })} />
-              </Shot>
-              <Shot title="7. Connect your data, one connected" note="Run my first check is on once one source is in">
-                <PaletteFrame scan={p.idle} live="connecting" onboarding={o({ step: "connect", connected: ["bank", "email"] })} />
-              </Shot>
-              <Shot title="5. Tour: the cog, answered" note="The settings menu shows for a moment, then training is complete">
-                <PaletteFrame scan={p.approvedToast} live="none" onboarding={o({ step: "practice", tip: "settings", peek: true, flash: true })} />
-              </Shot>
-              <Shot title="5. Tour: timeline after two moves" note="On the item, ready to open">
-                <PaletteFrame scan={p.done} live="none" view="timeline" onboarding={o({ step: "practice", tip: "to-item", moves: 2 })} />
-              </Shot>
-              <Shot title="5. Tour: undone on the last tip" note="Finish waits until it is approved again">
-                <PaletteFrame scan={p.undoneToast} live="none" onboarding={o({ step: "practice", tip: "approved" })} />
-              </Shot>
-              <Shot title="6. Training complete" note="The one-off animation plays as it scrolls in">
-                <PaletteFrame scan={p.idle} live="none" onboarding={o({ step: "training-complete" })} />
-              </Shot>
-              <Shot title="Training complete: settled and CSS fallback" height={190}>
-                <Strip>
-                  <div className="flex gap-6">
-                    <TrainingShader still />
-                    <TrainingShader fallback />
-                  </div>
-                </Strip>
-              </Shot>
-              <Shot title="7. Connect your data, nothing yet" note="Four demo connectors, four more not in this demo">
-                <PaletteFrame scan={p.idle} live="none" onboarding={o({ step: "connect" })} />
-              </Shot>
-              <Shot title="7. Connect your data, part way" note="Bank and Email in, Documents reading; mouse mode">
-                <PaletteFrame scan={p.idle} live="connecting" mouse onboarding={o({ step: "connect", connected: ["bank", "email"], connecting: "documents" })} />
-              </Shot>
-              <Shot title="7. Connect your data, calendar signed out" note="Calendar sign-in expiry switched on">
-                <PaletteFrame scan={p.idle} live="connectedReconnect" onboarding={o({ step: "connect", connected: ["bank", "email", "documents", "calendar"] })} />
-              </Shot>
-              <Shot title="8. First real check" note="The real checking screen, with the first-check note">
+              <Shot title="3. First check" note="The real checking screen, with the first-check note">
                 <PaletteFrame scan={s.scanningEmpty} live="syncing" onboarding={o({ step: "first-scan" })} />
+              </Shot>
+              <Shot title="4. First palette, with the hint" note="Shows once (life.hintSeen); Got it or the first approve dismisses it">
+                <PaletteFrame scan={s.done} hint />
               </Shot>
             </Section>
 

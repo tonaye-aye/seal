@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-import { Check, X } from "lucide-react";
 import type { TraceLine } from "../../lib/scan-store";
 
 // The agent's log, in plain words: what it read, what it checked, what it
@@ -22,15 +21,8 @@ export function TraceLines({ lines, limit }: { lines: TraceLine[]; limit?: numbe
           <span className="w-10 shrink-0 text-right font-mono text-[10.5px] text-faint tabular">
             {(line.t / 1000).toFixed(1)}s
           </span>
-          {/* A cross on the problem found and a tick on the fix drafted (the practice check); a dot otherwise. */}
-          {line.coach === "found" ? (
-            <X size={11} strokeWidth={2.5} className="relative top-[1px] shrink-0 text-danger" aria-label="Problem found" />
-          ) : line.coach === "drafted" ? (
-            <Check size={11} strokeWidth={2.5} className="relative top-[1px] shrink-0 text-positive" aria-label="Fix drafted" />
-          ) : (
-            <span className={`relative top-[-1px] size-1.5 shrink-0 rounded-full ${TONE[line.tone]}`} aria-hidden="true" />
-          )}
-          <span data-coach={line.coach ? `trace:${line.coach}` : undefined} className={line.tone === "bad" ? "text-danger" : "text-muted"}>
+          <span className={`relative top-[-1px] size-1.5 shrink-0 rounded-full ${TONE[line.tone]}`} aria-hidden="true" />
+          <span className={line.tone === "bad" ? "text-danger" : "text-muted"}>
             {line.text}
           </span>
         </li>

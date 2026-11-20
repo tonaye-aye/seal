@@ -29,8 +29,6 @@ export type TraceLine = {
   t: number;
   text: string;
   tone: "info" | "good" | "warn" | "bad";
-  /** A name the onboarding's practice check points a prompt at (data-coach="trace:<name>"). */
-  coach?: string;
 };
 
 export type Toast = { id: number; text: string; undoable: boolean };
@@ -78,8 +76,6 @@ export type ScanState = {
   decidedAt: Record<string, number>;
   undo: UndoEntry[];
   toast?: Toast;
-  /** The onboarding's practice state: the timeline leaves out the agent's own "Checked everything" line. */
-  practice?: true;
 };
 
 // ---------- Kept across restarts ----------
@@ -134,59 +130,6 @@ export function setScanSources(ids: ConnectorId[] | undefined): void {
   scanSources = ids && ids.length ? ids : undefined;
 }
 
-// ---------- Practice round (first-run onboarding) ----------
-
-/**
- * True while the onboarding's practice round is on screen. The palette then
- * shows one made-up practice finding. Approving saves nothing, decisions are
- * not kept, and no scan can start until the practice round ends.
- */
-let practice = false;
-/** The real state, put back when the practice round ends. */
-let beforePractice: ScanState | undefined;
-
-export function inPractice(): boolean {
-  return practice;
-}
-
-/** Swaps in the practice state. The real palette then runs on it unchanged. */
-export function enterPractice(sample: Partial<ScanState>): void {
-  if (!practice) beforePractice = state;
-  practice = true;
-  clearTimeout(toastTimer);
-  state = {
-    phase: "idle",
-    refreshing: false,
-    findings: [],
-    cleared: [],
-    undecided: [],
-    usedReplay: false,
-    trace: [],
-    decisions: {},
-    saved: {},
-    edits: {},
-    decidedAt: {},
-    undo: [],
-    ...sample,
-  };
-  for (const listener of listeners) listener();
-}
-
-/** Changes the practice state (the scripted practice check uses this). */
-export function updatePractice(change: Partial<ScanState>): void {
-  if (practice) set(change);
-}
-
-/** Ends the practice round and puts the real state back. */
-export function leavePractice(): void {
-  if (!practice) return;
-  practice = false;
-  clearTimeout(toastTimer);
-  state = { ...(beforePractice ?? state), toast: undefined };
-  beforePractice = undefined;
-  for (const listener of listeners) listener();
-}
-
 /**
  * Forgets every result and decision, and removes any drafts this session
  * saved (Reset onboarding). Does nothing while a check is running, since a
@@ -194,7 +137,6 @@ export function leavePractice(): void {
  */
 export async function resetScan(): Promise<boolean> {
   if (state.phase === "scanning" || state.refreshing) return false;
-  leavePractice();
   const savedIds = Object.values(state.saved);
   if (savedIds.length) {
     const connectors = await getConnectors();
@@ -230,8 +172,7 @@ export async function resetScan(): Promise<boolean> {
 
 function set(change: Partial<ScanState>) {
   state = { ...state, ...change };
-  // Practice decisions are never kept.
-  if (!practice && ("decisions" in change || "edits" in change || "saved" in change || "decidedAt" in change)) persist(state);
+  if (("decisions" in change || "edits" in change || "saved" in change || "decidedAt" in change)) persist(state);
   for (const listener of listeners) listener();
 }
 
@@ -360,7 +301,7 @@ function sentence(text: string): string {
  * `background`: keep showing the last results while it runs (used by the timer).
  */
 export async function startScan({ background = false } = {}): Promise<void> {
-  if (practice || state.phase === "scanning" || state.refreshing) return;
+  if (state.phase === "scanning" || state.refreshing) return;
   if (background && state.phase === "done") {
     return runBackground();
   }
@@ -669,12 +610,6 @@ export async function approve(findingId: string): Promise<void> {
   if (!shown.draft) {
     decide(findingId, "approved", { label: "Marked as handled" });
     showToast(`Marked ${finding.merchant} as handled.`, true);
-    return;
-  }
-  // Practice: nothing goes to the mailbox.
-  if (practice) {
-    decide(findingId, "approved", { label: "Saved to Drafts" });
-    showToast(`Saved to Drafts for ${shown.draft.to.name}. Practice, so nothing was really saved.`, true);
     return;
   }
   // Show it as approved at once; the mailbox save happens behind it. If the

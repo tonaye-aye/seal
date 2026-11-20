@@ -126,20 +126,3 @@ export function onWindowFocus(handler: (focused: boolean) => void): () => void {
   return () => void unlisten.then((stop) => stop());
 }
 
-/** Whether the palette window is on screen, asked fresh (for resuming onboarding after a reload). */
-export async function paletteVisibleNow(): Promise<boolean> {
-  if (!isTauri()) return true;
-  return invoke<boolean>("palette_visible").catch(() => !paletteHidden);
-}
-
-/** On the onboarding's summon step, the hotkey reports itself instead of hiding the palette. */
-export function setHotkeyPractice(on: boolean): void {
-  if (isTauri()) void invoke("set_hotkey_practice", { on });
-}
-
-/** Runs `handler` when the hotkey is pressed on the summon step (the palette stays open). */
-export function onHotkeyPractice(handler: () => void): () => void {
-  if (!isTauri()) return () => {};
-  const unlisten = listen("palette:hotkey", handler);
-  return () => void unlisten.then((stop) => stop());
-}
