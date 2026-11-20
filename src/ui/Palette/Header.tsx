@@ -18,11 +18,11 @@ function status(scan: ScanState): { text: string; dot: string } {
     case "scanning": {
       const stage = scan.stage ? STAGE_SHORT[scan.stage] : copy.header.starting;
       const p = scan.progress;
-      return { text: p ? copy.header.progress(stage, p.done, p.total) : stage, dot: "bg-amber motion-safe:animate-pulse" };
+      return { text: p ? copy.header.progress(stage, p.done, p.total) : stage, dot: "bg-info motion-safe:animate-pulse" };
     }
     case "done":
       // The timer's background check: the results shown are still the last ones.
-      if (scan.refreshing) return { text: copy.header.checkingAgain, dot: "bg-amber motion-safe:animate-pulse" };
+      if (scan.refreshing) return { text: copy.header.checkingAgain, dot: "bg-info motion-safe:animate-pulse" };
       return { text: copy.header.checkedAt(clockTime(scan.result?.checkedAt ?? "")), dot: "bg-positive" };
     case "error":
       return { text: copy.header.didntFinish, dot: "bg-danger" };
@@ -47,17 +47,17 @@ export function Header({ action, trailing }: { action?: React.ReactNode; trailin
         {/* The mark is the "now" visual: it shows what the agent is doing. */}
         <NowVisual />
         {/* relative: paints the name above the glow that spills behind it. */}
-        <span className="relative font-medium tracking-[-0.01em]">{copy.appName}</span>
+        <span className="heading relative text-body font-semibold">{copy.appName}</span>
         {/* Switches between the list and the timeline. */}
         {action && <span className="ml-2">{action}</span>}
       </div>
-      <div className="flex items-center gap-3 font-mono text-[11px] text-faint">
+      <div className="flex items-center gap-3 font-mono text-label text-faint">
         <span className="flex items-center gap-1.5" aria-live="polite">
           <span className={`size-1.5 rounded-full ${s.dot}`} aria-hidden="true" />
           <span className="tabular">{s.text}</span>
         </span>
         <span className="text-muted">{formatDay(now())}</span>
-        {trailing && <span className="-mr-1.5 font-sans text-[12px]">{trailing}</span>}
+        {trailing && <span className="-mr-1.5 font-sans text-meta">{trailing}</span>}
       </div>
     </header>
   );

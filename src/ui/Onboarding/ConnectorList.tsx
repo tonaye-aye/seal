@@ -52,24 +52,24 @@ export function ConnectorList({
               <Icon size={18} strokeWidth={1.6} />
             </span>
             <span className="min-w-0 flex-1 text-left">
-              <span className="block text-[13.5px] text-text">{row.name}</span>
-              <span className="block truncate text-[12px] text-muted">{row.what}</span>
-              <span className="block truncate text-[11.5px] text-faint">{copy.onboarding.by(row.by)}</span>
+              <span className="block text-body text-text">{row.name}</span>
+              <span className="block truncate text-meta text-muted">{row.what}</span>
+              <span className="block truncate text-meta text-faint">{copy.onboarding.by(row.by)}</span>
             </span>
             {row.state === "connected" && (
-              <span className="tick-in flex shrink-0 items-center gap-1.5 text-[12px] text-positive" role="status">
+              <span className="tick-in flex shrink-0 items-center gap-1.5 text-meta text-positive" role="status">
                 <Check size={14} strokeWidth={2} aria-hidden="true" />
                 {row.note ?? copy.onboarding.connected}
               </span>
             )}
             {row.state === "connecting" && (
-              <span className="flex shrink-0 items-center gap-1.5 text-[12px] text-muted" role="status">
+              <span className="flex shrink-0 items-center gap-1.5 text-meta text-muted" role="status">
                 <Loader2 size={14} strokeWidth={1.75} className="motion-safe:animate-spin" aria-hidden="true" />
                 {row.note ?? copy.onboarding.connecting}
               </span>
             )}
             {row.state === "problem" && (
-              <span className="flex shrink-0 items-center gap-2 text-[12px] text-danger" role="status">
+              <span className="flex shrink-0 items-center gap-2 text-meta text-danger" role="status">
                 {row.note}
                 {onFix && row.fix && (
                   <button
@@ -77,14 +77,14 @@ export function ConnectorList({
                     tabIndex={-1}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => onFix(row.id)}
-                    className="cursor-pointer rounded-full bg-raised px-2.5 py-1 text-[11.5px] text-text hover:bg-hairline"
+                    className="cursor-pointer rounded-full bg-raised px-2.5 py-1 text-meta text-text hover:bg-hairline"
                   >
                     {row.fix}
                   </button>
                 )}
               </span>
             )}
-            {off && <span className="shrink-0 text-[11.5px] text-faint">{copy.onboarding.notInDemo}</span>}
+            {off && <span className="shrink-0 text-meta text-faint">{copy.onboarding.notInDemo}</span>}
             {row.state === "idle" && row.next && !mouse && (
               <span className="shrink-0" aria-hidden="true">
                 <Kbd keys={["↵"]} />

@@ -19,6 +19,10 @@ type Props = Omit<React.HTMLAttributes<HTMLDivElement>, "children"> & {
   overlay?: React.ReactNode;
 };
 
+// A one-line notice under the top bar: slim, in the info colour (it is the
+// agent's own status, not something urgent).
+const NOTICE = "mx-3 mb-1.5 flex h-6 shrink-0 items-center gap-2 overflow-hidden rounded-md bg-info/8 px-2.5 text-meta text-muted before:size-1.5 before:shrink-0 before:rounded-full before:bg-info";
+
 export const PaletteShell = forwardRef<HTMLDivElement, Props>(function PaletteShell(
   { header, replay, banner, children, bar, footer, overlay, className = "", ...rest },
   ref,
@@ -31,13 +35,13 @@ export const PaletteShell = forwardRef<HTMLDivElement, Props>(function PaletteSh
     >
       {header}
       {replay && (
-        <p role="status" className="mx-3 mb-2 truncate rounded-md border border-amber/25 bg-amber-glow/30 px-3 py-1 text-[11.5px] text-muted">
-          {replay}
+        <p role="status" className={NOTICE}>
+          <span className="min-w-0 truncate">{replay}</span>
         </p>
       )}
       {banner && (
-        <p role="status" className="mx-3 mb-2 truncate rounded-md border border-amber/25 bg-amber-glow/30 px-3 py-1 text-[11.5px] text-muted">
-          {banner}
+        <p role="status" className={NOTICE}>
+          <span className="min-w-0 truncate">{banner}</span>
         </p>
       )}
       <div className="h-px shrink-0 bg-hairline" />

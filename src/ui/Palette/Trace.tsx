@@ -9,7 +9,7 @@ import { copy } from "../../copy";
 const TONE: Record<TraceLine["tone"], string> = {
   info: "bg-faint",
   good: "bg-positive",
-  warn: "bg-amber",
+  warn: "bg-info",
   bad: "bg-danger",
 };
 
@@ -18,8 +18,8 @@ export function TraceLines({ lines, limit }: { lines: TraceLine[]; limit?: numbe
   return (
     <ol className="flex flex-col gap-1">
       {shown.map((line) => (
-        <li key={line.id} className="trace-in flex items-baseline gap-2.5 text-[12px] leading-[1.5]">
-          <span className="w-10 shrink-0 text-right font-mono text-[10.5px] text-faint tabular">
+        <li key={line.id} className="trace-in flex items-baseline gap-2.5 text-meta">
+          <span className="w-10 shrink-0 text-right figure text-label text-faint">
             {(line.t / 1000).toFixed(1)}s
           </span>
           <span className={`relative top-[-1px] size-1.5 shrink-0 rounded-full ${TONE[line.tone]}`} aria-hidden="true" />
@@ -45,14 +45,14 @@ export function TraceDrawer({ lines, onClose }: { lines: TraceLine[]; onClose: (
       className="drawer-in absolute inset-x-0 bottom-0 z-10 flex h-[230px] flex-col border-t border-hairline bg-surface/95 backdrop-blur"
     >
       <div className="flex h-9 shrink-0 items-center justify-between px-4">
-        <span className="text-[12px] font-medium">{copy.trace.title}</span>
-        <button type="button" onClick={onClose} className="text-[11.5px] text-faint hover:text-muted">
+        <span className="text-meta font-medium">{copy.trace.title}</span>
+        <button type="button" onClick={onClose} className="text-meta text-faint hover:text-muted">
           {copy.trace.close} <span className="font-mono">T</span>
         </button>
       </div>
       <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto px-4 pb-3">
         {lines.length ? <TraceLines lines={lines} /> : <p className="text-faint">{copy.trace.nothingYet}</p>}
-        <p className="mt-3 border-t border-hairline pt-2 text-[11.5px] text-faint">
+        <p className="mt-3 border-t border-hairline pt-2 text-meta text-faint">
           {copy.trace.privacy}
         </p>
       </div>

@@ -54,10 +54,10 @@ export function ScenariosSheet({
       >
         <header className="mb-4 flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-[15px] font-medium tracking-[-0.01em]">{DEMO.title}</h2>
-            <p className="mt-0.5 text-[12px] text-muted">{DEMO.intro}</p>
+            <h2 className="heading text-title font-semibold">{DEMO.title}</h2>
+            <p className="mt-0.5 text-meta text-muted">{DEMO.intro}</p>
           </div>
-          <span className="shrink-0 rounded-full border border-amber/30 px-2 py-0.5 font-mono text-[10px] tracking-[0.06em] text-amber uppercase">
+          <span className="shrink-0 rounded-full border border-info/30 px-2 py-0.5 label text-info">
             {DEMO.badge}
           </span>
         </header>
@@ -76,7 +76,7 @@ export function ScenariosSheet({
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => toggleScenario(s.id)}
                   className={`flex w-full cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors duration-(--duration-fast) ${
-                    enabled ? "border-amber/30 bg-amber-glow/20" : "border-hairline hover:bg-raised"
+                    enabled ? "border-info/30 bg-info/8" : "border-hairline hover:bg-raised"
                   }`}
                 >
                   {!mouse && (
@@ -85,10 +85,10 @@ export function ScenariosSheet({
                     </span>
                   )}
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[13px] text-text">{s.name}</span>
-                    <span className="mt-0.5 block text-[12px] text-muted">{s.simulates}</span>
+                    <span className="block text-body text-text">{s.name}</span>
+                    <span className="mt-0.5 block text-meta text-muted">{s.simulates}</span>
                     {/* Where to look, once it's on (keeps the panel inside the window). */}
-                    {enabled && <span className="mt-0.5 block text-[12px] text-faint">{DEMO.youllSee(s.expect)}</span>}
+                    {enabled && <span className="mt-0.5 block text-meta text-faint">{DEMO.youllSee(s.expect)}</span>}
                   </span>
                   <Switch on={enabled} />
                 </button>
@@ -97,7 +97,7 @@ export function ScenariosSheet({
           })}
         </ul>
 
-        <h3 className="mt-3 mb-1.5 font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">{DEMO.modelTitle}</h3>
+        <h3 className="mt-3 mb-1.5 label text-faint">{DEMO.modelTitle}</h3>
         <ul className="flex flex-col gap-1.5">
           {MODEL_SWITCHES.map((s) => {
             const enabled = s.id === "saved" ? model.saved || model.byFlag : model.drop;
@@ -114,7 +114,7 @@ export function ScenariosSheet({
                   onClick={() => (locked ? undefined : s.id === "saved" ? toggleSavedOnly() : toggleDrop())}
                   className={`flex w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors duration-(--duration-fast) ${
                     locked ? "cursor-default" : "cursor-pointer"
-                  } ${enabled ? "border-amber/30 bg-amber-glow/20" : "border-hairline hover:bg-raised"}`}
+                  } ${enabled ? "border-info/30 bg-info/8" : "border-hairline hover:bg-raised"}`}
                 >
                   {!mouse && (
                     <span className="mt-px">
@@ -122,12 +122,12 @@ export function ScenariosSheet({
                     </span>
                   )}
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[13px] text-text">{s.name}</span>
-                    <span className="mt-0.5 block text-[12px] text-muted">
+                    <span className="block text-body text-text">{s.name}</span>
+                    <span className="mt-0.5 block text-meta text-muted">
                       {locked ? DEMO.saved.locked : s.simulates}
                     </span>
                     {/* Where to look, once it's on (keeps the panel inside the window). */}
-                    {enabled && <span className="mt-0.5 block text-[12px] text-faint">{DEMO.youllSee(s.expect)}</span>}
+                    {enabled && <span className="mt-0.5 block text-meta text-faint">{DEMO.youllSee(s.expect)}</span>}
                   </span>
                   <Switch on={enabled} />
                 </button>
@@ -138,15 +138,15 @@ export function ScenariosSheet({
 
         <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-hairline px-3 py-2.5">
           <span className="min-w-0">
-            <span className="block text-[13px] text-text">{DEMO.resetTitle}</span>
-            <span className="mt-0.5 block text-[12px] text-muted">
+            <span className="block text-body text-text">{DEMO.resetTitle}</span>
+            <span className="mt-0.5 block text-meta text-muted">
               {checking ? DEMO.resetWait : DEMO.resetBody}
             </span>
           </span>
           <KeyButton keys={["O"]} label={DEMO.resetButton} icon={<ResetIcon />} disabled={checking} mouse={mouse} onClick={onReset} />
         </div>
 
-        <footer className="mt-4 flex min-h-7 items-center justify-between gap-3 text-[12px]">
+        <footer className="mt-4 flex min-h-7 items-center justify-between gap-3 text-meta">
           <p role="status" className="text-muted">
             {checking ? DEMO.statusRunning : pending.length > 0 ? DEMO.statusPending : DEMO.statusIdle}
           </p>
@@ -155,7 +155,7 @@ export function ScenariosSheet({
               keys={["R"]}
               label={checking ? DEMO.checkInProgress : DEMO.checkNow}
               icon={<CheckNowIcon />}
-              tone={pending.length > 0 ? "amber" : "muted"}
+              tone={pending.length > 0 ? "primary" : "muted"}
               disabled={checking}
               mouse={mouse}
               onClick={onCheck}
@@ -174,7 +174,7 @@ function Switch({ on }: { on: boolean }) {
     <span
       aria-hidden="true"
       className={`relative mt-0.5 h-[18px] w-[30px] shrink-0 rounded-full border transition-colors duration-(--duration-fast) ${
-        on ? "border-amber/60 bg-amber/80" : "border-hairline bg-raised"
+        on ? "border-info/60 bg-info/80" : "border-hairline bg-raised"
       }`}
     >
       <span
@@ -200,9 +200,9 @@ export function SimulatingChip({ onClick }: { onClick: () => void }) {
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
       title={DEMO.simulatingTitle(names)}
-      className="fade-in flex h-6 min-w-0 cursor-pointer items-center gap-1.5 truncate rounded-full border border-amber/30 px-2.5 text-[11.5px] text-amber hover:bg-amber-glow/20"
+      className="fade-in flex h-6 min-w-0 cursor-pointer items-center gap-1.5 truncate rounded-full border border-info/30 px-2.5 text-meta text-info hover:bg-info/10"
     >
-      <span className="size-1.5 shrink-0 rounded-full bg-amber" aria-hidden="true" />
+      <span className="size-1.5 shrink-0 rounded-full bg-info" aria-hidden="true" />
       <span className="truncate">{DEMO.simulating(names[0], names.length - 1)}</span>
     </button>
   );

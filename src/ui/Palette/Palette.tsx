@@ -566,7 +566,7 @@ export function Palette() {
   const banner =
     onboarding.step === "first-scan" && scan.phase === "scanning" ? (
       <>
-        <span className="font-medium text-amber">{copy.onboarding.firstCheckLead}</span> {copy.onboarding.firstCheckBody}
+        <span className="font-semibold text-text">{copy.onboarding.firstCheckLead}</span> {copy.onboarding.firstCheckBody}
       </>
     ) : undefined;
 

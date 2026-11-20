@@ -6,7 +6,7 @@ import { useLive } from "../../connectors/live";
 import { formatAUD } from "../../lib/money";
 import { useScan, type ScanState } from "../../lib/scan-store";
 import { fromSaved, mixedReplay, SavedTag } from "../replay";
-import { SOON_DAYS, daysUntil, headlineAmount, isUnsure, shortDate } from "../format";
+import { daysUntil, headlineAmount, isUnsure, shortDate, urgency, type Urgency } from "../format";
 import { copy } from "../../copy";
 import { KeyText } from "../KeyText";
 import { ApproveIcon, DismissIcon, SnoozeIcon } from "../icons";
@@ -105,15 +105,15 @@ export function Headline({
 
 export function FirstRunHint({ onDismiss }: { onDismiss: () => void }) {
   return (
-    <div className="mx-3 mb-2 flex items-start justify-between gap-3 rounded-lg border border-amber/25 bg-amber-glow/40 px-3.5 py-2.5 text-[12.5px]">
-      <div className="leading-[1.6] text-muted">
+    <div className="mx-3 mb-2 flex items-start justify-between gap-3 rounded-lg border border-hairline bg-raised/60 px-3.5 py-2.5 text-small">
+      <div className="text-muted">
         {copy.list.hint.map((line) => (
           <p key={line}>
             <KeyText text={line} />
           </p>
         ))}
       </div>
-      <button type="button" onClick={onDismiss} className="shrink-0 rounded-md px-2 py-1 text-[12px] text-amber hover:bg-amber-glow">
+      <button type="button" onClick={onDismiss} className="shrink-0 cursor-pointer rounded-md px-2 py-1 text-meta text-text hover:bg-hairline">
         {copy.list.hintDismiss}
       </button>
     </div>
@@ -128,14 +128,27 @@ const STATUS_CHIP: Record<Exclude<Finding["status"], "new">, { text: string; cla
   dismissed: { text: copy.shared.decided.dismissed, className: "text-faint border-hairline" },
 };
 
+/** A deadline's colour: amber only when it is within a week. */
+export const DEADLINE_TONE: Record<Urgency, string> = {
+  soon: "bg-amber-glow text-amber",
+  near: "text-text",
+  later: "text-muted",
+  none: "text-faint",
+};
+
+/** The row's dot says how pressing it is: amber within a week, solid within two, a ring after that. */
+const URGENCY_DOT: Record<Urgency, string> = {
+  soon: "bg-amber",
+  near: "bg-muted",
+  later: "border border-muted",
+  none: "border border-faint",
+};
+
 export function DeadlineChip({ date }: { date: string }) {
   const days = daysUntil(date);
-  const soon = days <= SOON_DAYS;
   return (
     <span
-      className={`inline-flex h-5 items-center rounded-full px-2 font-mono text-[10.5px] tabular ${
-        soon ? "bg-amber-glow text-amber" : "text-faint"
-      }`}
+      className={`inline-flex h-5 items-center rounded-full px-2 figure text-label ${DEADLINE_TONE[urgency(date)]}`}
       title={copy.dates.days(days)}
     >
       {shortDate(date)}
@@ -200,44 +213,49 @@ function FindingRow({ finding, selected }: { finding: Finding; selected: boolean
   const done = finding.status !== "new";
   // Only a check that is part live, part saved labels rows; otherwise the banner says it.
   const saved = mixedReplay(useScan()) && fromSaved(finding);
+  const dot = done ? (finding.status === "approved" ? "bg-positive" : "bg-faint") : URGENCY_DOT[urgency(finding.deadline?.date)];
   return (
     <>
-      <span
-        className={`size-1.5 shrink-0 rounded-full ${done ? (finding.status === "approved" ? "bg-positive" : "bg-faint") : "bg-amber"}`}
-        aria-hidden="true"
-      />
-      <span className={`w-[132px] shrink-0 truncate font-medium ${done ? "text-muted" : ""}`}>{finding.merchant}</span>
+      <span className={`size-1.5 shrink-0 rounded-full ${dot}`} aria-hidden="true" />
+      <span className={`w-[140px] shrink-0 truncate font-semibold ${done ? "font-normal text-muted" : ""}`}>{finding.merchant}</span>
       <span className={`min-w-0 flex-1 truncate ${selected ? "text-muted" : "text-faint"}`}>{finding.title}</span>
       {done ? (
-        <span className={`shrink-0 rounded-full border px-2 py-px text-[11px] ${STATUS_CHIP[finding.status as keyof typeof STATUS_CHIP].className}`}>
+        <span className={`shrink-0 rounded-full border px-2 py-px text-meta ${STATUS_CHIP[finding.status as keyof typeof STATUS_CHIP].className}`}>
           {STATUS_CHIP[finding.status as keyof typeof STATUS_CHIP].text}
         </span>
       ) : (
         <>
           {saved && <SavedTag />}
-          {isUnsure(finding) && <span className="shrink-0 rounded-full border border-amber/30 px-2 py-px text-[11px] text-amber">{copy.shared.notSure}</span>}
-          <span className="shrink-0 rounded-full border border-hairline px-2 py-px text-[11px] text-muted">{copy.shared.kind[finding.kind]}</span>
+          {isUnsure(finding) && <NotSureChip />}
+          {/* The kind is context, not news: quiet text, no pill. */}
+          <span className="shrink-0 text-meta text-faint">{copy.shared.kind[finding.kind]}</span>
         </>
       )}
-      <span className={`w-[78px] shrink-0 text-right font-mono text-[12px] tabular ${done ? "text-faint line-through decoration-faint/60" : ""}`}>
+      {/* Amount and deadline lead the row: the brightest figures, in fixed columns. */}
+      <span className={`w-[88px] shrink-0 text-right figure text-body ${done ? "text-faint line-through decoration-faint/60" : "text-text"}`}>
         {amount ? formatAUD(amount.cents) : ""}
       </span>
-      <span className="flex w-[56px] shrink-0 justify-end">{finding.deadline && !done ? <DeadlineChip date={finding.deadline.date} /> : null}</span>
+      <span className="flex w-[60px] shrink-0 justify-end">{finding.deadline && !done ? <DeadlineChip date={finding.deadline.date} /> : null}</span>
     </>
   );
 }
 
-function groupTitle(count: number, title: string) {
-  if (!count) return null;
-  return <h2 className="mt-3 mb-1 px-2.5 font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">{title}</h2>;
+/** The agent isn't sure: its own status, so info, not amber. */
+export function NotSureChip() {
+  return <span className="shrink-0 rounded-full border border-info/30 px-2 py-px text-meta text-info">{copy.shared.notSure}</span>;
 }
 
-// The selected row (the amber mark) is the only highlighted one. Moving the
+function groupTitle(count: number, title: string) {
+  if (!count) return null;
+  return <h2 className="mt-3 mb-1 px-2.5 label text-faint">{title}</h2>;
+}
+
+// The selected row (the bar on its left) is the only highlighted one. Moving the
 // mouse moves it; so do J/K. There is no separate hover style, so the two
 // can never point at different rows.
 function rowClass(selected: boolean): string {
-  return `group/row relative flex h-9 cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-[13px] ${
-    selected ? "bg-raised before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-amber" : ""
+  return `group/row relative flex h-9 cursor-pointer items-center gap-3 rounded-md px-2.5 text-body ${
+    selected ? "bg-raised before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-focus" : ""
   }`;
 }
 
@@ -319,17 +337,17 @@ export function FindingsList({
       return (
         <div key={item.key} {...common} className={rowClass(selected)} title={item.error}>
           <span className="size-1.5 shrink-0 rounded-full bg-danger" aria-hidden="true" />
-          <span className="w-[132px] shrink-0 truncate font-medium">{item.merchant}</span>
+          <span className="w-[140px] shrink-0 truncate font-semibold">{item.merchant}</span>
           <span className="min-w-0 flex-1 truncate text-faint">{copy.list.undecidedRow}</span>
-          <span className="shrink-0 rounded-full border border-amber/30 px-2 py-px text-[11px] text-amber">{copy.shared.notSure}</span>
+          <NotSureChip />
         </div>
       );
     return (
       <div key={item.key} {...common} className={rowClass(selected)}>
         <span className="size-1.5 shrink-0 rounded-full border border-positive/70" aria-hidden="true" />
-        <span className="w-[132px] shrink-0 truncate text-muted">{item.cleared.merchant}</span>
+        <span className="w-[140px] shrink-0 truncate text-muted">{item.cleared.merchant}</span>
         <span className="min-w-0 flex-1 truncate text-faint">{item.cleared.why}</span>
-        <span className="shrink-0 rounded-full border border-hairline px-2 py-px text-[11px] text-positive/80">{copy.shared.looksFine}</span>
+        <span className="shrink-0 text-meta text-positive">{copy.shared.looksFine}</span>
       </div>
     );
   };
@@ -341,25 +359,25 @@ export function FindingsList({
       <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto pb-2">
         {showHint && findings.length > 0 && <FirstRunHint onDismiss={onDismissHint} />}
         {scan.phase === "error" && (
-          <p className="mx-3 mb-2 rounded-lg border border-danger/25 bg-danger/[0.07] px-3.5 py-2 text-[12.5px] text-muted">
+          <p className="mx-3 mb-2 rounded-lg border border-danger/25 bg-danger/[0.07] px-3.5 py-2 text-small text-muted">
             <KeyText text={copy.list.stoppedEarly} slots={{ error: scan.error }} />
           </p>
         )}
         {notConnected.length > 0 && (
-          <p className="mx-3 mb-2 rounded-lg border border-hairline px-3.5 py-2 text-[12.5px] text-muted">
+          <p className="mx-3 mb-2 rounded-lg border border-hairline px-3.5 py-2 text-small text-muted">
             {copy.list.notConnected(notConnected)}
           </p>
         )}
         {missing.length > 0 && (
-          <p className="mx-3 mb-2 rounded-lg border border-danger/25 bg-danger/[0.07] px-3.5 py-2 text-[12.5px] text-muted">
+          <p className="mx-3 mb-2 rounded-lg border border-danger/25 bg-danger/[0.07] px-3.5 py-2 text-small text-muted">
             <KeyText text={copy.list.couldntRead(missing.map((s) => s!.name))} />
           </p>
         )}
         <div role="listbox" aria-label={copy.list.label} data-row-list className="flex flex-col px-1.5">
           {findings.length > 0 && findings.map((f) => row({ type: "finding", key: f.id, finding: f }))}
           {remaining !== undefined && remaining > 0 && (
-            <div className="flex h-9 items-center gap-2.5 px-2.5 text-[12.5px] text-faint">
-              <span className="size-1.5 rounded-full bg-amber/60 motion-safe:animate-pulse" aria-hidden="true" />
+            <div className="flex h-9 items-center gap-2.5 px-2.5 text-small text-faint">
+              <span className="size-1.5 rounded-full bg-info/60 motion-safe:animate-pulse" aria-hidden="true" />
               {copy.list.stillDeciding(remaining)}
               <span className="shimmer ml-1 h-2 flex-1 rounded-full" aria-hidden="true" />
             </div>
@@ -380,7 +398,7 @@ function StateFrame({ icon, title, children }: { icon: React.ReactNode; title: s
   return (
     <section className="flex flex-1 flex-col items-center justify-center px-10 text-center">
       <div className="mb-4 grid size-10 place-items-center rounded-full border border-hairline bg-raised">{icon}</div>
-      <h1 className="text-[17px] font-medium tracking-[-0.015em]">{title}</h1>
+      <h1 className="heading text-heading font-semibold">{title}</h1>
       <div className="mt-1.5 max-w-[48ch] text-muted">{children}</div>
     </section>
   );
@@ -391,10 +409,10 @@ export function Scanning({ scan }: { scan: ScanState }) {
   return (
     <section className="flex min-h-0 flex-1 flex-col px-4 pt-6">
       <div className="mb-4 flex items-center gap-3">
-        <span className="scan-ring size-8 rounded-full border border-amber/40" aria-hidden="true" />
+        <span className="scan-ring size-8 rounded-full border border-info/30" aria-hidden="true" />
         <div>
-          <h1 className="text-[17px] font-medium tracking-[-0.015em]">{copy.list.scanningTitle}</h1>
-          <p className="text-[12.5px] text-muted">{copy.list.scanningLine}</p>
+          <h1 className="heading text-heading font-semibold">{copy.list.scanningTitle}</h1>
+          <p className="text-small text-muted">{copy.list.scanningLine}</p>
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-hidden pl-1">
@@ -411,7 +429,7 @@ function SlowDocuments() {
   if (!slowReads) return null;
   return (
     <div role="status" className="fade-in mt-3 max-w-[420px] rounded-lg border border-hairline px-3 py-2.5">
-      <p className="text-[12px] text-muted">{copy.list.slowDocuments(slowReads.done)}</p>
+      <p className="text-meta text-muted">{copy.list.slowDocuments(slowReads.done)}</p>
       <div className="mt-2 flex flex-col gap-1.5" aria-hidden="true">
         <span className="shimmer h-2 w-3/4 rounded-full" />
         <span className="shimmer h-2 w-1/2 rounded-full" />

@@ -20,8 +20,18 @@ export function daysUntil(iso: string): number {
   return daysBetween(localDate(now()), iso.slice(0, 10));
 }
 
-/** Deadlines this close are "soon" and shown in amber. */
-export const SOON_DAYS = 14;
+/** Deadlines this close are "soon": the only ones shown in amber. */
+export const SOON_DAYS = 7;
+/** Deadlines this close are "near": brighter than later ones, but not amber. */
+export const NEAR_DAYS = 14;
+
+/** How pressing a deadline is: soon (amber), near, later, or none at all. */
+export type Urgency = "soon" | "near" | "later" | "none";
+export function urgency(date: string | undefined): Urgency {
+  if (!date) return "none";
+  const days = daysUntil(date);
+  return days <= SOON_DAYS ? "soon" : days <= NEAR_DAYS ? "near" : "later";
+}
 
 /** "2026-11-19T09:30+11:00" to "9:30 am". */
 export function clockTime(iso: string): string {

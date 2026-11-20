@@ -32,7 +32,7 @@ const DOT: Record<TimelineTone, string> = {
   upcoming: "size-2 border border-muted bg-bg",
   past: "size-1.5 bg-faint",
   done: "size-2 bg-positive",
-  agent: "size-2 rotate-45 rounded-[2px] border border-amber/70 bg-bg",
+  agent: "size-2 rotate-45 rounded-[2px] border border-info/70 bg-bg",
 };
 
 /** The rail runs down this column; every dot is centred on it. */
@@ -73,12 +73,12 @@ function NowMarker() {
   const today = now();
   return (
     <li className="relative flex h-10 items-center gap-3 px-3" aria-label={copy.timeline.nowLabel(formatDay(today))}>
-      <span className="w-12 shrink-0 text-right font-mono text-[10.5px] font-medium tracking-[0.08em] text-amber uppercase">{copy.timeline.now}</span>
+      <span className="w-12 shrink-0 text-right label font-medium text-amber">{copy.timeline.now}</span>
       <span className={RAIL}>
         <span className="size-3 rounded-full bg-amber shadow-[0_0_0_5px_var(--color-amber-glow),0_0_18px_var(--color-amber-glow)]" />
       </span>
       <span className="h-px flex-1 bg-[linear-gradient(90deg,var(--color-amber),transparent)] opacity-60" aria-hidden="true" />
-      <span className="shrink-0 font-mono text-[11px] text-amber tabular">
+      <span className="shrink-0 figure text-label text-amber">
         {formatDay(today)}, {clockTime(toZonedIso(today))}
       </span>
     </li>
@@ -95,10 +95,10 @@ function Row({ entry, showDate }: { entry: TimelineEntry; showDate: boolean }) {
       <span className="flex w-12 shrink-0 flex-col items-end leading-none">
         {showDate && entry.tone !== "agent" && (
           <>
-            <span className={`font-mono text-[14px] tabular ${entry.tone === "soon" ? "text-amber" : faded ? "text-faint" : "text-text"}`}>
+            <span className={`figure text-body ${entry.tone === "soon" ? "text-amber" : faded ? "text-faint" : "text-text"}`}>
               {Number(entry.date.slice(8, 10))}
             </span>
-            <span className="mt-1 font-mono text-[10px] text-faint uppercase">{weekdayOf(entry.date)}</span>
+            <span className="mt-1 font-mono text-label text-faint uppercase">{weekdayOf(entry.date)}</span>
           </>
         )}
       </span>
@@ -110,16 +110,16 @@ function Row({ entry, showDate }: { entry: TimelineEntry; showDate: boolean }) {
           <span className={`shrink-0 truncate font-medium ${faded ? "text-muted" : ""}`}>{entry.who}</span>
           <span className={`truncate ${faded ? "text-faint" : "text-muted"}`}>{entry.what}</span>
         </span>
-        {entry.detail && <span className="mt-0.5 block truncate text-[12px] text-faint">{entry.detail}</span>}
+        {entry.detail && <span className="mt-0.5 block truncate text-meta text-faint">{entry.detail}</span>}
       </span>
-      {entry.tone === "done" && <span className="shrink-0 rounded-full border border-positive/30 px-2 py-px text-[11px] text-positive">{copy.shared.decided.approved}</span>}
-      <span className={`w-[84px] shrink-0 text-right font-mono text-[12px] tabular ${faded ? "text-faint" : ""}`}>
+      {entry.tone === "done" && <span className="shrink-0 rounded-full border border-positive/30 px-2 py-px text-meta text-positive">{copy.shared.decided.approved}</span>}
+      <span className={`w-[84px] shrink-0 text-right figure text-meta ${faded ? "text-faint" : ""}`}>
         {entry.amountCents !== undefined ? formatAUD(entry.amountCents) : ""}
       </span>
       <span className="flex w-[84px] shrink-0 justify-end">
         {right && (
           <span
-            className={`inline-flex h-5 items-center rounded-full px-2 font-mono text-[10.5px] tabular ${
+            className={`inline-flex h-5 items-center rounded-full px-2 figure text-label ${
               entry.tone === "soon" ? "bg-amber-glow text-amber" : "text-faint"
             }`}
           >
@@ -179,7 +179,7 @@ export function Timeline({
         <li key={`month:${month}`} className="flex h-8 items-end gap-3 px-3 pb-1.5" aria-hidden="true">
           <span className="w-12 shrink-0" />
           <span className={RAIL} />
-          <span className="font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">{MONTHS[Number(month.slice(5)) - 1]}</span>
+          <span className="label text-faint">{MONTHS[Number(month.slice(5)) - 1]}</span>
         </li>,
       );
     }
@@ -196,8 +196,8 @@ export function Timeline({
         onMouseMove={(e) => {
           if (e.movementX !== 0 || e.movementY !== 0) onHover(entry.key);
         }}
-        className={`relative flex min-h-11 items-center gap-3 rounded-md px-3 py-1.5 text-[13px] ${opens ? "cursor-pointer" : ""} ${
-          selected ? "bg-raised before:absolute before:inset-y-2.5 before:left-0 before:w-0.5 before:rounded-full before:bg-amber" : ""
+        className={`relative flex min-h-11 items-center gap-3 rounded-md px-3 py-1.5 text-body ${opens ? "cursor-pointer" : ""} ${
+          selected ? "bg-raised before:absolute before:inset-y-2.5 before:left-0 before:w-0.5 before:rounded-full before:bg-focus" : ""
         }`}
       >
         <Row entry={entry} showDate={showDate} />

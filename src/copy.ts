@@ -605,14 +605,14 @@ export const copy = {
     couldntReadSources: (ids: string[]) => `Couldn't read: ${ids.join(", ")}`,
     readCounts: (txns: number, emails: number, docs: number, events: number) =>
       `${txns} transactions, ${emails} emails, ${docs} documents, ${events} calendar entries`,
-    candidates: (n: number) => `${n} things worth a closer look`,
-    evidence: (n: number) => `${n} pieces of evidence`,
+    candidates: (n: number) => `${plural(n, "thing")} worth a closer look`,
+    evidence: (n: number) => `${plural(n, "piece")} of evidence`,
     extracted: (read: number, failed: number) => `${read} read, ${failed} failed`,
-    figuresChecked: (n: number) => `${n} figures checked`,
+    figuresChecked: (n: number) => `${plural(n, "figure")} checked`,
     draftStart: "each finding is drafted as soon as it is judged",
     judged: (problems: number, fine: number) => `${problems} need you, ${fine} look fine`,
     drafts: (ready: number, unchecked: number) =>
-      `${ready} drafts ready${unchecked ? `, ${unchecked} need checking` : ", every claim checked"}`,
+      `${plural(ready, "draft")} ready${unchecked ? `, ${unchecked} need checking` : ", every claim checked"}`,
     /** Problems, in red. */
     keyed: (key: string, error: string) => `${key}: ${error}`,
     draftNeedsChecking: (merchant: string, problems: string[]) => `${merchant}: draft needs checking (${problems.join("; ")})`,
