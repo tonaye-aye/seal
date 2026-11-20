@@ -9,6 +9,7 @@ import { getScan, startBackgroundChecks, startScan } from "./lib/scan-store";
 import { getConnectors } from "./connectors/live";
 import { launchFlags, showPalette } from "./lib/native";
 import { getOnboarding, onboardingDone, resetOnboarding, resumeOnboarding } from "./lib/onboarding";
+import { checkEndpoint, getEndpoint, setReplayFlag } from "./lib/endpoint";
 
 /**
  * At launch: after onboarding, run the monthly check straight away so the
@@ -16,14 +17,18 @@ import { getOnboarding, onboardingDone, resetOnboarding, resumeOnboarding } from
  * summoned. Before that, pick onboarding up where it was left and show the
  * palette, so the welcome is waiting. LIFE_ONBOARDING=1 (desktop) or
  * ?onboarding (browser) starts onboarding again from an empty account.
+ * LIFE_REPLAY=1 (or ?replay) uses saved model answers only for this launch.
+ * Either way the model endpoint is checked first (the scan does it itself).
  */
 async function boot() {
-  const flags = await launchFlags().catch(() => ({ onboarding: false }));
+  const flags = await launchFlags().catch(() => ({ onboarding: false, replay: false }));
+  if (flags.replay) setReplayFlag(true);
   if (flags.onboarding) await resetOnboarding();
   if (onboardingDone()) {
     void startScan();
     return;
   }
+  void checkEndpoint();
   resumeOnboarding();
   showPalette();
 }
@@ -84,6 +89,8 @@ if (!gallery) {
       ...w.__life,
       checkInBackground: () => startScan({ background: true }),
       state: getScan,
+      endpoint: getEndpoint,
+      checkEndpoint,
       drafts: async () => (await getConnectors()).email.listDrafts(),
       resetOnboarding,
       onboarding: getOnboarding,

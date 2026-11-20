@@ -67,12 +67,14 @@ static ONBOARDING_FLAG_USED: AtomicBool = AtomicBool::new(false);
 
 /// Launch options for the UI. LIFE_ONBOARDING=1 starts onboarding again
 /// (to rehearse the demo): `LIFE_ONBOARDING=1 pnpm tauri dev`.
+/// LIFE_REPLAY=1 uses saved model answers only, for the whole launch.
 #[tauri::command]
 fn launch_flags() -> serde_json::Value {
     let asked = std::env::var("LIFE_ONBOARDING").is_ok_and(|v| v == "1");
     // `swap` sets the flag and returns what it was before, in one step.
     let onboarding = asked && !ONBOARDING_FLAG_USED.swap(true, Ordering::SeqCst);
-    serde_json::json!({ "onboarding": onboarding })
+    let replay = std::env::var("LIFE_REPLAY").is_ok_and(|v| v == "1");
+    serde_json::json!({ "onboarding": onboarding, "replay": replay })
 }
 
 /// Onboarding keeps the palette on screen when the user clicks into another
@@ -202,7 +204,8 @@ pub fn run() {
             set_hotkey_practice,
             palette_visible,
             llm::llm_request,
-            llm::llm_configured
+            llm::llm_configured,
+            llm::llm_check
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

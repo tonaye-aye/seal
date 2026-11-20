@@ -83,19 +83,26 @@ export function showPalette(): void {
   if (isTauri()) void invoke("show_palette");
 }
 
-/** Launch options from the native side, e.g. LIFE_ONBOARDING=1 to start onboarding again. */
-export async function launchFlags(): Promise<{ onboarding: boolean }> {
+export type LaunchFlags = { onboarding: boolean; replay: boolean };
+
+/**
+ * Launch options from the native side: LIFE_ONBOARDING=1 starts onboarding
+ * again, LIFE_REPLAY=1 uses saved model answers only for this launch. In a
+ * browser: ?onboarding and ?replay.
+ */
+export async function launchFlags(): Promise<LaunchFlags> {
   if (!isTauri()) {
     const url = new URL(location.href);
     const onboarding = url.searchParams.has("onboarding");
+    const replay = url.searchParams.has("replay");
     // Used once: take it off the address, so a reload resumes instead of starting over.
     if (onboarding) {
       url.searchParams.delete("onboarding");
       history.replaceState(null, "", url);
     }
-    return { onboarding };
+    return { onboarding, replay };
   }
-  return invoke<{ onboarding: boolean }>("launch_flags");
+  return invoke<LaunchFlags>("launch_flags");
 }
 
 /** Whether clicking into another app hides the palette (off during onboarding, so it dims instead). */
