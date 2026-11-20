@@ -19,7 +19,7 @@ import { Timeline } from "../ui/Palette/Timeline";
 import { Toast } from "../ui/Palette/Toast";
 import { TraceDrawer } from "../ui/Palette/Trace";
 import { BackIcon, ListIcon, TimelineIcon, ViewHeading } from "../ui/Palette/ViewHeading";
-import { FINDINGS, liveSamples, nowSamples, onboardingSample, practiceSamples, sampleCorpus, scanSamples, type LiveSample } from "./fixtures";
+import { FINDINGS, endpointSamples, liveSamples, nowSamples, onboardingSample, practiceSamples, sampleCorpus, scanSamples, type LiveSample } from "./fixtures";
 import { PRACTICE_FINDING_ID } from "../onboarding/practice";
 import { TIPS, chapterPlace, isPracticeStep, isSetupScreen, tipFor, type OnboardingState } from "../lib/onboarding";
 import { PracticeBar, PrimaryButton } from "../ui/Onboarding/PracticeBar";
@@ -29,6 +29,9 @@ import { ApproveIcon, CheckNowIcon, SnoozeIcon, TraceIcon } from "../ui/icons";
 import { TrainingShader } from "../ui/Onboarding/TrainingShader";
 import { tipText } from "../ui/Onboarding/tips";
 import { SetupScreen } from "../ui/Onboarding/SetupScreen";
+import { replayNote } from "../ui/replay";
+import { EndpointPreviewProvider, ModelDemoPreviewProvider, type EndpointStatus } from "../lib/endpoint";
+import { ModelChip } from "../ui/Palette/ModelChip";
 
 // Dev only (#/gallery): every palette state drawn from fixed sample data, so
 // the visual system can be reviewed without running a scan. It draws the real
@@ -124,11 +127,31 @@ function useLiveSample(name: LiveName): LiveSample {
   return liveSamples(retryAt)[name];
 }
 
-function Preview({ scan, live, children }: { scan: ScanState; live: LiveName; children: React.ReactNode }) {
+type ModelDemo = { saved: boolean; drop: boolean; byFlag: boolean };
+const DEMO_OFF: ModelDemo = { saved: false, drop: false, byFlag: false };
+
+function Preview({
+  scan,
+  live,
+  endpoint = endpointSamples.live,
+  modelDemo = DEMO_OFF,
+  children,
+}: {
+  scan: ScanState;
+  live: LiveName;
+  /** The model endpoint as the footer chip sees it. Live (no chip) unless set. */
+  endpoint?: EndpointStatus;
+  modelDemo?: ModelDemo;
+  children: React.ReactNode;
+}) {
   const sample = useLiveSample(live);
   return (
     <ScanPreviewProvider value={scan}>
-      <LivePreviewProvider value={sample}>{children}</LivePreviewProvider>
+      <LivePreviewProvider value={sample}>
+        <EndpointPreviewProvider value={endpoint}>
+          <ModelDemoPreviewProvider value={modelDemo}>{children}</ModelDemoPreviewProvider>
+        </EndpointPreviewProvider>
+      </LivePreviewProvider>
     </ScanPreviewProvider>
   );
 }
@@ -153,6 +176,8 @@ type FrameProps = {
   holdHover?: boolean;
   /** A first-run onboarding step: its setup screen, or the practice round's coach. */
   onboarding?: OnboardingState;
+  endpoint?: EndpointStatus;
+  modelDemo?: ModelDemo;
 };
 
 /**
@@ -174,6 +199,8 @@ function PaletteFrame({
   sheet,
   holdHover = false,
   onboarding,
+  endpoint,
+  modelDemo,
 }: FrameProps) {
   const setup = onboarding && isSetupScreen(onboarding.step);
   const practicing = onboarding?.step === "practice";
@@ -263,7 +290,7 @@ function PaletteFrame({
   );
 
   return (
-    <Preview scan={shownScan} live={live}>
+    <Preview scan={shownScan} live={live} endpoint={endpoint} modelDemo={modelDemo}>
       <div data-gallery-frame style={{ width: 1000, height: 680 }} {...blockers}>
         <PaletteShell
           ref={shellRef}
@@ -275,7 +302,7 @@ function PaletteFrame({
               trailing={<SettingsButton hotkey={["⌥", "Space"]} mouse={mouse} onTrace={noop} onKeys={noop} peek={!!onboarding?.peek} />}
             />
           }
-          replay={shownScan.usedReplay}
+          replay={replayNote(shownScan)}
           banner={
             practicing ? (
               <>
@@ -383,6 +410,7 @@ const SECTIONS = [
   ["timeline", "Timeline"],
   ["states", "Scan states"],
   ["overlays", "Overlays"],
+  ["model", "Model endpoint"],
   ["now", "Now mark"],
   ["connections", "Connections"],
   ["header", "Top bar"],
@@ -600,7 +628,7 @@ export function Gallery() {
             </Section>
 
             <Section id="overlays" title="Overlays">
-              <Shot title="Replay mode banner">
+              <Shot title="Replay mode banner, one answer saved" note="A single call fell back on its own; that row is labelled. More in Model endpoint">
                 <PaletteFrame scan={s.replay} />
               </Shot>
               <Shot title="Toast with undo" note="Replays every 5 s">
@@ -626,6 +654,101 @@ export function Gallery() {
               </Shot>
               <Shot title="Calendar needs reconnecting" note="List banner and the Reconnect chip">
                 <PaletteFrame scan={s.done} live="reconnect" />
+              </Shot>
+            </Section>
+
+            <Section id="model" title="Model endpoint">
+              <Shot title="Saved answers chosen" note="Demo panel M; the footer chip says so too">
+                <PaletteFrame scan={s.replayForced} endpoint={endpointSamples.forced} />
+              </Shot>
+              <Shot title="Saved answers, launch flag" note="LIFE_REPLAY=1 pnpm tauri dev">
+                <PaletteFrame scan={s.replayFlag} endpoint={endpointSamples.flag} />
+              </Shot>
+              <Shot title="Checking, endpoint unreachable" note="The endpoint check failed, so the check runs on saved answers from the start">
+                <PaletteFrame scan={s.checkingOffline} endpoint={endpointSamples.offline} live="syncing" />
+              </Shot>
+              <Shot title="Done on saved answers, endpoint unreachable">
+                <PaletteFrame scan={s.replayOffline} endpoint={endpointSamples.offline} />
+              </Shot>
+              <Shot title="Done on saved answers, key not accepted">
+                <PaletteFrame scan={s.replayKey} endpoint={endpointSamples.key_rejected} />
+              </Shot>
+              <Shot title="Checking, endpoint lost partway" note="Demo panel 4, or the network dropping mid-check: the check starts again on saved answers">
+                <PaletteFrame scan={s.checkingLost} endpoint={endpointSamples.offline} live="syncing" />
+              </Shot>
+              <Shot title="Redone from saved answers after losing the endpoint">
+                <PaletteFrame scan={s.replayLost} endpoint={endpointSamples.offline} />
+              </Shot>
+              <Shot title="A finding from saved answers" note="Under the figures checked by code">
+                <PaletteFrame scan={s.replayForced} endpoint={endpointSamples.forced} view="detail" selected="f-skylink" />
+              </Shot>
+              <Shot title="No saved answers to fall back on">
+                <PaletteFrame scan={s.noSaved} endpoint={endpointSamples.offline} />
+              </Shot>
+              <Shot title="Model chip (footer)" note="Hidden while live; click it for the menu" height={380}>
+                <Strip>
+                  {(
+                    [
+                      ["Live: no chip", endpointSamples.live],
+                      ["Slow", endpointSamples.slow],
+                      ["Offline", endpointSamples.offline],
+                      ["Key not accepted", endpointSamples.key_rejected],
+                      ["Not set up", endpointSamples.not_set_up],
+                      ["Endpoint error", endpointSamples.unavailable],
+                      ["Saved answers chosen", endpointSamples.forced],
+                      ["Browser preview", endpointSamples.browser],
+                    ] as const
+                  ).map(([label, endpoint]) => (
+                    <Preview key={label} scan={s.done} live="ok" endpoint={endpoint}>
+                      <Labelled label={label}>
+                        <div className="flex h-7 items-center">
+                          <ModelChip />
+                        </div>
+                      </Labelled>
+                    </Preview>
+                  ))}
+                </Strip>
+              </Shot>
+              <Shot title="Model chip menu" note="Offline (Try live again, Use saved answers only), saved answers chosen, launch flag" height={780}>
+                <Strip>
+                  <div className="flex flex-col">
+                    {(
+                      [
+                        [endpointSamples.offline, DEMO_OFF],
+                        [endpointSamples.forced, { ...DEMO_OFF, saved: true }],
+                        [endpointSamples.flag, { ...DEMO_OFF, byFlag: true }],
+                      ] as const
+                    ).map(([endpoint, demo], i) => (
+                      <Preview key={i} scan={s.done} live="ok" endpoint={endpoint} modelDemo={demo}>
+                        <div className="relative mt-[210px] h-8 w-[300px]">
+                          <ModelChip defaultOpen />
+                        </div>
+                      </Preview>
+                    ))}
+                  </div>
+                </Strip>
+              </Shot>
+              <Shot title="Connectors menu with the model endpoint" note="Live, and offline" height={300}>
+                <Strip>
+                  <div className="flex gap-8">
+                    {[endpointSamples.live, endpointSamples.offline].map((endpoint, i) => (
+                      <Preview key={i} scan={s.done} live="ok" endpoint={endpoint}>
+                        <div className="relative mt-[230px] h-8 w-[320px]">
+                          <ConnectorsButton defaultOpen />
+                        </div>
+                      </Preview>
+                    ))}
+                  </div>
+                </Strip>
+              </Shot>
+              <Shot title="Demo panel, saved answers on">
+                <PaletteFrame scan={s.replayForced} endpoint={endpointSamples.forced} modelDemo={{ ...DEMO_OFF, saved: true }} sheet="scenarios" />
+              </Shot>
+              <Shot title="Demo panel, endpoint drops partway on" note="Simulating chip behind">
+                <PaletteFrame scan={s.done} modelDemo={{ ...DEMO_OFF, drop: true }} sheet="scenarios" />
+              </Shot>
+              <Shot title="Demo panel, launch flag holds saved answers on">
+                <PaletteFrame scan={s.replayFlag} endpoint={endpointSamples.flag} modelDemo={{ ...DEMO_OFF, byFlag: true }} sheet="scenarios" />
               </Shot>
             </Section>
 
