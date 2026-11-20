@@ -11,6 +11,7 @@
 // The agent code doesn't change: it gets an ordinary LlmClient.
 
 import { createLlm, LlmError, type ChatRequest, type ChatResult, type LlmClient, type LlmTransport } from "./llm.ts";
+import { copy } from "../copy.ts";
 
 /** A thinking model can take ~30 s; past this a call counts as no answer. */
 export const CALL_LIMIT_MS = 90_000;
@@ -40,11 +41,11 @@ function endpointDown(error: unknown): boolean {
 }
 
 function lostReason(error: LlmError): string {
-  if (error.kind === "http" && (error.status === 401 || error.status === 403)) return "the endpoint stopped accepting the API key";
-  if (error.kind === "http" && error.status === 429) return "the endpoint kept asking us to slow down";
-  if (error.kind === "http") return `the endpoint answered with an error (${error.status})`;
-  if (/within/.test(error.message)) return "the endpoint stopped answering in time";
-  return "the endpoint stopped answering";
+  if (error.kind === "http" && (error.status === 401 || error.status === 403)) return copy.endpoint.lost.key;
+  if (error.kind === "http" && error.status === 429) return copy.endpoint.lost.rateLimited;
+  if (error.kind === "http") return copy.endpoint.lost.error(error.status);
+  if (/within/.test(error.message)) return copy.endpoint.lost.tooSlow;
+  return copy.endpoint.lost.stopped;
 }
 
 export function createModelSession(options: SessionOptions): ModelSession {
@@ -56,7 +57,7 @@ export function createModelSession(options: SessionOptions): ModelSession {
       : {
           post(path, body, key, mode) {
             if (mode === "live" && ++liveCalls > options.dropAfter!) {
-              return Promise.reject(new LlmError("network", "Simulated: the endpoint stopped answering."));
+              return Promise.reject(new LlmError("network", copy.endpoint.simulatedDrop));
             }
             return options.transport.post(path, body, key, mode);
           },
@@ -76,7 +77,7 @@ export function createModelSession(options: SessionOptions): ModelSession {
         // Said plainly in "Couldn't decide": nothing is made up to fill the gap.
         throw new LlmError(
           "not_cached",
-          liveError ? "The model endpoint couldn't be reached and there's no saved answer for this one." : "There's no saved answer for this one.",
+          liveError ? copy.endpoint.noSavedAnswerOffline : copy.endpoint.noSavedAnswer,
         );
       }
       throw error;
@@ -118,7 +119,7 @@ export function createModelSession(options: SessionOptions): ModelSession {
 export function withLimit<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(
-      () => reject(new LlmError("network", `The endpoint didn't answer within ${Math.round(ms / 1000)} seconds`)),
+      () => reject(new LlmError("network", copy.endpoint.noAnswerWithin(Math.round(ms / 1000)))),
       ms,
     );
     promise.then(

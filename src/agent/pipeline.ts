@@ -14,6 +14,7 @@
 // Each case is drafted as soon as it is judged, so the first finding (with its
 // draft) can be shown while other cases are still being judged.
 
+import { copy } from "../copy.ts";
 import { now } from "../lib/clock.ts";
 import { localDate, toZonedIso } from "../lib/dates.ts";
 import type { LlmClient } from "../lib/llm.ts";
@@ -123,19 +124,19 @@ export function settleDisagreement(candidate: Candidate, verified: VerifiedCase,
       ...verdict,
       isProblem: true,
       kind: kindFromSignals(candidate),
-      title: `Check ${candidate.names.join(" and ")}`,
+      title: copy.agent.checkTitle(candidate.names),
       why: problem[0],
       action: "none",
-      actionSummary: "Look at the evidence and decide: the checks and the model disagree.",
+      actionSummary: copy.agent.checkAction,
       confidence: "low",
-      issues: [...verdict.issues, `The model judged this fine ("${verdict.why}"), but code found: ${problem.join(" ")}`],
+      issues: [...verdict.issues, copy.agent.modelSaidFine(verdict.why, problem)],
     };
   }
   if (verdict.isProblem && fine.length > 0 && problem.length === 0) {
     return {
       ...verdict,
       confidence: "low",
-      issues: [...verdict.issues, `Code found reasons this may be fine: ${fine.join(" ")}`],
+      issues: [...verdict.issues, copy.agent.codeSaysFine(fine)],
     };
   }
   return verdict;
@@ -183,36 +184,36 @@ export async function runScan(
   const notConnected = ALL_CONNECTORS.filter((id) => !only.includes(id));
   const snapshot = await syncSome(connectors, only, (status) => emit({ type: "connector", status, at: at() }));
   const missing = Object.keys(snapshot.failed);
-  stage("sync", "done", missing.length ? `Couldn't read: ${missing.join(", ")}` : undefined);
+  stage("sync", "done", missing.length ? copy.trace.couldntReadSources(missing) : undefined);
 
   stage("read", "start");
   const corpus = await buildCorpus(connectors, snapshot);
   emit({ type: "corpus", corpus, at: at() });
-  stage("read", "done", `${corpus.transactions.length} transactions, ${corpus.emails.length} emails, ${corpus.documents.length} documents, ${corpus.events.length} calendar entries`);
+  stage("read", "done", copy.trace.readCounts(corpus.transactions.length, corpus.emails.length, corpus.documents.length, corpus.events.length));
 
   stage("detect", "start");
   const detection = detect(corpus);
-  stage("detect", "done", `${detection.candidates.length} things worth a closer look`);
+  stage("detect", "done", copy.trace.candidates(detection.candidates.length));
 
   stage("retrieve", "start");
   const evidence = detection.candidates.map((c) => retrieveExact(c, corpus));
-  stage("retrieve", "done", `${evidence.reduce((n, e) => n + e.items.length, 0)} pieces of evidence`);
+  stage("retrieve", "done", copy.trace.evidence(evidence.reduce((n, e) => n + e.items.length, 0)));
 
   stage("extract", "start");
   const extraction = await extractAll(evidence, corpus, connectors, llm, (p) =>
     emit({ type: "progress", stage: "extract", done: p.done, total: p.total, label: p.key, at: at() }),
   );
   usedReplay ||= [...extraction.facts.values()].some((f) => f.source === "cache");
-  for (const f of extraction.failures) emit({ type: "problem", stage: "extract", message: `${f.key}: ${f.error}`, at: at() });
-  stage("extract", "done", `${extraction.facts.size} read, ${extraction.failures.length} failed`);
+  for (const f of extraction.failures) emit({ type: "problem", stage: "extract", message: copy.trace.keyed(f.key, f.error), at: at() });
+  stage("extract", "done", copy.trace.extracted(extraction.facts.size, extraction.failures.length));
 
   stage("verify", "start");
   const verified = detection.candidates.map((c, i) => verifyCase(c, evidence[i], extraction, corpus));
-  stage("verify", "done", `${verified.reduce((n, v) => n + v.figures.length, 0)} figures checked`);
+  stage("verify", "done", copy.trace.figuresChecked(verified.reduce((n, v) => n + v.figures.length, 0)));
 
   const voice = await loadVoice(connectors);
   stage("judge", "start");
-  stage("draft", "start", "each finding is drafted as soon as it is judged");
+  stage("draft", "start", copy.trace.draftStart);
   let drafted = 0;
   let toDraft = 0;
   const findings: Finding[] = [];
@@ -241,11 +242,11 @@ export async function runScan(
             usedReplay ||= finding.draft.source === "cache";
             emit({ type: "draft", findingId: finding.id, draft: finding.draft, at: at() });
             if (!finding.draft.grounded) {
-              emit({ type: "problem", stage: "draft", message: `${finding.merchant}: draft needs checking (${finding.draft.problems.join("; ")})`, at: at() });
+              emit({ type: "problem", stage: "draft", message: copy.trace.draftNeedsChecking(finding.merchant, finding.draft.problems), at: at() });
             }
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            emit({ type: "problem", stage: "draft", message: `${finding.merchant}: couldn't draft (${message})`, at: at() });
+            emit({ type: "problem", stage: "draft", message: copy.trace.couldntDraft(finding.merchant, message), at: at() });
           }
           emit({ type: "progress", stage: "draft", done: ++drafted, total: toDraft, label: finding.merchant, at: at() });
         }
@@ -257,14 +258,14 @@ export async function runScan(
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       undecided.push({ id: candidate.id, merchant: candidate.names.join(" + "), error: message });
-      emit({ type: "problem", stage: "judge", message: `${candidate.names.join(" + ")}: ${message}`, at: at() });
+      emit({ type: "problem", stage: "judge", message: copy.trace.keyed(candidate.names.join(" + "), message), at: at() });
     }
     emit({ type: "progress", stage: "judge", done: ++judged, total: detection.candidates.length, label: candidate.names.join(" + "), at: at() });
   });
-  stage("judge", "done", `${findings.length} need you, ${cleared.length} look fine`);
+  stage("judge", "done", copy.trace.judged(findings.length, cleared.length));
   const withDrafts = findings.filter((f) => f.draft);
   const unchecked = withDrafts.filter((f) => !f.draft!.grounded).length;
-  stage("draft", "done", `${withDrafts.length} drafts ready${unchecked ? `, ${unchecked} need checking` : ", every claim checked"}`);
+  stage("draft", "done", copy.trace.drafts(withDrafts.length, unchecked));
 
   return {
     findings: rank(findings),

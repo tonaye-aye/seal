@@ -6,6 +6,7 @@ import type { ConnectorId } from "../../connectors/types";
 import { connectLater, onboardingDone } from "../../lib/onboarding";
 import { hidePalette } from "../../lib/native";
 import { startScan } from "../../lib/scan-store";
+import { copy } from "../../copy";
 import { Kbd } from "../Kbd";
 import { CloseIcon, HideIcon, KeysIcon, TraceIcon } from "../icons";
 import { Menu, MenuItem } from "./Menu";
@@ -32,7 +33,7 @@ export function Footer({ onScenarios, right }: { onScenarios: () => void; right?
   );
 }
 
-const LABELS = { bank: "Bank", email: "Email", documents: "Documents", calendar: "Calendar" } as const;
+const LABELS = copy.shared.source;
 
 function footerButton(open: boolean) {
   return `inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 leading-none transition-colors duration-(--duration-fast) hover:bg-raised hover:text-text ${
@@ -62,12 +63,12 @@ export function ConnectorsButton({ defaultOpen = false }: { defaultOpen?: boolea
         onMouseDown={(e) => e.preventDefault()}
         onClick={() => setOpen((o) => !o)}
         className={footerButton(open)}
-        title="What's connected"
+        title={copy.footer.whatsConnected}
       >
         <span className="grid size-4 place-items-center [&>svg]:block">
           <Plug size={14} strokeWidth={1.75} aria-hidden="true" />
         </span>
-        Connectors
+        {copy.footer.connectors}
         {problems > 0 ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-danger/15 px-1.5 py-0.5 font-mono text-[10.5px] text-danger">
             <CircleAlert size={11} strokeWidth={2} aria-hidden="true" />
@@ -81,11 +82,11 @@ export function ConnectorsButton({ defaultOpen = false }: { defaultOpen?: boolea
           </span>
         )}
         <span className="sr-only">
-          {problems > 0 ? `, ${problems} need attention` : `, ${ok} connected`}
+          {problems > 0 ? copy.footer.needAttention(problems) : copy.footer.connectedCount(ok)}
         </span>
       </button>
-      <Menu open={open} onClose={() => setOpen(false)} label="Connectors">
-        <p className="px-2.5 pt-1.5 pb-1 font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">Connectors</p>
+      <Menu open={open} onClose={() => setOpen(false)} label={copy.footer.connectors}>
+        <p className="px-2.5 pt-1.5 pb-1 font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">{copy.footer.connectors}</p>
         <ul className="flex flex-col">
           {(["bank", "email", "documents", "calendar"] as const).map((id) => (
             <ConnectorRow key={id} id={id} label={LABELS[id]} status={live.statuses[id]} now={now} slow={id === "documents" ? live.slowReads : undefined} />
@@ -95,7 +96,7 @@ export function ConnectorsButton({ defaultOpen = false }: { defaultOpen?: boolea
         <ul className="flex flex-col">
           <ModelRow />
         </ul>
-        <p className="px-2.5 pt-1 pb-1.5 text-[11px] text-faint">Read-only. Demo connectors over sample data.</p>
+        <p className="px-2.5 pt-1 pb-1.5 text-[11px] text-faint">{copy.footer.connectorsNote}</p>
       </Menu>
     </div>
   );
@@ -115,7 +116,7 @@ function ConnectorRow({
   now: number;
   slow?: { done: number; total: number };
 }) {
-  const text = slow ? `Slow to respond, ${slow.done} read so far` : status ? (status.state === "ok" && status.count !== undefined ? `${status.count} read` : stateText(status, now)) : "Not connected yet";
+  const text = slow ? copy.connector.slow(slow.done) : status ? (status.state === "ok" && status.count !== undefined ? copy.footer.countRead(status.count) : stateText(status, now)) : copy.connector.notConnectedYet;
   return (
     <li className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[12.5px]" title={status?.detail}>
       <span className={`size-1.5 shrink-0 rounded-full ${slow ? DOT.syncing : status ? DOT[status.state] : "border border-faint"}`} aria-hidden="true" />
@@ -131,7 +132,7 @@ function ConnectorRow({
           onClick={() => void connectLater(id)}
           className="cursor-pointer rounded-full bg-raised px-2 py-0.5 text-[11px] text-text hover:bg-hairline"
         >
-          Connect
+          {copy.footer.connect}
         </button>
       )}
       {status?.state === "needs_reconnect" && (
@@ -142,7 +143,7 @@ function ConnectorRow({
           onClick={() => void reconnectCalendar().then(() => startScan())}
           className="cursor-pointer rounded-full bg-raised px-2 py-0.5 text-[11px] text-text hover:bg-hairline"
         >
-          Reconnect
+          {copy.footer.reconnect}
         </button>
       )}
     </li>
@@ -192,20 +193,20 @@ export function SettingsButton({
         aria-expanded={open}
         onMouseDown={(e) => e.preventDefault()}
         onClick={() => setOpen((o) => !o)}
-        aria-label="Settings"
-        title="Settings"
+        aria-label={copy.footer.settings}
+        title={copy.footer.settings}
         className={`grid size-7 cursor-pointer place-items-center rounded-md transition-colors duration-(--duration-fast) hover:bg-raised hover:text-text ${
           open ? "bg-raised text-text" : "text-muted"
         }`}
       >
         <Settings size={15} strokeWidth={1.75} aria-hidden="true" className="block" />
       </button>
-      <Menu open={open} onClose={() => setOpen(false)} align="right" placement="below" label="Settings">
-        <MenuItem icon={<TraceIcon />} label="Trace: what the agent did" keys={caps(["T"])} onSelect={choose(onTrace)} />
-        <MenuItem icon={<KeysIcon />} label="Keyboard shortcuts" keys={caps(["?"])} onSelect={choose(onKeys)} />
+      <Menu open={open} onClose={() => setOpen(false)} align="right" placement="below" label={copy.footer.settings}>
+        <MenuItem icon={<TraceIcon />} label={copy.footer.traceItem} keys={caps(["T"])} onSelect={choose(onTrace)} />
+        <MenuItem icon={<KeysIcon />} label={copy.footer.keysItem} keys={caps(["?"])} onSelect={choose(onKeys)} />
         <MenuItem
           icon={hotkey.length > 0 ? <HideIcon /> : <CloseIcon />}
-          label={hotkey.length > 0 ? "Hide Life" : "Close"}
+          label={hotkey.length > 0 ? copy.footer.hide : copy.footer.close}
           keys={caps(hotkey.length > 0 ? hotkey : ["Esc"])}
           onSelect={choose(hidePalette)}
         />

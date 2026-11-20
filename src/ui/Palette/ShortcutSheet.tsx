@@ -1,42 +1,16 @@
+import { copy } from "../../copy";
 import { Kbd } from "../Kbd";
 
 // The backup teacher: every key in one place. The primary teacher is the
 // inline hints on screen.
-const GROUPS: { title: string; keys: [string[], string][] }[] = [
-  {
-    title: "Findings",
-    keys: [
-      [["J"], "Next"],
-      [["K"], "Previous"],
-      [["↵"], "Open evidence and draft"],
-      [["A"], "Approve: save the draft to Drafts"],
-      [["E"], "Edit the draft"],
-      [["S"], "Snooze"],
-      [["D"], "Not a leak"],
-      [["⌘", "Z"], "Undo"],
-    ],
-  },
-  {
-    title: "Everywhere",
-    keys: [
-      [["⌘", "↵"], "Timeline: what's coming"],
-      [["/"], "Search findings or the timeline"],
-      [["Tab"], "Switch pane (in a finding)"],
-      [["T"], "Show what the agent did"],
-      [["R"], "Check again (reconnects first)"],
-      [["Esc"], "Back, then close"],
-      [["⌘", ","], "Settings"],
-      [["?"], "This sheet"],
-    ],
-  },
-];
+const GROUPS = copy.shortcuts.groups;
 
 export function ShortcutSheet({ onClose }: { onClose: () => void }) {
   return (
     <div className="absolute inset-0 z-30 grid place-items-center bg-bg/70 backdrop-blur-sm" onClick={onClose}>
       <section
         role="dialog"
-        aria-label="Keyboard shortcuts"
+        aria-label={copy.shortcuts.label}
         className="sheet-in w-[520px] rounded-xl border border-hairline bg-surface p-5 shadow-[0_16px_48px_rgb(0_0_0/0.45)]"
         onClick={(e) => e.stopPropagation()}
       >
@@ -55,7 +29,7 @@ export function ShortcutSheet({ onClose }: { onClose: () => void }) {
             </div>
           ))}
         </div>
-        <p className="mt-4 text-[11.5px] text-faint">Nothing is ever sent. Approving saves a draft you send yourself.</p>
+        <p className="mt-4 text-[11.5px] text-faint">{copy.shortcuts.footnote}</p>
       </section>
     </div>
   );

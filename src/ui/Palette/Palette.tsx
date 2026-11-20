@@ -20,6 +20,7 @@ import { Footer, SettingsButton } from "./Footer";
 import { Header } from "./Header";
 import { PaletteShell } from "./PaletteShell";
 import { SwitchButton } from "../Kbd";
+import { copy } from "../../copy";
 import { BackIcon, ListIcon, TimelineIcon } from "./ViewHeading";
 import { ShortcutSheet } from "./ShortcutSheet";
 import { SCENARIOS, ScenariosSheet } from "./ScenariosSheet";
@@ -529,14 +530,14 @@ export function Palette() {
             ref={inputRef}
             value={query}
             onChange={setQuery}
-            label="Search the timeline"
-            placeholder="Search the timeline by business or date"
+            label={copy.search.timelineLabel}
+            placeholder={copy.search.timelinePlaceholder}
           />
         }
       />
     );
   } else if (nothingYet && scan.phase === "scanning") main = <Scanning scan={scan} />;
-  else if (nothingYet && scan.phase === "error") main = <ScanError message={scan.error ?? "Something went wrong."} />;
+  else if (nothingYet && scan.phase === "error") main = <ScanError message={scan.error ?? copy.shared.somethingWentWrong} />;
   else if (nothingYet && scan.phase === "done") main = <AllClear checked={0} />;
   else if (nothingYet) main = <NotChecked />;
   else
@@ -565,8 +566,7 @@ export function Palette() {
   const banner =
     onboarding.step === "first-scan" && scan.phase === "scanning" ? (
       <>
-        <span className="font-medium text-amber">Your first check.</span> It reads everything, so it takes a little while. You can hide
-        me, I'll keep going.
+        <span className="font-medium text-amber">{copy.onboarding.firstCheckLead}</span> {copy.onboarding.firstCheckBody}
       </>
     ) : undefined;
 
@@ -591,12 +591,12 @@ export function Palette() {
             setup ? undefined : (
               <span className="inline-flex">
                 {view === "list" && !nothingYet ? (
-                  <SwitchButton keys={["⌘", "↵"]} label="View timeline" icon={<TimelineIcon />} mouse={mouse} onClick={openTimeline} />
+                  <SwitchButton keys={["⌘", "↵"]} label={copy.header.viewTimeline} icon={<TimelineIcon />} mouse={mouse} onClick={openTimeline} />
                 ) : view === "timeline" ? (
-                  <SwitchButton keys={["Esc"]} label="View list" icon={<ListIcon />} mouse={mouse} onClick={back} />
+                  <SwitchButton keys={["Esc"]} label={copy.header.viewList} icon={<ListIcon />} mouse={mouse} onClick={back} />
                 ) : view === "detail" ? (
                   // "Back", not a view name: it returns to wherever the finding was opened from.
-                  <SwitchButton keys={["Esc"]} label="Back" icon={<BackIcon />} mouse={mouse} onClick={back} />
+                  <SwitchButton keys={["Esc"]} label={copy.header.back} icon={<BackIcon />} mouse={mouse} onClick={back} />
                 ) : undefined}
               </span>
             )

@@ -13,6 +13,7 @@
 
 import { createContext, useContext, useSyncExternalStore } from "react";
 import { discardSaved, saveDraft } from "../agent/draft.ts";
+import { copy } from "../copy.ts";
 import type { Corpus } from "../agent/corpus.ts";
 import { rank, runScan, type AgentEvent, type Cleared, type Finding, type ScanResult, type Stage } from "../agent/pipeline.ts";
 import { getConnectors, setConnectorStatus } from "../connectors/live.ts";
@@ -202,16 +203,7 @@ export function getScan(): ScanState {
 // ---------- Reading the event stream ----------
 
 /** What each stage is called in the trace while it runs. */
-const STAGE_TEXT: Record<Stage, string> = {
-  sync: "Syncing bank, email, documents and calendar",
-  read: "Reading emails and documents",
-  detect: "Looking for charges worth a closer look",
-  retrieve: "Gathering the evidence for each one",
-  extract: "Reading the facts out of each piece of evidence",
-  verify: "Checking the numbers and dates in code",
-  judge: "Deciding which ones are real problems",
-  draft: "Drafting the fixes",
-};
+const STAGE_TEXT: Record<Stage, string> = copy.trace.stage;
 
 function trace(text: string, tone: TraceLine["tone"] = "info"): TraceLine[] {
   const t = Date.now() - (state.startedAt ?? Date.now());
@@ -236,13 +228,13 @@ function onEvent(event: AgentEvent) {
       // Say so on the checking screen when a source asks us to wait, and when it lets us carry on.
       if (event.status.state === "retrying" && before !== "retrying") {
         const seconds = Math.max(1, Math.round(((event.status.retryAt ?? Date.now()) - Date.now()) / 1000));
-        set({ trace: trace(`${event.status.name} asked us to slow down, trying again in ${seconds} s`, "warn") });
+        set({ trace: trace(copy.trace.slowDown(event.status.name, seconds), "warn") });
       }
       if (before === "retrying" && event.status.state !== "retrying" && event.status.state !== "error") {
-        set({ trace: trace(`${event.status.name} answered again, carrying on`) });
+        set({ trace: trace(copy.trace.answeredAgain(event.status.name)) });
       }
-      if (event.status.state === "needs_reconnect") set({ trace: trace(`${event.status.name} needs reconnecting, so it was skipped`, "warn") });
-      if (event.status.state === "error") set({ trace: trace(`Couldn't read ${event.status.name}`, "bad") });
+      if (event.status.state === "needs_reconnect") set({ trace: trace(copy.trace.needsReconnect(event.status.name), "warn") });
+      if (event.status.state === "error") set({ trace: trace(copy.trace.couldntRead(event.status.name), "bad") });
       return;
     }
     case "corpus":
@@ -266,7 +258,7 @@ function onEvent(event: AgentEvent) {
       set({
         findings: [...state.findings, event.finding],
         usedReplay: state.usedReplay || event.finding.judgedBy.source === "cache",
-        trace: trace(`Found: ${event.finding.title}`, "warn"),
+        trace: trace(copy.trace.found(event.finding.title), "warn"),
       });
       return;
     case "draft":
@@ -274,15 +266,13 @@ function onEvent(event: AgentEvent) {
         findings: state.findings.map((f) => (f.id === event.findingId ? { ...f, draft: event.draft } : f)),
         usedReplay: state.usedReplay || event.draft.source === "cache",
         trace: trace(
-          event.draft.grounded
-            ? `Drafted a message to ${event.draft.to.name}, every figure checked`
-            : `Drafted a message to ${event.draft.to.name}, but some claims need checking`,
+          event.draft.grounded ? copy.trace.drafted(event.draft.to.name) : copy.trace.draftedUnchecked(event.draft.to.name),
           event.draft.grounded ? "good" : "warn",
         ),
       });
       return;
     case "cleared":
-      set({ cleared: [...state.cleared, event.cleared], trace: trace(`${event.cleared.merchant} looks fine: ${event.cleared.why}`, "good") });
+      set({ cleared: [...state.cleared, event.cleared], trace: trace(copy.trace.looksFine(event.cleared.merchant, event.cleared.why), "good") });
       return;
     case "problem":
       set({ trace: trace(event.message, "bad") });
@@ -360,7 +350,7 @@ export async function startScan({ background = false } = {}): Promise<void> {
       cleared: result.cleared,
       undecided: result.undecided,
       usedReplay: result.usedReplay,
-      trace: trace(`Done in ${((Date.now() - (state.startedAt ?? Date.now())) / 1000).toFixed(1)} s. Nothing was sent or changed.`, "good"),
+      trace: trace(copy.trace.done(Date.now() - (state.startedAt ?? Date.now())), "good"),
     });
     await restoreDrafts();
   } catch (error) {
@@ -375,12 +365,12 @@ export async function startScan({ background = false } = {}): Promise<void> {
 async function runBackground(): Promise<void> {
   quiet = true;
   set({ refreshing: true, startedAt: Date.now(), trace: [] });
-  set({ trace: trace("Checking again in the background") });
+  set({ trace: trace(copy.trace.backgroundStart) });
   try {
     const { session, endpoint, lost } = await openSession({ background: true });
     // A background check is for fresh answers: with the endpoint down it waits for next time.
     if (usesReplay(endpoint.state) && endpoint.state !== "forced") {
-      set({ refreshing: false, trace: trace("The model endpoint isn't available, so the last results stay. The next background check will try again.", "warn") });
+      set({ refreshing: false, trace: trace(copy.trace.backgroundNoEndpoint, "warn") });
       return;
     }
     const live = runScan(await getConnectors(), session, eventsFor(++scanRun), { only: scanSources });
@@ -403,12 +393,12 @@ async function runBackground(): Promise<void> {
       undecided: result.undecided,
       usedReplay: result.usedReplay,
       replay: endpoint.state === "forced" ? { why: "forced", detail: endpoint.detail } : undefined,
-      trace: trace(`Checked again in ${((Date.now() - (state.startedAt ?? Date.now())) / 1000).toFixed(1)} s. Nothing was sent or changed.`, "good"),
+      trace: trace(copy.trace.checkedAgain(Date.now() - (state.startedAt ?? Date.now())), "good"),
     });
   } catch (error) {
     // Keep the last good results; just say the background check didn't finish.
     const message = error instanceof Error ? error.message : String(error);
-    set({ refreshing: false, stage: undefined, progress: undefined, trace: trace(`The background check didn't finish: ${message}`, "bad") });
+    set({ refreshing: false, stage: undefined, progress: undefined, trace: trace(copy.trace.backgroundFailed(message), "bad") });
   } finally {
     quiet = false;
   }
@@ -417,18 +407,14 @@ async function runBackground(): Promise<void> {
 // ---------- The model endpoint, for one check ----------
 
 /** What each stage is doing, for "Lost the model endpoint while ...". */
-const STAGE_DOING: Partial<Record<Stage, string>> = {
-  extract: "reading the evidence",
-  judge: "deciding and drafting",
-  draft: "drafting",
-};
+const STAGE_DOING: Partial<Record<Stage, string>> = copy.trace.doing;
 
 /**
  * Checks the endpoint, says what it found in the trace, and returns the model
  * client for this check: live, or saved answers when the endpoint can't be used.
  */
 async function openSession({ background = false } = {}) {
-  set({ trace: trace("Checking the model endpoint") });
+  set({ trace: trace(copy.trace.checkingEndpoint) });
   const endpoint = await checkEndpoint();
   const start = usesReplay(endpoint.state) ? "replay" : "live";
   set({ trace: trace(endpointLine(endpoint), start === "replay" || endpoint.state === "slow" ? "warn" : "good") });
@@ -441,10 +427,9 @@ async function openSession({ background = false } = {}) {
     start,
     dropAfter: dropAfterCalls(),
     onLost: (reason) => {
-      markLost(`Lost partway through a check: ${reason}.`);
+      markLost(copy.endpoint.lostPartway(reason));
       const doing = state.stage ? STAGE_DOING[state.stage] : undefined;
-      const next = background ? "The last results stay." : "Starting the check again from saved answers.";
-      set({ trace: trace(`Lost the model endpoint${doing ? ` while ${doing}` : ""}: ${reason}. ${next}`, "warn") });
+      set({ trace: trace(copy.trace.lost(doing, reason, background), "warn") });
       signalLost(reason);
     },
   });
@@ -464,24 +449,24 @@ function eventsFor(run: number) {
 function endpointLine(e: EndpointStatus): string {
   switch (e.state) {
     case "live":
-      return `Model endpoint answered in ${((e.ms ?? 0) / 1000).toFixed(1)} s`;
+      return copy.trace.endpointLive(e.ms ?? 0);
     case "slow":
-      return `Model endpoint is slow today: ${e.detail ?? ""}`.trim();
+      return copy.trace.endpointSlow(e.detail ?? "");
     case "forced":
-      return e.byFlag ? "Using saved answers only (started with LIFE_REPLAY=1)" : "Using saved answers only, as chosen";
+      return e.byFlag ? copy.trace.savedOnlyByFlag : copy.trace.savedOnlyChosen;
     case "browser":
-      return "Browser preview: using saved answers from an earlier run";
+      return copy.trace.browser;
     default:
-      return `${e.detail ?? "Couldn't use the model endpoint."} Using saved answers from an earlier run.`;
+      return copy.trace.endpointFallback(e.detail);
   }
 }
 
 /** The error when a check on saved answers finds none saved. */
 function noSavedAnswers(e: EndpointStatus): string {
-  if (e.state === "forced") return "There are no saved answers for this check yet. Turn off saved answers only (⌘⇧D, then M) and run a live check first.";
-  if (e.state === "not_set_up") return "The model endpoint isn't set up, and there are no saved answers yet. Add BC_API_KEY to .env, then restart the app.";
-  if (e.state === "key_rejected") return "The model endpoint didn't accept the API key, and there are no saved answers yet. Check BC_API_KEY in .env, then restart the app.";
-  return "Couldn't reach the model endpoint, and there are no saved answers yet. Check the network, then press R.";
+  if (e.state === "forced") return copy.endpoint.noSavedAnswers.forced;
+  if (e.state === "not_set_up") return copy.endpoint.noSavedAnswers.not_set_up;
+  if (e.state === "key_rejected") return copy.endpoint.noSavedAnswers.key_rejected;
+  return copy.endpoint.noSavedAnswers.offline;
 }
 
 /**
@@ -509,7 +494,7 @@ async function restoreDrafts(): Promise<void> {
 
 /** Rebuilds the undo list from decisions kept across a restart, oldest first, so Cmd+Z still works. */
 function restoreUndo(): UndoEntry[] {
-  const LABEL: Record<Decision, string> = { approved: "Saved to Drafts", snoozed: "Snoozed", dismissed: "Not a leak", new: "" };
+  const LABEL: Record<Decision, string> = copy.toasts.decision;
   return Object.entries(loadSaved().decisions)
     .filter(([, d]) => d !== "new")
     .sort(([a], [b]) => (state.decidedAt[a] ?? 0) - (state.decidedAt[b] ?? 0))
@@ -604,12 +589,12 @@ export async function approve(findingId: string): Promise<void> {
   if (!finding || (state.decisions[findingId] ?? "new") !== "new") return;
   const shown = withDecision(finding);
   if (finding.action.kind !== "none" && !shown.draft) {
-    showToast("The draft is still being written. Try again in a moment.", false);
+    showToast(copy.toasts.stillWriting, false);
     return;
   }
   if (!shown.draft) {
-    decide(findingId, "approved", { label: "Marked as handled" });
-    showToast(`Marked ${finding.merchant} as handled.`, true);
+    decide(findingId, "approved", { label: copy.toasts.decision.handled });
+    showToast(copy.toasts.markedHandled(finding.merchant), true);
     return;
   }
   // Show it as approved at once; the mailbox save happens behind it. If the
@@ -625,26 +610,26 @@ export async function approve(findingId: string): Promise<void> {
       const decisions = { ...state.decisions };
       delete decisions[findingId];
       set({ decisions, undo: state.undo.filter((u) => u.saving !== saving) });
-      showToast(`Couldn't save the draft: ${error instanceof Error ? error.message : String(error)}`, false);
+      showToast(copy.toasts.couldntSave(error instanceof Error ? error.message : String(error)), false);
       return undefined;
     });
-  decide(findingId, "approved", { saving, label: "Saved to Drafts" });
-  showToast(`Saved to Drafts for ${draft.to.name}. Nothing was sent.`, true);
+  decide(findingId, "approved", { saving, label: copy.toasts.decision.approved });
+  showToast(copy.toasts.savedToDrafts(draft.to.name), true);
   await saving;
 }
 
 export function snooze(findingId: string): void {
   if ((state.decisions[findingId] ?? "new") !== "new") return;
   const f = state.findings.find((x) => x.id === findingId);
-  decide(findingId, "snoozed", { label: "Snoozed" });
-  showToast(`Snoozed ${f?.merchant ?? "it"}. It stays in the list, below the rest.`, true);
+  decide(findingId, "snoozed", { label: copy.toasts.decision.snoozed });
+  showToast(copy.toasts.snoozed(f?.merchant ?? copy.toasts.it), true);
 }
 
 export function dismiss(findingId: string): void {
   if ((state.decisions[findingId] ?? "new") !== "new") return;
   const f = state.findings.find((x) => x.id === findingId);
-  decide(findingId, "dismissed", { label: "Not a leak" });
-  showToast(`Marked ${f?.merchant ?? "it"} as not a leak.`, true);
+  decide(findingId, "dismissed", { label: copy.toasts.decision.dismissed });
+  showToast(copy.toasts.dismissed(f?.merchant ?? copy.toasts.it), true);
 }
 
 /** Puts back the most recent decision (and removes its saved draft, if any). */
@@ -670,7 +655,7 @@ export async function undoLast(): Promise<void> {
   } else decisions[entry.findingId] = entry.before;
   set({ decisions, decidedAt });
   const f = state.findings.find((x) => x.id === entry.findingId);
-  showToast(savedId ? `Undone: the draft for ${f?.merchant} was removed from Drafts.` : `Undone: ${f?.merchant} is back in the list.`, false);
+  showToast(savedId ? copy.toasts.undoneDraft(f?.merchant) : copy.toasts.undone(f?.merchant), false);
 }
 
 export function setEdit(findingId: string, body: string): void {

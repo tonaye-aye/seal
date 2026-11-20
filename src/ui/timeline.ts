@@ -9,6 +9,7 @@ import { addDays, localDate } from "../lib/dates.ts";
 import { parseCents } from "../lib/money.ts";
 import { withDecision, type ScanState } from "../lib/scan-store.ts";
 import { SOON_DAYS, daysUntil, shortDate } from "./format.ts";
+import { copy } from "../copy.ts";
 
 export type TimelineTone =
   /** Linked to something that needs Maya, and soon: amber. */
@@ -144,8 +145,8 @@ export function buildTimeline(scan: ScanState): TimelineEntry[] {
         key: `charge:${u.key}:${u.date}`,
         date: u.date,
         who: name ?? u.name,
-        what: "Expected charge",
-        detail: finding?.title ?? (cleared ? `Checked: ${cleared.why}` : "Same as last time"),
+        what: copy.timeline.expectedCharge,
+        detail: finding?.title ?? (cleared ? copy.timeline.checked(cleared.why) : copy.timeline.sameAsLastTime),
         amountCents: u.amountCents,
         clearedId: cleared?.id,
       },
@@ -164,10 +165,10 @@ export function buildTimeline(scan: ScanState): TimelineEntry[] {
       {
         key: `event:${e.id}`,
         date,
-        who: finding?.merchant ?? "Calendar",
+        who: finding?.merchant ?? copy.timeline.calendar,
         // The amount gets its own column, so it comes out of the words.
         what: amount ? e.title.replace(/[:\s-]*\$[\d,]+\.\d{2}/, "") : e.title,
-        detail: finding ? `Calendar · ${finding.title}` : "From your calendar",
+        detail: finding ? copy.timeline.calendarFor(finding.title) : copy.timeline.fromCalendar,
         amountCents: amount ? (parseCents(amount[0]) ?? undefined) : undefined,
       },
       finding,
@@ -176,23 +177,23 @@ export function buildTimeline(scan: ScanState): TimelineEntry[] {
 
   // 4. Today: what the agent and Maya did.
   if (scan.phase === "scanning") {
-    entries.push({ key: "agent:scanning", date: today, side: "past", who: "Checking now", what: "Reading your bank, email, documents and calendar", tone: "agent", at: scan.startedAt });
+    entries.push({ key: "agent:scanning", date: today, side: "past", who: copy.timeline.checkingNow, what: copy.timeline.checkingNowWhat, tone: "agent", at: scan.startedAt });
   } else if (scan.phase === "done" && scan.result) {
     const open = findings.filter((f) => f.status === "new").length;
     entries.push({
       key: "agent:scan",
       date: today,
       side: "past",
-      who: "Checked everything",
-      what: `Found ${findings.length} to look at, ${scan.cleared.length} that look fine`,
-      detail: open ? `${open} still need you. Nothing was sent or changed.` : "Nothing was sent or changed.",
+      who: copy.timeline.checkedEverything,
+      what: copy.timeline.found(findings.length, scan.cleared.length),
+      detail: open ? copy.timeline.stillNeedYou(open) : copy.timeline.nothingSent,
       at: scan.finishedAt,
       tone: "agent",
     });
   } else if (scan.phase === "error") {
-    entries.push({ key: "agent:error", date: today, side: "past", who: "Check didn't finish", what: scan.error ?? "Something went wrong", at: scan.finishedAt, tone: "agent" });
+    entries.push({ key: "agent:error", date: today, side: "past", who: copy.timeline.didntFinish, what: scan.error ?? copy.timeline.somethingWentWrong, at: scan.finishedAt, tone: "agent" });
   }
-  const DID: Record<string, string> = { approved: "Saved a draft to Drafts", snoozed: "Snoozed", dismissed: "Marked not a leak" };
+  const DID = copy.timeline.did;
   for (const f of findings) {
     if (f.status === "new") continue;
     entries.push({
@@ -200,8 +201,8 @@ export function buildTimeline(scan: ScanState): TimelineEntry[] {
       date: today,
       side: "past",
       who: f.merchant,
-      what: f.status === "approved" && f.draft ? `Saved a draft to ${f.draft.to.name}` : DID[f.status],
-      detail: f.status === "approved" ? "Waiting in Drafts. Nothing was sent." : f.title,
+      what: f.status === "approved" && f.draft ? copy.timeline.savedDraftTo(f.draft.to.name) : DID[f.status],
+      detail: f.status === "approved" ? copy.timeline.waitingInDrafts : f.title,
       at: scan.decidedAt[f.id],
       findingId: f.id,
       tone: "agent",

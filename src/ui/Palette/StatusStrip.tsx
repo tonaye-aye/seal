@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import type { ConnectorStatus } from "../../connectors";
 import { orderedStatuses, reconnectCalendar, useLive } from "../../connectors/live";
 import { startScan } from "../../lib/scan-store";
+import { copy } from "../../copy";
 
 // One chip per data source, showing its live state. Short labels keep the
 // strip calm; the full detail is in each chip's tooltip and screen reader text.
-const LABELS = { bank: "Bank", email: "Email", documents: "Documents", calendar: "Calendar" } as const;
+const LABELS = copy.shared.source;
 
 export const DOT: Record<ConnectorStatus["state"], string> = {
   connecting: "bg-faint motion-safe:animate-pulse",
@@ -30,19 +31,19 @@ export function useTick(active: boolean): number {
 export function stateText(status: ConnectorStatus, now: number): string {
   switch (status.state) {
     case "connecting":
-      return "Connecting";
+      return copy.connector.connecting;
     case "syncing":
-      return "Syncing";
+      return copy.connector.syncing;
     case "retrying": {
       const seconds = Math.max(0, Math.ceil(((status.retryAt ?? now) - now) / 1000));
-      return `Retrying in ${seconds}s`;
+      return copy.connector.retrying(seconds);
     }
     case "ok":
-      return "Up to date";
+      return copy.connector.ok;
     case "needs_reconnect":
-      return "Needs reconnecting";
+      return copy.connector.needsReconnect;
     case "error":
-      return "Couldn't sync";
+      return copy.connector.error;
   }
 }
 
@@ -52,16 +53,16 @@ export function StatusStrip() {
   const now = useTick(statuses.some((s) => s.state === "retrying"));
 
   return (
-    <ul aria-label="Connections" className="flex min-w-0 gap-1">
+    <ul aria-label={copy.footer.connectionsLabel} className="flex min-w-0 gap-1">
       {(["bank", "email", "documents", "calendar"] as const).map((id) => {
         const status = live.statuses[id];
         // Documents can be "up to date" yet slow to hand over each file's text.
         const slow = id === "documents" && live.slowReads;
         const text = slow
-          ? `Slow to respond, ${live.slowReads!.done} read so far`
+          ? copy.connector.slow(live.slowReads!.done)
           : status
             ? stateText(status, now)
-            : "Not connected yet";
+            : copy.connector.notConnectedYet;
         // Only show the state in words when it needs attention or explains a wait.
         const loud = status && (status.state === "retrying" || status.state === "error");
         return (
@@ -80,7 +81,7 @@ export function StatusStrip() {
             )}
             {slow && (
               <>
-                <span className="font-mono text-[10.5px] text-faint">Slow</span>
+                <span className="font-mono text-[10.5px] text-faint">{copy.footer.slowShort}</span>
                 <span className="shimmer h-1.5 w-8 rounded-full" aria-hidden="true" />
               </>
             )}
@@ -91,7 +92,7 @@ export function StatusStrip() {
                 onClick={() => void reconnectCalendar().then(() => startScan())}
                 className="-mr-1 ml-0.5 rounded-full bg-raised px-2 text-[11px] text-text hover:bg-hairline"
               >
-                Reconnect
+                {copy.footer.reconnect}
               </button>
             )}
           </li>

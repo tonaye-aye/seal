@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { isPaletteHidden, onPaletteVisibility } from "../../lib/native";
 import { useScan } from "../../lib/scan-store";
+import { copy } from "../../copy";
 import { nowFrom, type Now } from "../now-state";
 import { Mark } from "./Mark";
 
@@ -210,7 +211,7 @@ export function NowVisual({ still: forceStill = false, fallback = false }: { sti
   }, [now.state, now.urgency]);
 
   const label =
-    now.state === "working" ? "Checking now" : now.state === "needs-you" ? `${now.waiting} waiting for you` : "Nothing waiting";
+    now.state === "working" ? copy.header.now.working : now.state === "needs-you" ? copy.header.now.waiting(now.waiting) : copy.header.now.idle;
 
   return (
     <span

@@ -1,4 +1,5 @@
 import { forwardRef } from "react";
+import { copy } from "../../copy";
 import { Kbd } from "../Kbd";
 
 // The search bar, shared by the list and the timeline. It is not focused on
@@ -6,7 +7,7 @@ import { Kbd } from "../Kbd";
 type Props = { value: string; onChange: (value: string) => void; label?: string; placeholder?: string };
 
 export const CommandBar = forwardRef<HTMLInputElement, Props>(
-  function CommandBar({ value, onChange, label = "Search findings", placeholder = "Search findings by business or problem" }, ref) {
+  function CommandBar({ value, onChange, label = copy.search.findingsLabel, placeholder = copy.search.findingsPlaceholder }, ref) {
     return (
       <div className="px-3 pb-2">
         <label className="flex h-10 items-center gap-2.5 rounded-lg border border-hairline bg-bg/60 px-3 transition-colors duration-(--duration-fast) focus-within:border-amber/50 focus-within:bg-bg/80">

@@ -6,7 +6,9 @@ import { useLive } from "../../connectors/live";
 import { formatAUD } from "../../lib/money";
 import { useScan, type ScanState } from "../../lib/scan-store";
 import { fromSaved, mixedReplay, SavedTag } from "../replay";
-import { KIND_LABEL, SOON_DAYS, daysText, daysUntil, headlineAmount, isUnsure, plural, shortDate } from "../format";
+import { SOON_DAYS, daysUntil, headlineAmount, isUnsure, shortDate } from "../format";
+import { copy } from "../../copy";
+import { KeyText } from "../KeyText";
 import { ApproveIcon, DismissIcon, SnoozeIcon } from "../icons";
 import { Kbd } from "../Kbd";
 import { TraceLines } from "./Trace";
@@ -26,7 +28,7 @@ export function listItems(findings: Finding[], scan: ScanState, query: string): 
   const match = (...texts: string[]) => !q || texts.some((t) => t.toLowerCase().includes(q));
   return [
     ...findings
-      .filter((f) => match(f.merchant, f.title, KIND_LABEL[f.kind]))
+      .filter((f) => match(f.merchant, f.title, copy.shared.kind[f.kind]))
       .map((f): ListItem => ({ type: "finding", key: f.id, finding: f })),
     ...scan.undecided
       .filter((u) => match(u.merchant))
@@ -63,17 +65,17 @@ export function Headline({
     const hitBack = hits.reduce((n, f) => n + (f.amounts.recoverable ?? 0), 0);
     const hitMonthly = hits.reduce((n, f) => n + (f.amounts.perMonth ?? 0), 0);
     const words: string[] = [];
-    if (matches.length === 0) words.push("Try a business, like Skylink, or a problem, like price rise. Esc clears the search");
+    if (matches.length === 0) words.push(copy.list.searchHelp);
     else {
-      words.push(`${hits.length} of the ${open.length} that need you`);
-      if (fine) words.push(`${fine} checked and left alone`);
-      if (hitBack > 0) words.push(`up to ${formatAUD(hitBack)} to save or get back`);
-      if (hitMonthly > 0) words.push(`${formatAUD(hitMonthly)} a month`);
+      words.push(copy.list.searchOfOpen(hits.length, open.length));
+      if (fine) words.push(copy.list.searchCleared(fine));
+      if (hitBack > 0) words.push(copy.list.searchBack(hitBack));
+      if (hitMonthly > 0) words.push(copy.list.searchMonthly(hitMonthly));
     }
     return (
       <ViewHeading
         view="list"
-        title={matches.length ? `${plural(matches.length, "match", "matches")} for "${q}"` : `No matches for "${q}"`}
+        title={matches.length ? copy.search.matches(matches.length, q) : copy.search.noMatches(q)}
         search={search}
       >
         {words.join(", ")}.
@@ -82,19 +84,19 @@ export function Headline({
   }
 
   let title: string;
-  if (findings.length === 0) title = scanning ? "Nothing needs you so far" : "All clear this month";
-  else if (open.length === 0) title = "You've dealt with everything";
+  if (findings.length === 0) title = scanning ? copy.list.nothingSoFar : copy.list.allClear;
+  else if (open.length === 0) title = copy.list.allDealtWith;
   // Kept short on purpose: just how many need attention (deadlines and money are on each row).
-  else title = `${plural(open.length, "thing")} need${open.length === 1 ? "s" : ""} attention`;
+  else title = copy.list.needAttention(open.length);
 
   let line: string | undefined;
-  if (findings.length === 0) line = scanning ? "Findings appear here as soon as each one is checked." : "Nothing looks wrong or unwanted. The ones below were checked and look fine.";
-  else if (open.length === 0) line = "Approved drafts are waiting in your mailbox. Nothing was sent.";
+  if (findings.length === 0) line = scanning ? copy.list.findingsAppear : copy.list.allClearLine;
+  else if (open.length === 0) line = copy.list.allDealtWithLine;
 
   return (
     <ViewHeading view="list" title={title} search={search}>
       {line}
-      {scanning && <span className="text-faint">{line ? " " : ""}Still checking the rest.</span>}
+      {scanning && <span className="text-faint">{line ? " " : ""}{copy.list.stillChecking}</span>}
     </ViewHeading>
   );
 }
@@ -105,18 +107,14 @@ export function FirstRunHint({ onDismiss }: { onDismiss: () => void }) {
   return (
     <div className="mx-3 mb-2 flex items-start justify-between gap-3 rounded-lg border border-amber/25 bg-amber-glow/40 px-3.5 py-2.5 text-[12.5px]">
       <div className="leading-[1.6] text-muted">
-        <p>
-          Move with <Kbd keys={["J"]} /> <Kbd keys={["K"]} />, open one with <Kbd keys={["↵"]} /> to see the evidence and the draft.
-        </p>
-        <p>
-          Approve with <Kbd keys={["A"]} />: it saves the draft to your Drafts folder. Nothing is ever sent.
-        </p>
-        <p>
-          <Kbd keys={["⌘", "Z"]} /> undoes, <Kbd keys={["?"]} /> shows every key.
-        </p>
+        {copy.list.hint.map((line) => (
+          <p key={line}>
+            <KeyText text={line} />
+          </p>
+        ))}
       </div>
       <button type="button" onClick={onDismiss} className="shrink-0 rounded-md px-2 py-1 text-[12px] text-amber hover:bg-amber-glow">
-        Got it
+        {copy.list.hintDismiss}
       </button>
     </div>
   );
@@ -125,9 +123,9 @@ export function FirstRunHint({ onDismiss }: { onDismiss: () => void }) {
 // ---------- Rows ----------
 
 const STATUS_CHIP: Record<Exclude<Finding["status"], "new">, { text: string; className: string }> = {
-  approved: { text: "Draft saved", className: "text-positive border-positive/30" },
-  snoozed: { text: "Snoozed", className: "text-faint border-hairline" },
-  dismissed: { text: "Not a leak", className: "text-faint border-hairline" },
+  approved: { text: copy.shared.decided.approved, className: "text-positive border-positive/30" },
+  snoozed: { text: copy.shared.decided.snoozed, className: "text-faint border-hairline" },
+  dismissed: { text: copy.shared.decided.dismissed, className: "text-faint border-hairline" },
 };
 
 export function DeadlineChip({ date }: { date: string }) {
@@ -138,7 +136,7 @@ export function DeadlineChip({ date }: { date: string }) {
       className={`inline-flex h-5 items-center rounded-full px-2 font-mono text-[10.5px] tabular ${
         soon ? "bg-amber-glow text-amber" : "text-faint"
       }`}
-      title={daysText(days)}
+      title={copy.dates.days(days)}
     >
       {shortDate(date)}
     </span>
@@ -157,7 +155,7 @@ function RowMenu({ finding, onAct, startOpen = false }: { finding: Finding; onAc
   const [open, setOpen] = useState(startOpen);
   const [placement, setPlacement] = useState<"above" | "below">("below");
   const button = useRef<HTMLButtonElement>(null);
-  const approve = finding.draft ? "Approve" : finding.action.kind === "none" ? "Mark handled" : "Approve";
+  const approve = finding.draft ? copy.actions.approve : finding.action.kind === "none" ? copy.actions.markHandled : copy.actions.approve;
   const choose = (action: RowAction) => () => {
     setOpen(false);
     onAct(action);
@@ -170,10 +168,10 @@ function RowMenu({ finding, onAct, startOpen = false }: { finding: Finding; onAc
         type="button"
         tabIndex={-1}
         data-menu-button
-        aria-label={`Quick actions for ${finding.merchant}`}
+        aria-label={copy.list.quickActionsFor(finding.merchant)}
         aria-haspopup="menu"
         aria-expanded={open}
-        title="Quick actions"
+        title={copy.list.quickActions}
         // Keep keyboard focus on the palette, so the keys keep working after a click.
         onMouseDown={(e) => e.preventDefault()}
         onClick={() => {
@@ -188,10 +186,10 @@ function RowMenu({ finding, onAct, startOpen = false }: { finding: Finding; onAc
       >
         <Ellipsis size={15} strokeWidth={1.75} aria-hidden="true" className="block" />
       </button>
-      <Menu open={open} onClose={() => setOpen(false)} align="right" placement={placement} label="Quick actions">
+      <Menu open={open} onClose={() => setOpen(false)} align="right" placement={placement} label={copy.list.quickActions}>
         <MenuItem icon={<ApproveIcon />} label={approve} keys={<Kbd keys={["A"]} />} onSelect={choose("approve")} />
-        <MenuItem icon={<SnoozeIcon />} label="Snooze" keys={<Kbd keys={["S"]} />} onSelect={choose("snooze")} />
-        <MenuItem icon={<DismissIcon />} label="Not a leak" keys={<Kbd keys={["D"]} />} onSelect={choose("dismiss")} />
+        <MenuItem icon={<SnoozeIcon />} label={copy.actions.snooze} keys={<Kbd keys={["S"]} />} onSelect={choose("snooze")} />
+        <MenuItem icon={<DismissIcon />} label={copy.actions.notALeak} keys={<Kbd keys={["D"]} />} onSelect={choose("dismiss")} />
       </Menu>
     </span>
   );
@@ -217,8 +215,8 @@ function FindingRow({ finding, selected }: { finding: Finding; selected: boolean
       ) : (
         <>
           {saved && <SavedTag />}
-          {isUnsure(finding) && <span className="shrink-0 rounded-full border border-amber/30 px-2 py-px text-[11px] text-amber">Not sure</span>}
-          <span className="shrink-0 rounded-full border border-hairline px-2 py-px text-[11px] text-muted">{KIND_LABEL[finding.kind]}</span>
+          {isUnsure(finding) && <span className="shrink-0 rounded-full border border-amber/30 px-2 py-px text-[11px] text-amber">{copy.shared.notSure}</span>}
+          <span className="shrink-0 rounded-full border border-hairline px-2 py-px text-[11px] text-muted">{copy.shared.kind[finding.kind]}</span>
         </>
       )}
       <span className={`w-[78px] shrink-0 text-right font-mono text-[12px] tabular ${done ? "text-faint line-through decoration-faint/60" : ""}`}>
@@ -284,8 +282,7 @@ export function FindingsList({
   const findings = items.flatMap((i) => (i.type === "finding" ? [i.finding] : []));
   const rest = items.filter((i) => i.type !== "finding");
   const missing = Object.values(live.statuses).filter((s) => s && (s.state === "needs_reconnect" || s.state === "error"));
-  const SOURCE_NAMES = { bank: "Bank", email: "Email", documents: "Documents", calendar: "Calendar" } as const;
-  const notConnected = (scan.result?.notConnected ?? []).map((id) => SOURCE_NAMES[id]);
+    const notConnected = (scan.result?.notConnected ?? []).map((id) => copy.shared.source[id]);
   const remaining =
     scan.phase === "scanning" && scan.stage === "judge" && scan.progress ? scan.progress.total - scan.progress.done : undefined;
 
@@ -323,8 +320,8 @@ export function FindingsList({
         <div key={item.key} {...common} className={rowClass(selected)} title={item.error}>
           <span className="size-1.5 shrink-0 rounded-full bg-danger" aria-hidden="true" />
           <span className="w-[132px] shrink-0 truncate font-medium">{item.merchant}</span>
-          <span className="min-w-0 flex-1 truncate text-faint">Couldn't decide this one: the model didn't answer</span>
-          <span className="shrink-0 rounded-full border border-amber/30 px-2 py-px text-[11px] text-amber">Not sure</span>
+          <span className="min-w-0 flex-1 truncate text-faint">{copy.list.undecidedRow}</span>
+          <span className="shrink-0 rounded-full border border-amber/30 px-2 py-px text-[11px] text-amber">{copy.shared.notSure}</span>
         </div>
       );
     return (
@@ -332,7 +329,7 @@ export function FindingsList({
         <span className="size-1.5 shrink-0 rounded-full border border-positive/70" aria-hidden="true" />
         <span className="w-[132px] shrink-0 truncate text-muted">{item.cleared.merchant}</span>
         <span className="min-w-0 flex-1 truncate text-faint">{item.cleared.why}</span>
-        <span className="shrink-0 rounded-full border border-hairline px-2 py-px text-[11px] text-positive/80">Looks fine</span>
+        <span className="shrink-0 rounded-full border border-hairline px-2 py-px text-[11px] text-positive/80">{copy.shared.looksFine}</span>
       </div>
     );
   };
@@ -345,32 +342,31 @@ export function FindingsList({
         {showHint && findings.length > 0 && <FirstRunHint onDismiss={onDismissHint} />}
         {scan.phase === "error" && (
           <p className="mx-3 mb-2 rounded-lg border border-danger/25 bg-danger/[0.07] px-3.5 py-2 text-[12.5px] text-muted">
-            The check stopped early: {scan.error} Press <Kbd keys={["R"]} /> to try again.
+            <KeyText text={copy.list.stoppedEarly} slots={{ error: scan.error }} />
           </p>
         )}
         {notConnected.length > 0 && (
           <p className="mx-3 mb-2 rounded-lg border border-hairline px-3.5 py-2 text-[12.5px] text-muted">
-            {notConnected.join(" and ")} {notConnected.length === 1 ? "wasn't" : "weren't"} connected, so this check didn't look at{" "}
-            {notConnected.length === 1 ? "it" : "them"}. Connect from Connectors at the bottom.
+            {copy.list.notConnected(notConnected)}
           </p>
         )}
         {missing.length > 0 && (
           <p className="mx-3 mb-2 rounded-lg border border-danger/25 bg-danger/[0.07] px-3.5 py-2 text-[12.5px] text-muted">
-            {missing.map((s) => s!.name).join(" and ")} couldn't be read, so this check is missing what's in it. Press <Kbd keys={["R"]} /> to reconnect and check again.
+            <KeyText text={copy.list.couldntRead(missing.map((s) => s!.name))} />
           </p>
         )}
-        <div role="listbox" aria-label="Findings" data-row-list className="flex flex-col px-1.5">
+        <div role="listbox" aria-label={copy.list.label} data-row-list className="flex flex-col px-1.5">
           {findings.length > 0 && findings.map((f) => row({ type: "finding", key: f.id, finding: f }))}
           {remaining !== undefined && remaining > 0 && (
             <div className="flex h-9 items-center gap-2.5 px-2.5 text-[12.5px] text-faint">
               <span className="size-1.5 rounded-full bg-amber/60 motion-safe:animate-pulse" aria-hidden="true" />
-              Still deciding on {plural(remaining, "more")}
+              {copy.list.stillDeciding(remaining)}
               <span className="shimmer ml-1 h-2 flex-1 rounded-full" aria-hidden="true" />
             </div>
           )}
-          {groupTitle(rest.filter((i) => i.type === "undecided").length, "Couldn't decide: check these yourself")}
+          {groupTitle(rest.filter((i) => i.type === "undecided").length, copy.list.undecidedGroup)}
           {rest.filter((i) => i.type === "undecided").map(row)}
-          {groupTitle(rest.filter((i) => i.type === "cleared").length, "Checked and left alone")}
+          {groupTitle(rest.filter((i) => i.type === "cleared").length, copy.list.clearedGroup)}
           {rest.filter((i) => i.type === "cleared").map(row)}
           </div>
       </div>
@@ -397,10 +393,8 @@ export function Scanning({ scan }: { scan: ScanState }) {
       <div className="mb-4 flex items-center gap-3">
         <span className="scan-ring size-8 rounded-full border border-amber/40" aria-hidden="true" />
         <div>
-          <h1 className="text-[17px] font-medium tracking-[-0.015em]">Checking this month's money</h1>
-          <p className="text-[12.5px] text-muted">
-            Reading your bank, email, documents and calendar. Findings appear here as soon as each one is checked.
-          </p>
+          <h1 className="text-[17px] font-medium tracking-[-0.015em]">{copy.list.scanningTitle}</h1>
+          <p className="text-[12.5px] text-muted">{copy.list.scanningLine}</p>
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-hidden pl-1">
@@ -417,9 +411,7 @@ function SlowDocuments() {
   if (!slowReads) return null;
   return (
     <div role="status" className="fade-in mt-3 max-w-[420px] rounded-lg border border-hairline px-3 py-2.5">
-      <p className="text-[12px] text-muted">
-        Documents are slow to respond. {slowReads.done > 0 ? `${slowReads.done} read so far, ` : ""}still waiting on the rest.
-      </p>
+      <p className="text-[12px] text-muted">{copy.list.slowDocuments(slowReads.done)}</p>
       <div className="mt-2 flex flex-col gap-1.5" aria-hidden="true">
         <span className="shimmer h-2 w-3/4 rounded-full" />
         <span className="shimmer h-2 w-1/2 rounded-full" />
@@ -431,7 +423,7 @@ function SlowDocuments() {
 export function AllClear({ checked }: { checked: number }) {
   return (
     <StateFrame
-      title="All clear this month"
+      title={copy.list.allClearTitle}
       icon={
         <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true" className="text-positive">
           <path d="m5.5 10.5 3 3 6-7" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
@@ -439,8 +431,7 @@ export function AllClear({ checked }: { checked: number }) {
       }
     >
       <p>
-        Looked closely at {plural(checked, "charge")} and nothing looks wrong or unwanted. It checks again next month, or press{" "}
-        <Kbd keys={["R"]} /> to check now.
+        <KeyText text={copy.list.allClearBody(checked)} />
       </p>
     </StateFrame>
   );
@@ -449,7 +440,7 @@ export function AllClear({ checked }: { checked: number }) {
 export function ScanError({ message }: { message: string }) {
   return (
     <StateFrame
-      title="The check didn't finish"
+      title={copy.list.errorTitle}
       icon={
         <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true" className="text-danger">
           <path d="M10 6v5M10 14v.01" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -458,7 +449,7 @@ export function ScanError({ message }: { message: string }) {
     >
       <p>{message}</p>
       <p className="mt-2 text-faint">
-        Press <Kbd keys={["R"]} /> to try again. Nothing was sent or changed.
+        <KeyText text={copy.list.errorHint} />
       </p>
     </StateFrame>
   );
@@ -466,9 +457,9 @@ export function ScanError({ message }: { message: string }) {
 
 export function NotChecked() {
   return (
-    <StateFrame title="Not checked yet" icon={<span className="size-2 rounded-full bg-faint" />}>
+    <StateFrame title={copy.list.notCheckedTitle} icon={<span className="size-2 rounded-full bg-faint" />}>
       <p>
-        Press <Kbd keys={["R"]} /> to check your bank, email, documents and calendar for charges that look wrong or unwanted.
+        <KeyText text={copy.list.notCheckedBody} />
       </p>
     </StateFrame>
   );

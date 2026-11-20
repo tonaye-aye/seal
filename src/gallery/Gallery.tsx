@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { Corpus } from "../agent/corpus";
 import { formatAUD } from "../lib/money";
+import { copy } from "../copy";
 import { LivePreviewProvider } from "../connectors/live";
 import { TOAST_MS, rankedFindings, ScanPreviewProvider, type ScanState } from "../lib/scan-store";
 import { KeyButton, SwitchButton } from "../ui/Kbd";
@@ -245,7 +246,7 @@ function PaletteFrame({
         onOpen={noop}
         scan={shownScan}
         query={query}
-        search={<CommandBar value={query} onChange={noop} label="Search the timeline" placeholder="Search the timeline by business or date" />}
+        search={<CommandBar value={query} onChange={noop} label={copy.search.timelineLabel} placeholder={copy.search.timelinePlaceholder} />}
       />
     );
   } else if (nothingYet && shownScan.phase === "scanning") main = <Scanning scan={shownScan} />;
@@ -276,11 +277,11 @@ function PaletteFrame({
   const action = setup ? undefined : (
     <span className="inline-flex">{
     view === "list" && !nothingYet ? (
-      <SwitchButton keys={["⌘", "↵"]} label="View timeline" icon={<TimelineIcon />} mouse={mouse} onClick={noop} />
+      <SwitchButton keys={["⌘", "↵"]} label={copy.header.viewTimeline} icon={<TimelineIcon />} mouse={mouse} onClick={noop} />
     ) : view === "timeline" ? (
-      <SwitchButton keys={["Esc"]} label="View list" icon={<ListIcon />} mouse={mouse} onClick={noop} />
+      <SwitchButton keys={["Esc"]} label={copy.header.viewList} icon={<ListIcon />} mouse={mouse} onClick={noop} />
     ) : view === "detail" ? (
-      <SwitchButton keys={["Esc"]} label="Back" icon={<BackIcon />} mouse={mouse} onClick={noop} />
+      <SwitchButton keys={["Esc"]} label={copy.header.back} icon={<BackIcon />} mouse={mouse} onClick={noop} />
     ) : undefined}</span>
   );
 
@@ -771,18 +772,18 @@ export function Gallery() {
                 <Strip>
                   <Labelled label="Keyboard">
                     <div className="flex items-center gap-6 text-[12px]">
-                      <KeyButton keys={["A"]} label="Approve" icon={<ApproveIcon />} tone="amber" onClick={noop} />
-                      <KeyButton keys={["S"]} label="Snooze" icon={<SnoozeIcon />} onClick={noop} />
+                      <KeyButton keys={["A"]} label={copy.actions.approve} icon={<ApproveIcon />} tone="amber" onClick={noop} />
+                      <KeyButton keys={["S"]} label={copy.actions.snooze} icon={<SnoozeIcon />} onClick={noop} />
                       <KeyButton keys={["T"]} label="Trace" icon={<TraceIcon />} tone="faint" onClick={noop} />
-                      <KeyButton keys={["R"]} label="Check in progress" icon={<CheckNowIcon />} onClick={noop} disabled />
+                      <KeyButton keys={["R"]} label={copy.demo.checkInProgress} icon={<CheckNowIcon />} onClick={noop} disabled />
                     </div>
                   </Labelled>
                   <Labelled label="Mouse">
                     <div className="flex items-center gap-6 text-[12px]">
-                      <KeyButton keys={["A"]} label="Approve" icon={<ApproveIcon />} tone="amber" onClick={noop} mouse />
-                      <KeyButton keys={["S"]} label="Snooze" icon={<SnoozeIcon />} onClick={noop} mouse />
+                      <KeyButton keys={["A"]} label={copy.actions.approve} icon={<ApproveIcon />} tone="amber" onClick={noop} mouse />
+                      <KeyButton keys={["S"]} label={copy.actions.snooze} icon={<SnoozeIcon />} onClick={noop} mouse />
                       <KeyButton keys={["T"]} label="Trace" icon={<TraceIcon />} tone="faint" onClick={noop} mouse />
-                      <KeyButton keys={["R"]} label="Check in progress" icon={<CheckNowIcon />} onClick={noop} mouse disabled />
+                      <KeyButton keys={["R"]} label={copy.demo.checkInProgress} icon={<CheckNowIcon />} onClick={noop} mouse disabled />
                     </div>
                   </Labelled>
                 </Strip>
@@ -791,16 +792,16 @@ export function Gallery() {
                 <Strip>
                   <Labelled label="Keyboard">
                     <div className="flex items-center gap-4">
-                      <SwitchButton keys={["⌘", "↵"]} label="View timeline" icon={<TimelineIcon />} mouse={false} onClick={noop} />
-                      <SwitchButton keys={["Esc"]} label="View list" icon={<ListIcon />} mouse={false} onClick={noop} />
-                      <SwitchButton keys={["Esc"]} label="Back" icon={<BackIcon />} mouse={false} onClick={noop} />
+                      <SwitchButton keys={["⌘", "↵"]} label={copy.header.viewTimeline} icon={<TimelineIcon />} mouse={false} onClick={noop} />
+                      <SwitchButton keys={["Esc"]} label={copy.header.viewList} icon={<ListIcon />} mouse={false} onClick={noop} />
+                      <SwitchButton keys={["Esc"]} label={copy.header.back} icon={<BackIcon />} mouse={false} onClick={noop} />
                     </div>
                   </Labelled>
                   <Labelled label="Mouse">
                     <div className="flex items-center gap-4">
-                      <SwitchButton keys={["⌘", "↵"]} label="View timeline" icon={<TimelineIcon />} mouse onClick={noop} />
-                      <SwitchButton keys={["Esc"]} label="View list" icon={<ListIcon />} mouse onClick={noop} />
-                      <SwitchButton keys={["Esc"]} label="Back" icon={<BackIcon />} mouse onClick={noop} />
+                      <SwitchButton keys={["⌘", "↵"]} label={copy.header.viewTimeline} icon={<TimelineIcon />} mouse onClick={noop} />
+                      <SwitchButton keys={["Esc"]} label={copy.header.viewList} icon={<ListIcon />} mouse onClick={noop} />
+                      <SwitchButton keys={["Esc"]} label={copy.header.back} icon={<BackIcon />} mouse onClick={noop} />
                     </div>
                   </Labelled>
                 </Strip>
