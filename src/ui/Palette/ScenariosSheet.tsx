@@ -1,6 +1,7 @@
 import type { ScenarioId } from "../../connectors";
 import { toggleScenario, useLive, useScenarios } from "../../connectors/live";
 import { useScan } from "../../lib/scan-store";
+import { CheckNowIcon, CloseIcon, ResetIcon } from "../icons";
 import { Kbd, KeyButton } from "../Kbd";
 
 // The hidden demo panel (Cmd+Shift+D): switches that make the fake connectors
@@ -14,7 +15,7 @@ export const SCENARIOS: { id: ScenarioId; key: string; name: string; short: stri
     name: "Calendar sign-in expires",
     short: "Calendar signed out",
     simulates: "Every calendar call fails with 401, like an expired token.",
-    expect: "the Calendar chip at the bottom turns red with Reconnect, and the findings list says the calendar couldn't be read. Press R again to reconnect.",
+    expect: "Connectors at the bottom turns red with a 1 (open it for Reconnect), and the findings list says the calendar couldn't be read. Press R again to reconnect.",
   },
   {
     id: "bank_rate_limit",
@@ -22,7 +23,7 @@ export const SCENARIOS: { id: ScenarioId; key: string; name: string; short: stri
     name: "Bank rate limit",
     short: "Bank rate limit",
     simulates: "Every 4th transactions call is refused with 429, asking to wait 3 seconds.",
-    expect: 'once per check, the Bank chip at the bottom counts down "Retrying in 3s" and the checking screen says the bank asked us to slow down. It carries on by itself.',
+    expect: 'once per check, Connectors at the bottom counts down "Retrying in 3s" and the checking screen says the bank asked us to slow down. It carries on by itself.',
   },
   {
     id: "slow_documents",
@@ -30,11 +31,22 @@ export const SCENARIOS: { id: ScenarioId; key: string; name: string; short: stri
     name: "Slow documents",
     short: "Slow documents",
     simulates: "Each document read takes 4 to 6 seconds.",
-    expect: "for about 15 s while documents are read, a loading card under the steps on the checking screen, and \"Slow\" with a shimmer on the Documents chip at the bottom.",
+    expect: "for about 15 s while documents are read, a loading card under the steps on the checking screen; Connectors at the bottom stays amber, and its menu says Documents are slow to respond.",
   },
 ];
 
-export function ScenariosSheet({ mouse, onClose, onCheck }: { mouse: boolean; onClose: () => void; onCheck: () => void }) {
+export function ScenariosSheet({
+  mouse,
+  onClose,
+  onCheck,
+  onReset,
+}: {
+  mouse: boolean;
+  onClose: () => void;
+  onCheck: () => void;
+  /** Starts the first-run onboarding again from an empty account. */
+  onReset: () => void;
+}) {
   const on = useScenarios();
   const { pending } = useLive();
   const scan = useScan();
@@ -94,6 +106,18 @@ export function ScenariosSheet({ mouse, onClose, onCheck }: { mouse: boolean; on
           })}
         </ul>
 
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-hairline px-3 py-2.5">
+          <span className="min-w-0">
+            <span className="block text-[13px] text-text">Start onboarding again</span>
+            <span className="mt-0.5 block text-[12px] text-muted">
+              {checking
+                ? "Wait for the check to finish first."
+                : "Forgets decisions, results and connections, then shows the welcome. Simulated failures stay as they are."}
+            </span>
+          </span>
+          <KeyButton keys={["O"]} label="Reset onboarding" icon={<ResetIcon />} disabled={checking} mouse={mouse} onClick={onReset} />
+        </div>
+
         <footer className="mt-4 flex min-h-7 items-center justify-between gap-3 text-[12px]">
           <p role="status" className="text-muted">
             {checking
@@ -106,12 +130,13 @@ export function ScenariosSheet({ mouse, onClose, onCheck }: { mouse: boolean; on
             <KeyButton
               keys={["R"]}
               label={checking ? "Check in progress" : "Check now"}
+              icon={<CheckNowIcon />}
               tone={pending.length > 0 ? "amber" : "muted"}
               disabled={checking}
               mouse={mouse}
               onClick={onCheck}
             />
-            <KeyButton keys={["Esc"]} label="Close" tone="faint" mouse={mouse} onClick={onClose} />
+            <KeyButton keys={["Esc"]} label="Close" icon={<CloseIcon />} tone="faint" mouse={mouse} onClick={onClose} />
           </div>
         </footer>
       </section>

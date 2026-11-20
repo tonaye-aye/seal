@@ -1,4 +1,5 @@
 import { TOAST_MS, dismissToast, undoLast, useScan } from "../../lib/scan-store";
+import { UndoIcon } from "../icons";
 import { Kbd } from "../Kbd";
 
 // The result of an action, with Undo for 10 seconds. The thin bar shows the
@@ -9,8 +10,9 @@ export function Toast() {
   return (
     <div
       key={toast.id}
+      data-coach="toast"
       role="status"
-      className="toast-in absolute bottom-[88px] left-1/2 z-20 flex w-max max-w-[560px] -translate-x-1/2 items-center gap-3 overflow-hidden rounded-lg border border-hairline bg-raised py-2 pr-2 pl-3.5 shadow-[0_8px_24px_rgb(0_0_0/0.35)]"
+      className={`toast-in absolute bottom-[88px] left-1/2 z-20 flex w-max max-w-[560px] -translate-x-1/2 items-center gap-3 overflow-hidden rounded-lg border border-hairline bg-raised py-2 pr-2 pl-3.5 shadow-[0_8px_24px_rgb(0_0_0/0.35)]`}
     >
       <span className="text-[12.5px]">{toast.text}</span>
       {toast.undoable ? (
@@ -19,6 +21,7 @@ export function Toast() {
           onClick={() => void undoLast()}
           className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-amber hover:bg-hairline"
         >
+          <UndoIcon />
           Undo <Kbd keys={["⌘", "Z"]} />
         </button>
       ) : (

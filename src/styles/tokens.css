@@ -239,3 +239,77 @@ textarea {
     filter: drop-shadow(0 0 2px var(--color-amber-glow));
   }
 }
+
+/* Onboarding: the training-complete mark's plain fallback when WebGL is unavailable. */
+.celebration-fallback {
+  display: grid;
+  filter: drop-shadow(0 0 10px var(--color-amber));
+  animation: fade-in var(--duration-base) var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  .celebration-fallback {
+    animation: none;
+  }
+}
+
+/* The palette while another app has focus (it stays on screen during onboarding): dimmed, like an inactive window. */
+.palette-inactive {
+  opacity: 0.78;
+  filter: saturate(0.5);
+}
+.palette-enter {
+  transition:
+    opacity var(--duration-base) var(--ease-out),
+    filter var(--duration-base) var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  .palette-enter {
+    transition: none;
+  }
+}
+
+/* Onboarding: the spotlight's cut-out glides to each new target. */
+.spotlight-hole {
+  transition:
+    left var(--duration-base) var(--ease-out),
+    top var(--duration-base) var(--ease-out),
+    width var(--duration-base) var(--ease-out),
+    height var(--duration-base) var(--ease-out);
+}
+/* Onboarding: a success tick pops in. */
+@keyframes tick-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+.tick-in {
+  animation: tick-in var(--duration-base) var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  .spotlight-hole,
+  .tick-in {
+    transition: none;
+    animation: none;
+  }
+}
+
+/* Onboarding: the tip's key caps light up when the key is used. */
+.coach-flash kbd {
+  border-color: var(--color-amber);
+  background: var(--color-amber);
+  color: var(--color-bg);
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+/* Onboarding: the footer's progress bar fills smoothly. */
+.onboarding-fill {
+  transition: width 400ms var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-fill {
+    transition: none;
+  }
+}

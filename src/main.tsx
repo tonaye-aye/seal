@@ -7,6 +7,26 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { isPaletteHidden } from "./lib/native";
 import { getScan, startBackgroundChecks, startScan } from "./lib/scan-store";
 import { getConnectors } from "./connectors/live";
+import { launchFlags, showPalette } from "./lib/native";
+import { getOnboarding, onboardingDone, resetOnboarding, resumeOnboarding } from "./lib/onboarding";
+
+/**
+ * At launch: after onboarding, run the monthly check straight away so the
+ * findings are ready (or well on the way) by the time the palette is first
+ * summoned. Before that, pick onboarding up where it was left and show the
+ * palette, so the welcome is waiting. LIFE_ONBOARDING=1 (desktop) or
+ * ?onboarding (browser) starts onboarding again from an empty account.
+ */
+async function boot() {
+  const flags = await launchFlags().catch(() => ({ onboarding: false }));
+  if (flags.onboarding) await resetOnboarding();
+  if (onboardingDone()) {
+    void startScan();
+    return;
+  }
+  resumeOnboarding();
+  showPalette();
+}
 
 const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
 
@@ -50,9 +70,7 @@ if (import.meta.env.DEV) {
 }
 
 if (!gallery) {
-  // Run the monthly check as soon as the app starts, so the findings are ready
-  // (or well on the way) by the time the palette is first summoned.
-  void startScan();
+  void boot();
 
   // Then check again every 30 minutes while the app sits in the menu bar
   // (only while the palette is hidden, so results never change under Maya).
@@ -67,6 +85,8 @@ if (!gallery) {
       checkInBackground: () => startScan({ background: true }),
       state: getScan,
       drafts: async () => (await getConnectors()).email.listDrafts(),
+      resetOnboarding,
+      onboarding: getOnboarding,
     };
   }
 

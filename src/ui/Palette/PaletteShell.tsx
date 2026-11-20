@@ -8,6 +8,8 @@ type Props = Omit<React.HTMLAttributes<HTMLDivElement>, "children"> & {
   header: React.ReactNode;
   /** Shows the "Replay mode" banner under the top bar. */
   replay?: boolean;
+  /** Another one-line note under the top bar (onboarding: practice, first check). */
+  banner?: React.ReactNode;
   /** What fills the middle (a view, plus the trace drawer when open). */
   children: React.ReactNode;
   /** The action bar or timeline bar above the footer. */
@@ -18,7 +20,7 @@ type Props = Omit<React.HTMLAttributes<HTMLDivElement>, "children"> & {
 };
 
 export const PaletteShell = forwardRef<HTMLDivElement, Props>(function PaletteShell(
-  { header, replay, children, bar, footer, overlay, className = "", ...rest },
+  { header, replay, banner, children, bar, footer, overlay, className = "", ...rest },
   ref,
 ) {
   return (
@@ -31,6 +33,11 @@ export const PaletteShell = forwardRef<HTMLDivElement, Props>(function PaletteSh
       {replay && (
         <p role="status" className="mx-3 mb-2 truncate rounded-md border border-amber/25 bg-amber-glow/30 px-3 py-1 text-[11.5px] text-muted">
           <span className="font-medium text-amber">Replay mode.</span> Some answers are saved replies from an earlier run, not live from the model.
+        </p>
+      )}
+      {banner && (
+        <p role="status" className="mx-3 mb-2 truncate rounded-md border border-amber/25 bg-amber-glow/30 px-3 py-1 text-[11.5px] text-muted">
+          {banner}
         </p>
       )}
       <div className="h-px shrink-0 bg-hairline" />

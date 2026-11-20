@@ -135,10 +135,33 @@ export async function syncAll(
   connectors: Connectors,
   onStatus: (status: ConnectorStatus) => void = () => {},
 ): Promise<SyncSnapshot> {
+  return syncSome(connectors, ["bank", "email", "documents", "calendar"], onStatus);
+}
+
+/**
+ * Syncs one connector on its own, exactly as syncAll would. Used when Maya
+ * connects her sources one at a time on first run.
+ */
+export async function syncOne(
+  connectors: Connectors,
+  id: ConnectorId,
+  onStatus: (status: ConnectorStatus) => void = () => {},
+): Promise<SyncSnapshot> {
+  return syncSome(connectors, [id], onStatus);
+}
+
+/** Syncs just the given connectors, the way syncAll does (used when only some are connected). */
+export async function syncSome(
+  connectors: Connectors,
+  ids: ConnectorId[],
+  onStatus: (status: ConnectorStatus) => void = () => {},
+): Promise<SyncSnapshot> {
   const snapshot: SyncSnapshot = { failed: {} };
   const today = localDate(now());
 
   async function run(id: ConnectorId, work: (report: (s: Partial<ConnectorStatus>) => void) => Promise<number>) {
+    // Only the connectors asked for are read.
+    if (!ids.includes(id)) return;
     const entry = connectors.runtime.manifest.connectors.find((c) => c.id === id)!;
     let status: ConnectorStatus = { id, name: entry.name, state: "connecting", lastSyncedAt: entry.lastSyncedAt };
     const report = (change: Partial<ConnectorStatus>) => {

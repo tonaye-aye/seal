@@ -7,6 +7,7 @@ import { createContext, useContext, useSyncExternalStore } from "react";
 import {
   createConnectors,
   Scenarios,
+  syncOne,
   type ConnectorStatus,
   type Connectors,
   type ScenarioId,
@@ -145,6 +146,22 @@ export function setConnectorStatus(status: ConnectorStatus): void {
   const pending =
     status.state === "connecting" ? state.pending.filter((id) => SCENARIO_CONNECTOR[id] !== status.id) : state.pending;
   setState({ statuses: { ...state.statuses, [status.id]: status }, pending });
+}
+
+/**
+ * Connects one source on first run: a real read of that connector (real
+ * delays, and any failure switched on in the demo panel), shown on its chip.
+ * Resolves with how it ended.
+ */
+export async function connectOne(id: ConnectorId): Promise<ConnectorStatus | undefined> {
+  const c = await getConnectors();
+  await syncOne(c, id, setConnectorStatus);
+  return state.statuses[id];
+}
+
+/** Forgets every source's state, so the chips read "Not connected yet" again (Reset onboarding). */
+export function forgetConnections(): void {
+  setState({ statuses: {}, slowReads: undefined });
 }
 
 /** Signs the calendar back in. The caller then runs the check again. */

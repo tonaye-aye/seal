@@ -25,6 +25,7 @@ const GROUPS: { title: string; keys: [string[], string][] }[] = [
       [["T"], "Show what the agent did"],
       [["R"], "Check again (reconnects first)"],
       [["Esc"], "Back, then close"],
+      [["⌘", ","], "Settings"],
       [["?"], "This sheet"],
     ],
   },
