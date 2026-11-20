@@ -6,8 +6,8 @@ import { forwardRef } from "react";
 
 type Props = Omit<React.HTMLAttributes<HTMLDivElement>, "children"> & {
   header: React.ReactNode;
-  /** Shows the "Replay mode" banner under the top bar. */
-  replay?: boolean;
+  /** The "Replay mode" banner under the top bar (src/ui/replay.tsx says what it reads). */
+  replay?: React.ReactNode;
   /** Another one-line note under the top bar (onboarding: practice, first check). */
   banner?: React.ReactNode;
   /** What fills the middle (a view, plus the trace drawer when open). */
@@ -32,7 +32,7 @@ export const PaletteShell = forwardRef<HTMLDivElement, Props>(function PaletteSh
       {header}
       {replay && (
         <p role="status" className="mx-3 mb-2 truncate rounded-md border border-amber/25 bg-amber-glow/30 px-3 py-1 text-[11.5px] text-muted">
-          <span className="font-medium text-amber">Replay mode.</span> Some answers are saved replies from an earlier run, not live from the model.
+          {replay}
         </p>
       )}
       {banner && (

@@ -9,6 +9,7 @@ import { KIND_LABEL, SOON_DAYS, daysText, daysUntil, figureValue, isUnsure, shor
 import { ApproveIcon, CheckNowIcon, DismissIcon, EditIcon, OpenIcon, PaneIcon, SnoozeIcon, UndoIcon } from "../icons";
 import { Kbd, KeyButton, KeyHint } from "../Kbd";
 import { ViewHeading } from "./ViewHeading";
+import { SavedNote } from "../replay";
 
 // One finding, opened: why it was flagged, the evidence trail (cited items
 // first) on the left, and on the right the drafted fix with the figures code
@@ -290,6 +291,7 @@ function DraftPane({
           </div>
         ))}
       </dl>
+      <SavedNote finding={finding} />
       </div>
     </div>
   );

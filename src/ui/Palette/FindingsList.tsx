@@ -4,7 +4,8 @@ import { Menu, MenuItem } from "./Menu";
 import type { Cleared, Finding } from "../../agent/pipeline";
 import { useLive } from "../../connectors/live";
 import { formatAUD } from "../../lib/money";
-import type { ScanState } from "../../lib/scan-store";
+import { useScan, type ScanState } from "../../lib/scan-store";
+import { fromSaved, mixedReplay, SavedTag } from "../replay";
 import { KIND_LABEL, SOON_DAYS, daysText, daysUntil, headlineAmount, isUnsure, plural, shortDate } from "../format";
 import { ApproveIcon, DismissIcon, SnoozeIcon } from "../icons";
 import { Kbd } from "../Kbd";
@@ -200,6 +201,8 @@ function RowMenu({ finding, onAct, startOpen = false }: { finding: Finding; onAc
 function FindingRow({ finding, selected }: { finding: Finding; selected: boolean }) {
   const amount = headlineAmount(finding);
   const done = finding.status !== "new";
+  // Only a check that is part live, part saved labels rows; otherwise the banner says it.
+  const saved = mixedReplay(useScan()) && fromSaved(finding);
   return (
     <>
       <span
@@ -214,6 +217,7 @@ function FindingRow({ finding, selected }: { finding: Finding; selected: boolean
         </span>
       ) : (
         <>
+          {saved && <SavedTag />}
           {isUnsure(finding) && <span className="shrink-0 rounded-full border border-amber/30 px-2 py-px text-[11px] text-amber">Not sure</span>}
           <span className="shrink-0 rounded-full border border-hairline px-2 py-px text-[11px] text-muted">{KIND_LABEL[finding.kind]}</span>
         </>
