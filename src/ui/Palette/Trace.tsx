@@ -46,7 +46,7 @@ export function TraceDrawer({ lines, onClose }: { lines: TraceLine[]; onClose: (
     >
       <div className="flex h-9 shrink-0 items-center justify-between px-4">
         <span className="text-meta font-medium">{copy.trace.title}</span>
-        <button type="button" onClick={onClose} className="text-meta text-faint hover:text-muted">
+        <button type="button" onClick={onClose} className="press cursor-pointer text-meta text-faint hover:text-muted">
           {copy.trace.close} <span className="font-mono">T</span>
         </button>
       </div>

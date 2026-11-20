@@ -30,6 +30,7 @@ import { EndpointPreviewProvider, ModelDemoPreviewProvider, type EndpointStatus 
 import { ModelChip } from "../ui/Palette/ModelChip";
 import { PreviewLayers, Tip } from "../ui/layers";
 import { Settings } from "lucide-react";
+import { MotionFreeze, type Freeze } from "../ui/motion";
 
 // Dev only (#/gallery): every palette state drawn from fixed sample data, so
 // the visual system can be reviewed without running a scan. It draws the real
@@ -341,6 +342,42 @@ function PaletteFrame({
   );
 }
 
+// ---------- Motion, stopped partway ----------
+
+/** Every motion in the gallery shows its end state at once (the frames are pictures). */
+const END: Freeze = { flip: 1, glide: 1, count: 1 };
+
+/**
+ * A palette frame that draws `before`, then switches to `after` on the next
+ * frame, with the motion that switch starts stopped at `at` (src/ui/motion.ts,
+ * MotionFreeze). It replays each time the frame scrolls back into view.
+ */
+function Midway({ at, before, after }: { at: Freeze; before: FrameProps; after: FrameProps }) {
+  const [switched, setSwitched] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setSwitched(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  return (
+    <MotionFreeze.Provider value={{ ...END, ...at }}>
+      <PaletteFrame {...(switched ? after : before)} />
+    </MotionFreeze.Provider>
+  );
+}
+
+/** Shows its buttons held down (the press utility's data-pressed look). */
+function Pressed({ children }: { children: React.ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    box.current?.querySelectorAll<HTMLElement>(".press").forEach((el) => (el.dataset.pressed = ""));
+  }, []);
+  return (
+    <div ref={box} className="flex items-center gap-6">
+      {children}
+    </div>
+  );
+}
+
 // ---------- Page layout ----------
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
@@ -387,6 +424,7 @@ const SECTIONS = [
   ["list", "List"],
   ["finding", "Finding"],
   ["timeline", "Timeline"],
+  ["motion", "Motion"],
   ["states", "Scan states"],
   ["overlays", "Overlays"],
   ["model", "Model endpoint"],
@@ -405,12 +443,16 @@ export function Gallery() {
   }, []);
 
   const s = scanSamples(corpus);
+  // The top finding, and the list once it is approved (for the motion stills).
+  const [top, second] = rankedFindings(s.done);
+  const approvedTop: ScanState = { ...s.done, decisions: { ...s.done.decisions, [top.id]: "approved" } };
   const now = nowSamples(corpus);
   const o = onboardingSample;
 
   return (
     // Menus, tooltips and sheets are drawn as still pictures here: open, non-modal, never taking focus.
     <PreviewLayers>
+    <MotionFreeze.Provider value={END}>
     <Scroller.Provider value={scroller}>
       <div ref={setScroller} className="h-full overflow-y-auto bg-bg text-text">
         <div className="mx-auto flex max-w-[1240px] gap-10 px-8 py-10">
@@ -526,6 +568,30 @@ export function Gallery() {
               </Shot>
               <Shot title="Timeline search, no matches">
                 <PaletteFrame scan={s.done} view="timeline" query="plumber" />
+              </Shot>
+            </Section>
+
+            <Section id="motion" title="Motion">
+              <Shot title="Approving a row, halfway" note="A: the row fades out where it was, the rows below slide up, it fades in with the decided rows (also S and D)">
+                <Midway at={{ flip: 0.5 }} before={{ scan: s.done, selected: top.id }} after={{ scan: approvedTop, selected: second.id }} />
+              </Shot>
+              <Shot title="Undo, halfway" note="⌘Z: the rows below make room and the row fades back into its place">
+                <Midway at={{ flip: 0.5 }} before={{ scan: approvedTop, selected: second.id }} after={{ scan: s.done, selected: second.id }} />
+              </Shot>
+              <Shot title="Selection gliding, halfway" note="J from the first row: the highlight slides; a quick run of J keeps up">
+                <Midway at={{ glide: 0.5 }} before={{ scan: s.done, selected: top.id }} after={{ scan: s.done, selected: second.id }} />
+              </Shot>
+              <Shot title="Amounts counting up" note="The first time a finding opens; also list rows and the timeline total. Stopped at 30%">
+                <Midway at={{ count: 0.3 }} before={{ scan: s.done, view: "detail", selected: top.id }} after={{ scan: s.done, view: "detail", selected: top.id }} />
+              </Shot>
+              <Shot title="Pressed" note="Buttons give a little while held down; rows dim instead. Changing view crossfades (no still)" height={110}>
+                <Strip>
+                  <Pressed>
+                    <KeyButton keys={["A"]} label={copy.actions.approveToDrafts} icon={<ApproveIcon />} tone="primary" onClick={noop} />
+                    <KeyButton keys={["S"]} label={copy.actions.snooze} icon={<SnoozeIcon />} onClick={noop} />
+                    <SwitchButton keys={["⌘", "↵"]} label={copy.header.viewTimeline} icon={<TimelineIcon />} mouse={false} onClick={noop} />
+                  </Pressed>
+                </Strip>
               </Shot>
             </Section>
 
@@ -873,6 +939,7 @@ export function Gallery() {
         </div>
       </div>
     </Scroller.Provider>
+    </MotionFreeze.Provider>
     </PreviewLayers>
   );
 }

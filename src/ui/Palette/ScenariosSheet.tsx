@@ -223,7 +223,7 @@ export function SimulatingChip({ onClick }: { onClick: () => void }) {
         tabIndex={-1}
         onMouseDown={(e) => e.preventDefault()}
         onClick={onClick}
-        className="fade-in flex h-6 min-w-0 cursor-pointer items-center gap-1.5 truncate rounded-full border border-info/30 px-2.5 text-meta text-info hover:bg-info/10"
+        className="press fade-in flex h-6 min-w-0 cursor-pointer items-center gap-1.5 truncate rounded-full border border-info/30 px-2.5 text-meta text-info hover:bg-info/10"
       >
         <span className="size-1.5 shrink-0 rounded-full bg-info" aria-hidden="true" />
         <span className="truncate">{DEMO.simulating(names[0], names.length - 1)}</span>

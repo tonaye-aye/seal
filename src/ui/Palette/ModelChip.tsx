@@ -81,7 +81,7 @@ export function ModelChip({ defaultOpen = false }: { defaultOpen?: boolean }) {
             <button
               type="button"
               tabIndex={-1}
-              className={`fade-in flex h-6 min-w-0 cursor-pointer items-center gap-1.5 truncate rounded-full border px-2.5 text-meta ${tone}`}
+              className={`press fade-in flex h-6 min-w-0 cursor-pointer items-center gap-1.5 truncate rounded-full border px-2.5 text-meta ${tone}`}
             >
               <Cpu size={12} strokeWidth={1.75} aria-hidden="true" className="shrink-0" />
               <span className="truncate">{chip.text}</span>

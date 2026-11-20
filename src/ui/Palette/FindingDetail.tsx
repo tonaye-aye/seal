@@ -13,6 +13,7 @@ import { ViewHeading } from "./ViewHeading";
 import { DEADLINE_TONE } from "./FindingsList";
 import { SavedNote } from "../replay";
 import { Tip } from "../layers";
+import { CountUp } from "../CountUp";
 
 // One finding, opened: why it was flagged, the evidence trail (cited items
 // first) on the left, and on the right the drafted fix with the figures code
@@ -85,7 +86,7 @@ function EvidenceItem({
     <li
       aria-selected={open}
       onClick={onOpen}
-      className={`cursor-pointer rounded-md border px-2.5 py-2 ${open ? "border-hairline bg-raised" : "border-transparent hover:bg-surface"}`}
+      className={`row-press cursor-pointer rounded-md border px-2.5 py-2 transition-colors duration-(--duration-fast) ${open ? "border-hairline bg-raised" : "border-transparent hover:bg-surface"}`}
     >
       <div className="flex items-baseline gap-2">
         <span className="w-3 shrink-0 text-center font-mono text-label text-faint" aria-hidden="true">
@@ -251,11 +252,11 @@ function DraftPane({
                 <span className="text-faint">{copy.detail.editsNotChecked}</span>
                 <span className="flex gap-3">
                   {edited && (
-                    <button type="button" className="text-faint hover:text-muted" onClick={() => resetEdit(finding.id)}>
+                    <button type="button" className="press -mx-1 cursor-pointer rounded-md px-1 text-faint hover:bg-raised hover:text-muted" onClick={() => resetEdit(finding.id)}>
                       {copy.detail.revert}
                     </button>
                   )}
-                  <button type="button" className="flex items-center gap-1.5 text-accent" onClick={onStopEditing}>
+                  <button type="button" className="press -mx-1 flex cursor-pointer items-center gap-1.5 rounded-md px-1 text-accent hover:bg-raised" onClick={onStopEditing}>
                     {copy.detail.doneEditing} <Kbd keys={["Esc"]} />
                   </button>
                 </span>
@@ -313,16 +314,19 @@ function DraftPane({
 function Amounts({ finding }: { finding: Finding }) {
   const a = finding.amounts;
   const cells = [
-    a.atStake !== undefined && [copy.detail.atStake, formatAUD(a.atStake)],
-    a.recoverable !== undefined && a.recoverable !== a.atStake && [copy.detail.canRecover, formatAUD(a.recoverable)],
-    a.perMonth !== undefined && [copy.detail.perMonth, formatAUD(a.perMonth)],
-  ].filter(Boolean) as [string, string][];
+    a.atStake !== undefined && [copy.detail.atStake, a.atStake],
+    a.recoverable !== undefined && a.recoverable !== a.atStake && [copy.detail.canRecover, a.recoverable],
+    a.perMonth !== undefined && [copy.detail.perMonth, a.perMonth],
+  ].filter(Boolean) as [string, number][];
   return (
     // The first amount leads (largest); the others sit beside it, smaller.
     <div className="flex shrink-0 items-end gap-5">
       {cells.map(([label, value], i) => (
         <div key={label} className="text-right">
-          <div className={`figure ${i === 0 ? "text-heading text-text" : "text-body text-muted"}`}>{value}</div>
+          <div className={`figure ${i === 0 ? "text-heading text-text" : "text-body text-muted"}`}>
+            {/* Counts up the first time this finding is opened. */}
+            <CountUp id={`detail:${finding.id}:${label}`} cents={value} />
+          </div>
           <div className="mt-0.5 label text-faint">{label}</div>
         </div>
       ))}

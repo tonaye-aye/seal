@@ -30,6 +30,7 @@ import { TraceDrawer } from "./Trace";
 import { replayNote } from "../replay";
 import { Timeline } from "./Timeline";
 import { buildTimeline, filterTimeline, nowIndex } from "../timeline";
+import { changeView, nativeViewTransitions } from "../motion";
 
 // The summoned palette. It fills the native window; the window itself is
 // transparent with a macOS blur behind, so this panel adds the warm tint.
@@ -171,19 +172,23 @@ export function Palette() {
   function open(key: string, from: "list" | "timeline" = "list") {
     const item = items.find((i) => i.key === key);
     if (!item || item.type === "undecided") return;
-    select(key);
-    setView("detail");
-    setDetailFrom(from);
-    setPane("evidence");
-    setEditing(false);
+    changeView(() => {
+      select(key);
+      setView("detail");
+      setDetailFrom(from);
+      setPane("evidence");
+      setEditing(false);
+    }, "forward");
   }
 
   function openTimeline() {
     // The search carries over, so "Skylink" then Cmd+Enter shows Skylink's dates.
-    setEditing(false);
-    setView("timeline");
-    // Land on the first thing still to come, just under the "now" marker.
-    setTimelineKey(entries[nowIndex(entries)]?.key);
+    changeView(() => {
+      setEditing(false);
+      setView("timeline");
+      // Land on the first thing still to come, just under the "now" marker.
+      setTimelineKey(entries[nowIndex(entries)]?.key);
+    }, "forward");
   }
 
   function moveInTimeline(by: number) {
@@ -207,8 +212,8 @@ export function Palette() {
   }
 
   function back() {
-    if (view === "detail") setView(detailFrom);
-    else if (view === "timeline") setView("list");
+    if (view === "detail") changeView(() => setView(detailFrom), "back");
+    else if (view === "timeline") changeView(() => setView("list"), "back");
   }
 
   /** The next row to land on once the selected finding moves down the list. */
@@ -417,8 +422,9 @@ export function Palette() {
       switch (key) {
         case "/":
           event.preventDefault();
-          if (inDetail) setView("list");
-          inputRef.current?.focus();
+          // From an open finding, go back to the list first, then focus its search bar.
+          if (inDetail) changeView(() => setView("list"), "back", () => inputRef.current?.focus());
+          else inputRef.current?.focus();
           return;
         case "?":
           event.preventDefault();
@@ -613,7 +619,10 @@ export function Palette() {
         </>
       }
     >
-      {main}
+      {/* One wrapper per view, so changing view crossfades (changeView in src/ui/motion.ts). */}
+      <div key={setup ? "setup" : view} className={`view-area flex min-h-0 flex-1 flex-col ${nativeViewTransitions() ? "" : "view-in"}`}>
+        {main}
+      </div>
       {traceOpen && <TraceDrawer lines={scan.trace} onClose={() => setTraceOpen(false)} />}
     </PaletteShell>
   );

@@ -36,7 +36,7 @@ export function Footer({ onScenarios, right }: { onScenarios: () => void; right?
 const LABELS = copy.shared.source;
 
 function footerButton(open: boolean) {
-  return `inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 leading-none transition-colors duration-(--duration-fast) hover:bg-raised hover:text-text ${
+  return `press inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 leading-none hover:bg-raised hover:text-text ${
     open ? "bg-raised text-text" : "text-muted"
   }`;
 }
@@ -131,7 +131,7 @@ function ConnectorRow({
             tabIndex={-1}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => void connectLater(id)}
-            className="cursor-pointer rounded-full bg-raised px-2 py-0.5 text-meta text-text hover:bg-hairline"
+            className="press cursor-pointer rounded-full bg-raised px-2 py-0.5 text-meta text-text hover:bg-hairline"
           >
             {copy.footer.connect}
           </button>
@@ -142,7 +142,7 @@ function ConnectorRow({
             tabIndex={-1}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => void reconnectCalendar().then(() => startScan())}
-            className="cursor-pointer rounded-full bg-raised px-2 py-0.5 text-meta text-text hover:bg-hairline"
+            className="press cursor-pointer rounded-full bg-raised px-2 py-0.5 text-meta text-text hover:bg-hairline"
           >
             {copy.footer.reconnect}
           </button>
@@ -200,7 +200,7 @@ export function SettingsButton({
             type="button"
             tabIndex={-1}
             aria-label={copy.footer.settings}
-            className={`grid size-7 cursor-pointer place-items-center rounded-md transition-colors duration-(--duration-fast) hover:bg-raised hover:text-text ${
+            className={`press grid size-7 cursor-pointer place-items-center rounded-md hover:bg-raised hover:text-text ${
               open ? "bg-raised text-text" : "text-muted"
             }`}
           >
