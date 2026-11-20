@@ -5,7 +5,8 @@ import { copy } from "../../copy";
 import { centerWindow, startWindowDrag } from "../../lib/native";
 import { NowVisual } from "./NowVisual";
 
-// Top bar: who we are, what day it is, and what the agent is doing (or when
+// Top bar: who we are, where you are (the breadcrumb: "Life / Timeline /
+// Skylink Internet"), what day it is, and what the agent is doing (or when
 // it last checked). It is also the window's handle: drag it to move the
 // palette, double-click it to put it back in the centre.
 
@@ -29,27 +30,47 @@ function status(scan: ScanState): { text: string; dot: string } {
   }
 }
 
-/** `trailing`: after the date (the settings cog). */
-export function Header({ action, trailing }: { action?: React.ReactNode; trailing?: React.ReactNode }) {
+/** `crumbs`: the view you're in, then an open finding's business. Left out on the setup screens. */
+export function Header({ crumbs = [] }: { crumbs?: string[] }) {
   const scan = useScan();
   const s = status(scan);
   return (
     <header
       className="flex h-12 shrink-0 items-center justify-between px-4"
       onMouseDown={(e) => {
-        // Buttons in the bar (the view switch) stay clickable.
+        // Anything clickable in the bar stays clickable.
         if (e.button !== 0 || (e.target as HTMLElement).closest("button")) return;
         if (e.detail === 2) centerWindow();
         else startWindowDrag();
       }}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 items-center gap-2">
         {/* The mark is the "now" visual: it shows what the agent is doing. */}
         <NowVisual />
         {/* relative: paints the name above the glow that spills behind it. */}
         <span className="heading relative text-body font-semibold">{copy.appName}</span>
-        {/* Switches between the list and the timeline. */}
-        {action && <span className="ml-2">{action}</span>}
+        {crumbs.length > 0 && (
+          <nav aria-label={copy.header.breadcrumb} className="flex min-w-0 items-center text-small">
+            <ol className="flex min-w-0 items-center">
+              {crumbs.map((crumb, i) => {
+                const last = i === crumbs.length - 1;
+                return (
+                  <li key={i} className="flex min-w-0 items-center">
+                    <span className="px-2 text-faint" aria-hidden="true">
+                      /
+                    </span>
+                    <span
+                      aria-current={last ? "page" : undefined}
+                      className={`max-w-[220px] truncate ${last ? "font-medium text-text" : "text-muted"}`}
+                    >
+                      {crumb}
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
+          </nav>
+        )}
       </div>
       <div className="flex items-center gap-3 font-mono text-label text-faint">
         <span className="flex items-center gap-1.5" aria-live="polite">
@@ -57,7 +78,6 @@ export function Header({ action, trailing }: { action?: React.ReactNode; trailin
           <span className="tabular">{s.text}</span>
         </span>
         <span className="text-muted">{formatDay(now())}</span>
-        {trailing && <span className="-mr-1.5 font-sans text-meta">{trailing}</span>}
       </div>
     </header>
   );

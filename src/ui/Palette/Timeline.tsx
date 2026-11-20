@@ -62,7 +62,6 @@ function Headline({
   if (q) title = entries.length ? copy.search.matches(entries.length, q) : copy.search.noMatches(q);
   return (
     <ViewHeading
-      view="timeline"
       title={title}
       search={search}
     >

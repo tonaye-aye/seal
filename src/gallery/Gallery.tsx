@@ -4,12 +4,13 @@ import { formatAUD } from "../lib/money";
 import { copy } from "../copy";
 import { LivePreviewProvider } from "../connectors/live";
 import { TOAST_MS, rankedFindings, ScanPreviewProvider, type ScanState } from "../lib/scan-store";
-import { KeyButton, SwitchButton } from "../ui/Kbd";
+import { KeyButton } from "../ui/Kbd";
 import { buildTimeline, filterTimeline, nowIndex } from "../ui/timeline";
 import { CommandBar } from "../ui/Palette/CommandBar";
 import { ActionBar, FindingDetail, type Pane } from "../ui/Palette/FindingDetail";
 import { AllClear, DeadlineChip, FindingsList, Headline, NotChecked, Scanning, ScanError, listItems } from "../ui/Palette/FindingsList";
-import { ConnectorsButton, Footer, SettingsButton } from "../ui/Palette/Footer";
+import { ConnectorsButton, Footer } from "../ui/Palette/Footer";
+import { Rail, SettingsButton, type RailItem } from "../ui/Palette/Rail";
 import { Header } from "../ui/Palette/Header";
 import { NowVisual } from "../ui/Palette/NowVisual";
 import { PaletteShell } from "../ui/Palette/PaletteShell";
@@ -19,7 +20,7 @@ import { StatusStrip } from "../ui/Palette/StatusStrip";
 import { Timeline } from "../ui/Palette/Timeline";
 import { Toast } from "../ui/Palette/Toast";
 import { TraceDrawer } from "../ui/Palette/Trace";
-import { BackIcon, ListIcon, TimelineIcon, ViewHeading } from "../ui/Palette/ViewHeading";
+import { ViewHeading } from "../ui/Palette/ViewHeading";
 import { FINDINGS, endpointSamples, liveSamples, nowSamples, onboardingSample, sampleCorpus, scanSamples, type LiveSample } from "./fixtures";
 import { isSetupScreen, type OnboardingState } from "../lib/onboarding";
 import { ListHint, TimelineHint } from "../ui/Palette/FooterHint";
@@ -181,6 +182,10 @@ type FrameProps = {
   desktop?: boolean;
   endpoint?: EndpointStatus;
   modelDemo?: ModelDemo;
+  /** Where an open finding was opened from (the rail shows that view as current). */
+  detailFrom?: "list" | "timeline";
+  /** The icon rail: one item held hovered or with its tooltip open, or the View or Settings menu open. */
+  rail?: { hover?: RailItem; tip?: RailItem; view?: boolean; settings?: boolean };
 };
 
 /**
@@ -205,6 +210,8 @@ function PaletteFrame({
   desktop = false,
   endpoint,
   modelDemo,
+  detailFrom = "list",
+  rail,
 }: FrameProps) {
   const setup = onboarding && isSetupScreen(onboarding.step);
   const shellRef = useRef<HTMLDivElement>(null);
@@ -279,17 +286,6 @@ function PaletteFrame({
     );
 
   const actionItem = item?.type === "undecided" ? { undecided: item.error } : openItem;
-  const action = setup ? undefined : (
-    <span className="inline-flex">{
-    view === "list" && !nothingYet ? (
-      <SwitchButton keys={["⌘", "↵"]} label={copy.header.viewTimeline} icon={<TimelineIcon />} mouse={mouse} onClick={noop} />
-    ) : view === "timeline" ? (
-      <SwitchButton keys={["Esc"]} label={copy.header.viewList} icon={<ListIcon />} mouse={mouse} onClick={noop} />
-    ) : view === "detail" ? (
-      <SwitchButton keys={["Esc"]} label={copy.header.back} icon={<BackIcon />} mouse={mouse} onClick={noop} />
-    ) : undefined}</span>
-  );
-
   return (
     <Preview scan={shownScan} live={live} endpoint={endpoint} modelDemo={modelDemo}>
       <div data-gallery-frame style={{ width: 1000, height: 680 }} {...blockers}>
@@ -299,9 +295,42 @@ function PaletteFrame({
           className="palette-enter"
           header={
             <Header
-              action={action}
-              trailing={<SettingsButton hotkey={["⌥", "Space"]} mouse={mouse} onTrace={noop} onKeys={noop} />}
+              crumbs={
+                setup
+                  ? []
+                  : [
+                      (inDetail ? detailFrom : view) === "timeline" ? copy.rail.timeline : copy.rail.list,
+                      ...(inDetail ? [openItem.merchant] : []),
+                    ]
+              }
             />
+          }
+          rail={
+            setup ? undefined : (
+              <Rail
+                view={inDetail ? "detail" : view === "timeline" ? "timeline" : "list"}
+                from={detailFrom}
+                traceOpen={trace}
+                onList={noop}
+                onTimeline={noop}
+                onTrace={noop}
+                viewOpen={rail?.view ?? false}
+                onViewOpenChange={noop}
+                mouse={mouse}
+                preview={rail}
+                settings={
+                  <SettingsButton
+                    hotkey={["⌥", "Space"]}
+                    mouse={mouse}
+                    onKeys={noop}
+                    open={rail?.settings ?? false}
+                    onOpenChange={noop}
+                    hover={rail?.hover === "settings"}
+                    tip={rail?.tip === "settings"}
+                  />
+                }
+              />
+            )
           }
           replay={replayNote(shownScan)}
           banner={
@@ -424,6 +453,7 @@ const SECTIONS = [
   ["list", "List"],
   ["finding", "Finding"],
   ["timeline", "Timeline"],
+  ["rail", "Icon rail"],
   ["motion", "Motion"],
   ["states", "Scan states"],
   ["overlays", "Overlays"],
@@ -571,6 +601,33 @@ export function Gallery() {
               </Shot>
             </Section>
 
+            <Section id="rail" title="Icon rail">
+              <Shot title="View button and breadcrumb" note="The View button shows the current view's icon; the top bar says it in words (Life / Findings). Tooltip: V">
+                <PaletteFrame scan={s.done} rail={{ tip: "view" }} />
+              </Shot>
+              <Shot title="View menu, on the list" note="V or a click. The current view is ticked, the other shows its key (⌘↵); arrows and Enter pick, V or Esc closes">
+                <PaletteFrame scan={s.done} rail={{ view: true }} />
+              </Shot>
+              <Shot title="View menu on the timeline, mouse mode" note="Life / Timeline in the top bar; no key caps in mouse mode">
+                <PaletteFrame scan={s.done} view="timeline" mouse rail={{ view: true }} />
+              </Shot>
+              <Shot title="Finding opened from the timeline" note="Life / Timeline / Skylink Internet; in the View menu, Timeline is ticked and Esc goes back to it">
+                <PaletteFrame scan={s.done} view="detail" selected="f-skylink" detailFrom="timeline" rail={{ view: true }} />
+              </Shot>
+              <Shot title="Hovering View" note="Hover lifts a rail icon">
+                <PaletteFrame scan={s.done} view="timeline" mouse rail={{ hover: "view" }} />
+              </Shot>
+              <Shot title="Trace open" note="T or the Trace icon; the icon stays lit while the drawer is open, and the drawer never covers the rail">
+                <PaletteFrame scan={s.done} trace rail={{ tip: "trace" }} />
+              </Shot>
+              <Shot title="Settings menu" note="The cog or ⌘,; ? works with it open, ⌘, or Esc closes it">
+                <PaletteFrame scan={s.done} rail={{ settings: true }} />
+              </Shot>
+              <Shot title="Settings menu, mouse mode" note="No key caps on the rows">
+                <PaletteFrame scan={s.done} mouse rail={{ settings: true }} />
+              </Shot>
+            </Section>
+
             <Section id="motion" title="Motion">
               <Shot title="Approving a row, halfway" note="A: the row fades out where it was, the rows below slide up, it fades in with the decided rows (also S and D)">
                 <Midway at={{ flip: 0.5 }} before={{ scan: s.done, selected: top.id }} after={{ scan: approvedTop, selected: second.id }} />
@@ -589,7 +646,6 @@ export function Gallery() {
                   <Pressed>
                     <KeyButton keys={["A"]} label={copy.actions.approveToDrafts} icon={<ApproveIcon />} tone="primary" onClick={noop} />
                     <KeyButton keys={["S"]} label={copy.actions.snooze} icon={<SnoozeIcon />} onClick={noop} />
-                    <SwitchButton keys={["⌘", "↵"]} label={copy.header.viewTimeline} icon={<TimelineIcon />} mouse={false} onClick={noop} />
                   </Pressed>
                 </Strip>
               </Shot>
@@ -819,14 +875,6 @@ export function Gallery() {
             </Section>
 
             <Section id="header" title="Top bar">
-              <Shot title="Settings menu" note="The cog or ⌘,; T and ? work with it open, ⌘, or Esc closes it" height={200}>
-                <Strip>
-                  <div className="flex h-[150px] items-start justify-end gap-24">
-                    <SettingsButton hotkey={["⌥", "Space"]} mouse={false} onTrace={noop} onKeys={noop} open onOpenChange={noop} />
-                    <SettingsButton hotkey={["⌥", "Space"]} mouse onTrace={noop} onKeys={noop} open onOpenChange={noop} />
-                  </div>
-                </Strip>
-              </Shot>
               <Shot title="Status in the top bar" height={300}>
                 <Strip>
                   {(
@@ -888,24 +936,6 @@ export function Gallery() {
                   </Labelled>
                 </Strip>
               </Shot>
-              <Shot title="View switch" note="Top bar, keyboard and mouse" height={150}>
-                <Strip>
-                  <Labelled label="Keyboard">
-                    <div className="flex items-center gap-4">
-                      <SwitchButton keys={["⌘", "↵"]} label={copy.header.viewTimeline} icon={<TimelineIcon />} mouse={false} onClick={noop} />
-                      <SwitchButton keys={["Esc"]} label={copy.header.viewList} icon={<ListIcon />} mouse={false} onClick={noop} />
-                      <SwitchButton keys={["Esc"]} label={copy.header.back} icon={<BackIcon />} mouse={false} onClick={noop} />
-                    </div>
-                  </Labelled>
-                  <Labelled label="Mouse">
-                    <div className="flex items-center gap-4">
-                      <SwitchButton keys={["⌘", "↵"]} label={copy.header.viewTimeline} icon={<TimelineIcon />} mouse onClick={noop} />
-                      <SwitchButton keys={["Esc"]} label={copy.header.viewList} icon={<ListIcon />} mouse onClick={noop} />
-                      <SwitchButton keys={["Esc"]} label={copy.header.back} icon={<BackIcon />} mouse onClick={noop} />
-                    </div>
-                  </Labelled>
-                </Strip>
-              </Shot>
               <Shot title="Deadline chips" note="Past or within 7 days is amber, within 14 bright, later muted" height={110}>
                 <Strip>
                   <Labelled label="14 Nov, 21 Nov, 18 Dec">
@@ -921,11 +951,10 @@ export function Gallery() {
               <Shot title="View headings" note="List, timeline and an open finding, on their own" height={330}>
                 <Strip>
                   <Headline findings={rankedFindings(s.done)} scan={s.done} />
-                  <ViewHeading view="timeline" title="What's coming">
+                  <ViewHeading title="What's coming">
                     Expected charges and deadlines, with today marked.
                   </ViewHeading>
                   <ViewHeading
-                    view="finding"
                     eyebrow={<span className="font-medium text-text">{FINDINGS.skylink.merchant}</span>}
                     title={FINDINGS.skylink.title}
                     action={<span className="figure text-small">{formatAUD(FINDINGS.skylink.amounts.atStake!)}</span>}

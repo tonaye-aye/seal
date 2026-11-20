@@ -373,7 +373,6 @@ export function FindingDetail({
     <section aria-label={copy.detail.label} className="flex min-h-0 flex-1 flex-col">
       {/* Pinned, like the list's and the timeline's headings. */}
       <ViewHeading
-        view="finding"
         title={item.title}
         eyebrow={
           <>

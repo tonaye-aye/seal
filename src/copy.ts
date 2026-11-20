@@ -113,10 +113,8 @@ export const copy = {
     checkingAgain: "Checking again",
     checkedAt: (time: string) => `Checked ${time}`,
     didntFinish: "Check didn't finish",
-    /** The view switch on the left. */
-    viewTimeline: "View timeline",
-    viewList: "View list",
-    back: "Back",
+    /** The breadcrumb after the app name ("Life / Timeline / Skylink Internet"), read out by screen readers. */
+    breadcrumb: "Where you are",
     /** The "now" mark, read out by screen readers. */
     now: {
       working: "Checking now",
@@ -299,6 +297,18 @@ export const copy = {
     waitingInDrafts: "Waiting in Drafts. Nothing was sent.",
   },
 
+  // ---------- Icon rail ----------
+  /** The column of icons on the left: View at the top, Trace and Settings at the foot. */
+  rail: {
+    label: "Sidebar",
+    /** The View button and its menu. */
+    view: "View",
+    viewTip: (current: string) => `View: ${current}`,
+    list: "Findings",
+    timeline: "Timeline",
+    trace: "Trace",
+  },
+
   // ---------- Footer ----------
   footer: {
     connectors: "Connectors",
@@ -313,9 +323,8 @@ export const copy = {
     /** The strip of connection chips (gallery). */
     connectionsLabel: "Connections",
     slowShort: "Slow",
-    /** The settings cog in the top bar. */
+    /** The settings cog at the foot of the icon rail. */
     settings: "Settings",
-    traceItem: "Trace: what the agent did",
     keysItem: "Keyboard shortcuts",
     hide: `Hide ${APP_NAME}`,
     close: "Close",
@@ -513,7 +522,8 @@ export const copy = {
         title: "Everywhere",
         keys: [
           [["⌘", "↵"], "Timeline: what's coming"],
-          [["/"], "Search findings or the timeline"],
+          [["V"], "View: findings or timeline"],
+          [["/"],"Search findings or the timeline"],
           [["Tab"], "Switch pane (in a finding)"],
           [["T"], "Show what the agent did"],
           [["R"], "Check again (reconnects first)"],

@@ -165,8 +165,8 @@ export function Tip({
 // ---------- Menu ----------
 
 /**
- * A small menu that opens from a button: upwards from the footer, downwards
- * from the top bar. Arrow keys and Enter move through it; the key shown on a
+ * A small menu that opens from a button: upwards from the footer, to the
+ * right from the icon rail, downwards from a row. Arrow keys and Enter move through it; the key shown on a
  * row (`shortcuts`) runs that row straight away; Esc or a click outside closes it.
  */
 export function Menu({
@@ -184,8 +184,8 @@ export function Menu({
   /** The button that opens it (one element that can hold a ref). */
   trigger: React.ReactElement;
   label: string;
-  /** Above the button (footer) or below it (top bar). */
-  side?: "top" | "bottom";
+  /** Above the button (footer), beside it (icon rail) or below it. */
+  side?: "top" | "bottom" | "right";
   /** Line up with the button's left edge ("start") or right edge ("end"). */
   align?: "start" | "end";
   /** Keys that run a row while the menu is open: "a", "?", "⌘,". */
@@ -233,17 +233,39 @@ export function MenuItem({
   icon,
   label,
   keys,
+  current = false,
+  focusOnOpen = false,
   onSelect,
 }: {
   icon: React.ReactNode;
   label: string;
   keys?: React.ReactNode;
+  /** The row that is already chosen (the View menu's current view): brighter text. */
+  current?: boolean;
+  /**
+   * Land the keyboard highlight on this row when the menu opens, instead of
+   * the first one (the View menu: the view you'd switch to, so Enter does it).
+   */
+  focusOnOpen?: boolean;
   onSelect: () => void;
 }) {
+  const { preview } = useContext(LayerScope);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!focusOnOpen || preview) return;
+    // Radix puts the highlight on the first row as the menu opens; this runs
+    // just after that and moves it here (focus is what highlights a row).
+    const id = setTimeout(() => ref.current?.focus(), 0);
+    return () => clearTimeout(id);
+  }, [focusOnOpen, preview]);
   return (
     <DropdownMenu.Item
+      ref={ref}
       onSelect={onSelect}
-      className="flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-small text-muted outline-none data-highlighted:bg-raised data-highlighted:text-text"
+      aria-current={current || undefined}
+      className={`flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-small outline-none data-highlighted:bg-raised data-highlighted:text-text ${
+        current ? "text-text" : "text-muted"
+      }`}
     >
       <span className="grid size-4 shrink-0 place-items-center [&>svg]:block">{icon}</span>
       <span className="flex-1">{label}</span>
