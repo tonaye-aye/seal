@@ -8,6 +8,9 @@ use tauri::{AppHandle, Emitter, Manager, Runtime};
 /// The window's label, set in tauri.conf.json.
 pub const LABEL: &str = "palette";
 
+/// The dev-only gallery window (opened from the webview console with `__life.gallery()`).
+pub const GALLERY_LABEL: &str = "gallery";
+
 /// Hide the palette when the user clicks into another app.
 /// Set this to false while using the webview devtools, otherwise opening
 /// them steals focus and the palette disappears.
@@ -35,8 +38,12 @@ pub fn hide<R: Runtime>(app: &AppHandle<R>) {
     let _ = window.emit("palette:hidden", ());
     // On macOS, hiding the app (not just the window) is what returns focus to
     // the previous app, so the user can keep typing where they were.
+    // Skipped while the dev-only gallery window is open, which hiding the app
+    // would take away too (it only exists in development).
     #[cfg(target_os = "macos")]
-    let _ = app.hide();
+    if app.get_webview_window(GALLERY_LABEL).is_none() {
+        let _ = app.hide();
+    }
 }
 
 /// The hotkey toggles: open if hidden, close if already open.

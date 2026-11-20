@@ -41,10 +41,14 @@ export function centerWindow(): void {
 
 // Whether the palette is on screen. The window starts hidden in the app (it
 // waits for the hotkey); in a plain browser there is no hiding, so it is shown.
-let paletteHidden = isTauri();
+// The dev-only gallery window is never the palette, so it always counts as shown.
+const inPaletteWindow = isTauri() && getCurrentWindow().label === "palette";
+let paletteHidden = inPaletteWindow;
 const visibilityListeners = new Set<() => void>();
-onPaletteShown(() => setHidden(false));
-onPaletteHidden(() => setHidden(true));
+if (inPaletteWindow) {
+  onPaletteShown(() => setHidden(false));
+  onPaletteHidden(() => setHidden(true));
+}
 
 function setHidden(next: boolean): void {
   paletteHidden = next;
