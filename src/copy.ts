@@ -168,7 +168,6 @@ export const copy = {
     /** Rows. */
     quickActions: "Quick actions",
     quickActionsFor: (merchant: string) => `Quick actions for ${merchant}`,
-    undecidedRow: "Couldn't decide this one: the model didn't answer",
     stillDeciding: (n: number) => `Still deciding on ${plural(n, "more")}`,
     undecidedGroup: "Couldn't decide: check these yourself",
     clearedGroup: "Checked and left alone",
@@ -211,6 +210,11 @@ export const copy = {
     /** What a click does, in mouse mode. */
     clickForDetail: "Click for more detail",
     clickWhyFine: "Click to see why it looks fine",
+    /** The "Checked and left alone" header, in the footer. */
+    show: "Show",
+    hide: "Hide",
+    clickToShow: "Click to show them",
+    clickToHide: "Click to hide them",
     clickEvidence: "Click any evidence to read it",
   },
 
@@ -515,6 +519,7 @@ export const copy = {
           [["J"], "Next"],
           [["K"], "Previous"],
           [["↵"], "Open evidence and draft"],
+          [["Space"], "Open or close a group"],
           [["A"], "Approve: save the draft to Drafts"],
           [["E"], "Edit the draft"],
           [["S"], "Snooze"],

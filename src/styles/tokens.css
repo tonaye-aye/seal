@@ -517,6 +517,50 @@ textarea {
   background: var(--color-focus);
 }
 
+/* "Checked and left alone" in the findings list (a Radix Accordion): the
+   group's rows fold open and shut by height, and the chevron turns. Radix
+   measures the rows into --radix-accordion-content-height and keeps them
+   in the page until the closing animation ends. */
+@keyframes accordion-open {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+  }
+}
+@keyframes accordion-close {
+  from {
+    height: var(--radix-accordion-content-height);
+  }
+  to {
+    height: 0;
+  }
+}
+.accordion-content {
+  overflow: hidden;
+}
+.accordion-content[data-state="open"] {
+  animation: accordion-open var(--duration-base) var(--ease-out);
+}
+.accordion-content[data-state="closed"] {
+  animation: accordion-close var(--duration-fast) var(--ease-out);
+}
+.accordion-chevron {
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+[data-state="open"] > .accordion-chevron {
+  transform: rotate(90deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .accordion-content[data-state] {
+    animation: none;
+  }
+  .accordion-chevron {
+    transition: none;
+  }
+}
+
 /* Changing view (changeView in src/ui/motion.ts). Where the webview has view
    transitions, the old view fades out quickly and the new one fades in with a
    small slide: from the right going in, from the left coming back. The rest of
