@@ -331,7 +331,9 @@ function PaletteFrame({
   const hintItem = item?.type === "group" ? { group: item.open } : actionItem;
   return (
     <Preview scan={shownScan} live={live} endpoint={endpoint} modelDemo={modelDemo}>
-      <div data-gallery-frame style={{ width: 1000, height: 680 }} {...blockers}>
+      {/* contain: layout makes the frame the box menus and tooltips are placed in, so a menu
+          drawn as the frame scrolls into view lands beside its button straight away. */}
+      <div data-gallery-frame style={{ width: 1000, height: 680, contain: "layout" }} {...blockers}>
         <PaletteShell
           ref={shellRef}
           // The same entrance as a summon: it plays as each frame scrolls into view.
@@ -607,8 +609,8 @@ export function Gallery() {
             </Section>
 
             <Section id="list" title="List">
-              <Shot title="Findings, first run" note="Compact rows: name, kind, amount, date. Couldn't decide stays open; Checked and left alone is closed">
-                <PaletteFrame scan={s.done} hint />
+              <Shot title="Findings, first run" note="Compact rows: name, kind, amount, date. Couldn't decide stays open; Checked and left alone is closed (the first-run hint is under Onboarding)">
+                <PaletteFrame scan={s.done} />
               </Shot>
               <Shot title="After some decisions" note="Approved and snoozed rows, mouse mode">
                 <PaletteFrame scan={s.decided} mouse selected="f-ironworks" />

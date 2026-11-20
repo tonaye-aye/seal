@@ -161,9 +161,35 @@ function Sidebar({
   const highlightRef = useRef<HTMLDivElement>(null);
   // The selected line has the same sliding highlight as the list and the timeline.
   useGlide(listRef, highlightRef);
-  // Lines move while an item opens or closes, after the highlight was placed:
-  // draw again once that settles so it lands on the right line.
+  // Lines move while an item opens or closes (one opening can close another
+  // above it). The highlight rides along with its line on every frame of that
+  // animation, then is drawn once more when it settles.
   const [, redraw] = useReducer((n: number) => n + 1, 0);
+  const frame = useRef(0);
+  const follow = () => {
+    const list = listRef.current;
+    const highlight = highlightRef.current;
+    // Still opening or closing? (The accordion's animations are named accordion-open / accordion-close.)
+    const busy = !!list?.getAnimations({ subtree: true }).some((a) => (a as CSSAnimation).animationName?.startsWith("accordion"));
+    if (!busy) {
+      frame.current = 0;
+      if (highlight) highlight.style.transition = "";
+      redraw();
+      return;
+    }
+    const row = list?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (highlight && row) {
+      highlight.style.transition = "none";
+      highlight.style.height = `${row.offsetHeight}px`;
+      highlight.style.transform = `translateY(${row.offsetTop}px)`;
+    }
+    frame.current = requestAnimationFrame(follow);
+  };
+  const onAnimationStart = () => {
+    if (!frame.current) frame.current = requestAnimationFrame(follow);
+  };
+  // Leaving the finding mid-animation stops the ride.
+  useEffect(() => () => cancelAnimationFrame(frame.current), []);
   useEffect(() => {
     listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
   }, [selected]);
@@ -217,7 +243,7 @@ function Sidebar({
   const figuresSelected = isSelected(items.length);
   return (
     <aside aria-label={copy.detail.sidebarLabel} className="flex w-84 shrink-0 flex-col border-l border-hairline">
-      <div ref={listRef} onAnimationEnd={redraw} className="relative min-h-0 flex-1 overflow-y-auto p-2">
+      <div ref={listRef} onAnimationStart={onAnimationStart} onAnimationEnd={redraw} className="relative min-h-0 flex-1 overflow-y-auto p-2">
         {focused && !mouse && <div ref={highlightRef} className="glide inset-x-2" style={{ "--glide-bar-inset": "7px" } as React.CSSProperties} aria-hidden="true" />}
         <Accordion.Root
           type="single"
@@ -471,11 +497,17 @@ export function FindingDetail({
           }
           action={finding && <Amounts finding={finding} />}
         >
-          <span className="line-clamp-2">{item.why}</span>
-          {finding?.deadline && (
-            <span className="mt-0.5 block truncate text-meta text-faint">
-              {copy.detail.nextDate(finding.deadline.label, shortDate(finding.deadline.date))}
-            </span>
+          {/* A case left alone gives its reason once, in the main column below, so the header leaves it out. */}
+          {finding && (
+            <>
+              {/* Three lines: the model's longest reasons need them at the palette's width. */}
+              <span className="line-clamp-3">{item.why}</span>
+              {finding.deadline && (
+                <span className="mt-0.5 block truncate text-meta text-faint">
+                  {copy.detail.nextDate(finding.deadline.label, shortDate(finding.deadline.date))}
+                </span>
+              )}
+            </>
           )}
         </ViewHeading>
 

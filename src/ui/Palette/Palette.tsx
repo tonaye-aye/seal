@@ -138,7 +138,10 @@ export function Palette() {
   const narrowed = !!query.trim() || filters.length > 0;
   const isGroupOpen = groupOpen(rows, narrowed, groupOpened, groupClosedInSearch);
   const items = listStops(rows, isGroupOpen);
-  const selected: ListItem | undefined = pickSelected(rows, items, selectedKey, view === "list");
+  // A finding opened from the timeline can be one the list's filters or search
+  // hide (filters only apply to the list): while it is open, find it among every row.
+  const hiddenOpen = view === "detail" && !rows.some((i) => i.key === selectedKey) ? everyRow.find((i) => i.key === selectedKey) : undefined;
+  const selected: ListItem | undefined = hiddenOpen ?? pickSelected(rows, items, selectedKey, view === "list");
   const selectedItem: Finding | Cleared | undefined =
     selected?.type === "finding" ? selected.finding : selected?.type === "cleared" ? selected.cleared : undefined;
   const stops = selectedItem ? sidebarStops(selectedItem, scan.corpus) : { evidence: 0, figures: false };
@@ -243,7 +246,8 @@ export function Palette() {
 
   function open(key: string, from: "list" | "timeline" = "list") {
     if (key === CLEARED_GROUP) return toggleGroup();
-    const item = rows.find((i) => i.key === key);
+    // From the timeline, a finding the list's filters or search hide still opens.
+    const item = rows.find((i) => i.key === key) ?? (from === "timeline" ? everyRow.find((i) => i.key === key) : undefined);
     if (!item || item.type === "undecided" || item.type === "group") return;
     // A case opened from the timeline is shown in its group when you come back to the list.
     if (leftAlone(item)) setGroupOpened(true);
