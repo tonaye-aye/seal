@@ -5,7 +5,8 @@ import { getConnectors } from "../../connectors/live";
 import { formatAUD } from "../../lib/money";
 import { resetEdit, setEdit } from "../../lib/scan-store";
 import { evidenceDate, lookupEvidence, type EvidenceView } from "../evidence";
-import { KIND_LABEL, SOON_DAYS, daysText, daysUntil, figureValue, isUnsure, shortDate } from "../format";
+import { SOON_DAYS, daysUntil, figureValue, isUnsure, shortDate } from "../format";
+import { copy } from "../../copy";
 import { ApproveIcon, CheckNowIcon, DismissIcon, EditIcon, OpenIcon, PaneIcon, SnoozeIcon, UndoIcon } from "../icons";
 import { Kbd, KeyButton, KeyHint } from "../Kbd";
 import { ViewHeading } from "./ViewHeading";
@@ -38,8 +39,8 @@ function EvidenceImage({ docId, alt }: { docId: string; alt: string }) {
   useEffect(() => {
     loadImage(docId).then(setSrc, () => setFailed(true));
   }, [docId]);
-  if (failed) return <p className="text-[12px] text-danger">Couldn't load the photo.</p>;
-  if (!src) return <div className="shimmer h-28 rounded-md" aria-label="Loading photo" />;
+  if (failed) return <p className="text-[12px] text-danger">{copy.detail.photoFailed}</p>;
+  if (!src) return <div className="shimmer h-28 rounded-md" aria-label={copy.detail.loadingPhoto} />;
   return <img src={src} alt={alt} className="max-h-36 w-full rounded-md border border-hairline object-cover" />;
 }
 
@@ -99,7 +100,7 @@ function EvidenceItem({
           {evidenceDate(view)}
         </span>
       </div>
-      {cited && !open && <span className="sr-only">Cited</span>}
+      {cited && !open && <span className="sr-only">{copy.detail.cited}</span>}
       {/* A photo is always shown: it is the evidence, and there is no text to read instead. */}
       {view.imageDocId && (
         <div className="mt-2 ml-5">
@@ -163,8 +164,8 @@ function EvidenceTrail({
     );
   return (
     <div ref={ref} className={`min-h-0 overflow-y-auto rounded-lg p-1.5 ${focused ? "pane-focus" : ""}`}>
-      {group(`Evidence it relied on · ${cited.length}`, cited, 0)}
-      {group(`Also gathered · ${rest.length}`, rest, cited.length)}
+      {group(copy.detail.reliedOn(cited.length), cited, 0)}
+      {group(copy.detail.alsoGathered(rest.length), rest, cited.length)}
     </div>
   );
 }
@@ -207,13 +208,13 @@ function DraftPane({
       {draft ? (
         <div>
           <div className="mb-2 flex items-center gap-2">
-            <h3 className="font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">Drafted email</h3>
-            {edited && <span className="rounded-full border border-hairline px-1.5 text-[10.5px] text-muted">Edited by you</span>}
-            {finding.status === "approved" && <span className="rounded-full border border-positive/30 px-1.5 text-[10.5px] text-positive">In Drafts</span>}
+            <h3 className="font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">{copy.detail.draftedEmail}</h3>
+            {edited && <span className="rounded-full border border-hairline px-1.5 text-[10.5px] text-muted">{copy.detail.editedByYou}</span>}
+            {finding.status === "approved" && <span className="rounded-full border border-positive/30 px-1.5 text-[10.5px] text-positive">{copy.detail.inDrafts}</span>}
           </div>
           {!draft.grounded && (
             <div className="mb-2.5 rounded-md border border-amber/30 bg-amber-glow/40 px-2.5 py-2 text-[12px]">
-              <p className="font-medium text-amber">Check before sending</p>
+              <p className="font-medium text-amber">{copy.detail.checkBeforeSending}</p>
               <ul className="mt-0.5 list-disc pl-4 text-muted">
                 {draft.problems.map((p) => (
                   <li key={p}>{p}</li>
@@ -222,16 +223,16 @@ function DraftPane({
             </div>
           )}
           <dl className="mb-2 grid grid-cols-[52px_1fr] gap-x-2 gap-y-0.5 text-[12px]">
-            <dt className="text-faint">To</dt>
+            <dt className="text-faint">{copy.detail.to}</dt>
             <dd className="truncate">
               {draft.to.name} <span className="text-faint">{draft.to.address}</span>
             </dd>
-            <dt className="text-faint">Subject</dt>
+            <dt className="text-faint">{copy.detail.subject}</dt>
             <dd>{draft.subject}</dd>
             {draft.attachDocumentIds.length > 0 && (
               <>
-                <dt className="text-faint">Attach</dt>
-                <dd className="text-muted">{draft.attachDocumentIds.length === 1 ? "1 document" : `${draft.attachDocumentIds.length} documents`} from the evidence</dd>
+                <dt className="text-faint">{copy.detail.attach}</dt>
+                <dd className="text-muted">{copy.detail.attachments(draft.attachDocumentIds.length)}</dd>
               </>
             )}
           </dl>
@@ -239,21 +240,21 @@ function DraftPane({
             <>
               <textarea
                 ref={textRef}
-                aria-label="Draft body"
+                aria-label={copy.detail.draftBody}
                 value={draft.body}
                 onChange={(e) => setEdit(finding.id, e.target.value)}
                 className="h-56 w-full resize-none rounded-md border border-amber/40 bg-bg/70 p-2.5 text-[12.5px] leading-[1.55] text-text outline-none"
               />
               <div className="mt-1.5 flex items-center justify-between text-[11.5px]">
-                <span className="text-faint">Your edits aren't re-checked by code, so read the figures once more.</span>
+                <span className="text-faint">{copy.detail.editsNotChecked}</span>
                 <span className="flex gap-3">
                   {edited && (
                     <button type="button" className="text-faint hover:text-muted" onClick={() => resetEdit(finding.id)}>
-                      Revert
+                      {copy.detail.revert}
                     </button>
                   )}
                   <button type="button" className="flex items-center gap-1.5 text-amber" onClick={onStopEditing}>
-                    Done <Kbd keys={["Esc"]} />
+                    {copy.detail.doneEditing} <Kbd keys={["Esc"]} />
                   </button>
                 </span>
               </div>
@@ -264,22 +265,22 @@ function DraftPane({
         </div>
       ) : finding.action.kind === "none" ? (
         <div className="rounded-md border border-hairline p-3 text-[12.5px] text-muted">
-          <p className="font-medium text-text">Nothing to send yet</p>
+          <p className="font-medium text-text">{copy.detail.nothingToSend}</p>
           <p className="mt-0.5">{finding.action.summary}</p>
         </div>
       ) : scanning ? (
-        <div className="flex flex-col gap-2" aria-label="Writing the draft">
-          <p className="text-[12px] text-faint">Writing the draft…</p>
+        <div className="flex flex-col gap-2" aria-label={copy.detail.writingDraftLabel}>
+          <p className="text-[12px] text-faint">{copy.detail.writingDraft}</p>
           <span className="shimmer h-3 w-3/4 rounded" />
           <span className="shimmer h-3 w-full rounded" />
           <span className="shimmer h-3 w-5/6 rounded" />
         </div>
       ) : (
-        <p className="text-[12.5px] text-danger">Couldn't draft this one. The evidence and figures are still here to act on yourself.</p>
+        <p className="text-[12.5px] text-danger">{copy.detail.couldntDraft}</p>
       )}
 
       <div>
-      <h3 className="mt-4 mb-1.5 font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">Checked by code</h3>
+      <h3 className="mt-4 mb-1.5 font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">{copy.detail.checkedByCode}</h3>
       <dl className="flex flex-col">
         {finding.figures.map((f) => (
           <div key={f.id} className="flex items-baseline justify-between gap-3 border-b border-hairline/60 py-1 text-[12px] last:border-0" title={f.how}>
@@ -302,9 +303,9 @@ function DraftPane({
 function Amounts({ finding }: { finding: Finding }) {
   const a = finding.amounts;
   const cells = [
-    a.atStake !== undefined && ["At stake", formatAUD(a.atStake)],
-    a.recoverable !== undefined && a.recoverable !== a.atStake && ["Can recover", formatAUD(a.recoverable)],
-    a.perMonth !== undefined && ["Per month", formatAUD(a.perMonth)],
+    a.atStake !== undefined && [copy.detail.atStake, formatAUD(a.atStake)],
+    a.recoverable !== undefined && a.recoverable !== a.atStake && [copy.detail.canRecover, formatAUD(a.recoverable)],
+    a.perMonth !== undefined && [copy.detail.perMonth, formatAUD(a.perMonth)],
   ].filter(Boolean) as [string, string][];
   return (
     <div className="flex shrink-0 gap-4">
@@ -354,7 +355,7 @@ export function FindingDetail({
     : [];
 
   return (
-    <section aria-label="Finding" className="flex min-h-0 flex-1 flex-col">
+    <section aria-label={copy.detail.label} className="flex min-h-0 flex-1 flex-col">
       {/* Pinned, like the list's and the timeline's headings. */}
       <ViewHeading
         view="finding"
@@ -364,7 +365,7 @@ export function FindingDetail({
             <span className="truncate font-medium">{item.merchant}</span>
             {finding ? (
               <>
-                <span className="shrink-0 rounded-full border border-hairline px-2 py-px text-[11px] text-muted">{KIND_LABEL[finding.kind]}</span>
+                <span className="shrink-0 rounded-full border border-hairline px-2 py-px text-[11px] text-muted">{copy.shared.kind[finding.kind]}</span>
                 {finding.deadline && (
                   <span
                     title={finding.deadline.label}
@@ -372,12 +373,12 @@ export function FindingDetail({
                       daysUntil(finding.deadline.date) <= SOON_DAYS ? "bg-amber-glow text-amber" : "border border-hairline text-faint"
                     }`}
                   >
-                    {shortDate(finding.deadline.date)} · {daysText(daysUntil(finding.deadline.date))}
+                    {copy.detail.deadlineChip(shortDate(finding.deadline.date), copy.dates.days(daysUntil(finding.deadline.date)))}
                   </span>
                 )}
               </>
             ) : (
-              <span className="rounded-full border border-hairline px-2 py-px text-[11px] text-positive/80">Looks fine</span>
+              <span className="rounded-full border border-hairline px-2 py-px text-[11px] text-positive/80">{copy.shared.looksFine}</span>
             )}
           </>
         }
@@ -386,15 +387,15 @@ export function FindingDetail({
         <span className="line-clamp-2">{item.why}</span>
         {finding?.deadline && (
           <span className="mt-0.5 block truncate text-[12px] text-faint">
-            Next date: {finding.deadline.label}, {shortDate(finding.deadline.date)}
+            {copy.detail.nextDate(finding.deadline.label, shortDate(finding.deadline.date))}
           </span>
         )}
       </ViewHeading>
 
       {finding && isUnsure(finding) && (
         <div className="mx-4 mt-2 rounded-md border border-amber/30 bg-amber-glow/40 px-3 py-1.5 text-[12px]">
-          <span className="font-medium text-amber">Not sure: check evidence. </span>
-          <span className="text-muted">{finding.doubts.join(" ") || "The agent is less confident about this one."}</span>
+          <span className="font-medium text-amber">{copy.detail.notSure}</span>
+          <span className="text-muted">{finding.doubts.join(" ") || copy.detail.lessConfident}</span>
         </div>
       )}
 
@@ -404,9 +405,9 @@ export function FindingDetail({
           <DraftPane finding={finding} edited={edited} editing={editing} onStopEditing={onStopEditing} focused={pane === "draft"} paneRef={draftRef} scanning={scanning} onFocus={onFocusDraft} />
         ) : (
           <div className="rounded-lg p-3 text-[12.5px]">
-            <h3 className="mb-1.5 font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">Why it was left alone</h3>
+            <h3 className="mb-1.5 font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">{copy.detail.whyLeftAlone}</h3>
             <p className="text-muted">{(item as Cleared).why}</p>
-            <p className="mt-3 text-faint">Nothing to do. If you think it's wrong, the evidence it relied on is on the left.</p>
+            <p className="mt-3 text-faint">{copy.detail.nothingToDo}</p>
           </div>
         )}
       </div>
@@ -444,7 +445,7 @@ export function ActionBar({
   onCommand: (command: Command) => void;
 }) {
   if (mouse && !detail && item && !("undecided" in item)) {
-    const hint = "evidence" in item ? "Click for more detail" : "Click to see why it looks fine";
+    const hint = "evidence" in item ? copy.actions.clickForDetail : copy.actions.clickWhyFine;
     return (
       // The click hint sits on the right, where the keyboard's J/K hint would be.
       <div className="flex h-10 shrink-0 items-center justify-between gap-3 border-t border-hairline px-4 text-[12px]">
@@ -460,18 +461,18 @@ export function ActionBar({
   let hints: Hint[] = [];
   if (item && "evidence" in item) {
     if (item.status === "new") {
-      const approve = item.draft ? "Approve: save to Drafts" : item.action.kind === "none" ? "Mark handled" : "Approve";
+      const approve = item.draft ? copy.actions.approveToDrafts : item.action.kind === "none" ? copy.actions.markHandled : copy.actions.approve;
       hints = [
         { keys: ["A"], label: approve, command: "approve", icon: <ApproveIcon /> },
-        ...(item.draft ? [{ keys: ["E"], label: "Edit", command: "edit" as const, icon: <EditIcon /> }] : []),
-        { keys: ["S"], label: "Snooze", command: "snooze", icon: <SnoozeIcon /> },
-        { keys: ["D"], label: "Not a leak", command: "dismiss", icon: <DismissIcon /> },
+        ...(item.draft ? [{ keys: ["E"], label: copy.actions.edit, command: "edit" as const, icon: <EditIcon /> }] : []),
+        { keys: ["S"], label: copy.actions.snooze, command: "snooze", icon: <SnoozeIcon /> },
+        { keys: ["D"], label: copy.actions.notALeak, command: "dismiss", icon: <DismissIcon /> },
       ];
     } else {
-      hints = [{ keys: ["⌘", "Z"], label: "Undo", command: "undo", icon: <UndoIcon /> }];
+      hints = [{ keys: ["⌘", "Z"], label: copy.actions.undo, command: "undo", icon: <UndoIcon /> }];
     }
   } else if (item && "undecided" in item) {
-    hints = [{ keys: ["R"], label: "Check again", command: "rescan", icon: <CheckNowIcon /> }];
+    hints = [{ keys: ["R"], label: copy.actions.checkAgain, command: "rescan", icon: <CheckNowIcon /> }];
   }
   const twoPanes = !!item && "evidence" in item;
   return (
@@ -499,15 +500,15 @@ export function ActionBar({
         {item && "undecided" in item && <span className="truncate text-faint">{item.undecided}</span>}
       </div>
       <div className="flex shrink-0 items-center gap-3">
-        {!detail && item && !("undecided" in item) && <KeyButton keys={["↵"]} label="Open" icon={<OpenIcon />} tone="faint" onClick={() => onCommand("open")} />}
-        {!detail && <KeyHint keys={["J", "K"]} label="Move" />}
-        {detail && !mouse && <KeyHint keys={["J", "K"]} label={pane === "draft" ? "Scroll" : "Evidence"} />}
-        {detail && !mouse && twoPanes && <KeyButton keys={["Tab"]} label="Switch pane" icon={<PaneIcon />} tone="faint" onClick={() => onCommand("pane")} />}
+        {!detail && item && !("undecided" in item) && <KeyButton keys={["↵"]} label={copy.actions.open} icon={<OpenIcon />} tone="faint" onClick={() => onCommand("open")} />}
+        {!detail && <KeyHint keys={["J", "K"]} label={copy.actions.move} />}
+        {detail && !mouse && <KeyHint keys={["J", "K"]} label={pane === "draft" ? copy.actions.scroll : copy.actions.evidence} />}
+        {detail && !mouse && twoPanes && <KeyButton keys={["Tab"]} label={copy.actions.switchPane} icon={<PaneIcon />} tone="faint" onClick={() => onCommand("pane")} />}
         {/* With the mouse, the click hint takes the place of the navigation keys, as in the list. */}
         {detail && mouse && (
           <span className="inline-flex items-center gap-1.5 text-muted">
             <MouseIcon />
-            Click any evidence to read it
+            {copy.actions.clickEvidence}
           </span>
         )}
       </div>

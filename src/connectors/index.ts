@@ -2,6 +2,7 @@
 // (stage 0 of the agent pipeline). Each connector syncs on its own and reports
 // its state as it goes, so one broken connection never blocks the others.
 
+import { copy } from "../copy.ts";
 import { now } from "../lib/clock.ts";
 import { addDays, localDate, toZonedIso } from "../lib/dates.ts";
 import { createBankConnector, type BankConnector } from "./bank.ts";
@@ -114,13 +115,13 @@ async function readAllPages<T>(
       items.push(...page.items);
       cursor = page.nextCursor;
       retries = 0;
-      report({ state: "syncing", detail: `Read ${items.length} of ${page.total} ${noun}`, retryAt: undefined });
+      report({ state: "syncing", detail: copy.connector.readOf(items.length, page.total, noun), retryAt: undefined });
     } catch (error) {
       const limited = error instanceof ConnectorError && error.code === "rate_limited";
       if (!limited || retries >= MAX_RETRIES) throw error;
       retries += 1;
       const waitMs = (error.retryAfterSeconds ?? 1) * 1000 * connectors.runtime.latencyScale;
-      report({ state: "retrying", detail: "Bank asked us to slow down", retryAt: Date.now() + waitMs });
+      report({ state: "retrying", detail: copy.connector.bankSlowDown, retryAt: Date.now() + waitMs });
       await connectors.runtime.sleep(waitMs);
     }
   } while (cursor !== undefined);
@@ -197,7 +198,7 @@ export async function syncSome(
           connectors,
           (cursor) => connectors.bank.listTransactions({ accountId: account.id, cursor }),
           (s) => report({ ...s, detail: s.detail && `${account.name}: ${s.detail}` }),
-          "transactions",
+          copy.connector.nouns.bank,
         );
         transactions.push(...rows);
       }
@@ -211,7 +212,7 @@ export async function syncSome(
         connectors,
         (cursor) => connectors.email.search({ cursor }),
         report,
-        "emails",
+        copy.connector.nouns.email,
       );
       return snapshot.messages.length;
     }),
@@ -220,12 +221,12 @@ export async function syncSome(
         connectors,
         (cursor) => connectors.documents.list(cursor),
         report,
-        "documents",
+        copy.connector.nouns.documents,
       );
       return snapshot.documents.length;
     }),
     run("calendar", async (report) => {
-      report({ state: "syncing", detail: "Reading events" });
+      report({ state: "syncing", detail: copy.connector.readingEvents });
       snapshot.events = await connectors.calendar.listEvents({
         from: addDays(today, -CALENDAR_WINDOW.back),
         to: addDays(today, CALENDAR_WINDOW.ahead),

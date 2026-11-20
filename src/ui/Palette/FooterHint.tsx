@@ -3,6 +3,7 @@ import type { TimelineEntry } from "../timeline";
 import { KeyButton, KeyHint } from "../Kbd";
 import { CheckNowIcon, OpenIcon } from "../icons";
 import { MouseIcon } from "./FindingDetail";
+import { copy } from "../../copy";
 
 // What the selected row's keys or clicks do, shown at the right of the
 // footer in the list and the timeline (there is no separate bar for it).
@@ -13,13 +14,13 @@ type Item = Finding | Cleared | { undecided: string } | undefined;
 export function ListHint({ item, mouse, onOpen, onRescan }: { item: Item; mouse: boolean; onOpen: () => void; onRescan: () => void }) {
   if (!item) return null;
   if ("undecided" in item) {
-    return <KeyButton keys={["R"]} label="Check again" icon={<CheckNowIcon />} tone="muted" mouse={mouse} onClick={onRescan} />;
+    return <KeyButton keys={["R"]} label={copy.actions.checkAgain} icon={<CheckNowIcon />} tone="muted" mouse={mouse} onClick={onRescan} />;
   }
-  if (mouse) return <ClickHint text={"evidence" in item ? "Click for more detail" : "Click to see why it looks fine"} />;
+  if (mouse) return <ClickHint text={"evidence" in item ? copy.actions.clickForDetail : copy.actions.clickWhyFine} />;
   return (
     <>
-      <KeyButton keys={["↵"]} label="Open" icon={<OpenIcon />} tone="faint" onClick={onOpen} />
-      <KeyHint keys={["J", "K"]} label="Move" />
+      <KeyButton keys={["↵"]} label={copy.actions.open} icon={<OpenIcon />} tone="faint" onClick={onOpen} />
+      <KeyHint keys={["J", "K"]} label={copy.actions.move} />
     </>
   );
 }
@@ -27,11 +28,11 @@ export function ListHint({ item, mouse, onOpen, onRescan }: { item: Item; mouse:
 export function TimelineHint({ entry, mouse, onOpen }: { entry?: TimelineEntry; mouse: boolean; onOpen: () => void }) {
   if (!entry) return null;
   const opens = !!(entry.findingId || entry.clearedId);
-  if (mouse) return opens ? <ClickHint text={entry.clearedId ? "Click to see why it looks fine" : "Click for more detail"} /> : null;
+  if (mouse) return opens ? <ClickHint text={entry.clearedId ? copy.actions.clickWhyFine : copy.actions.clickForDetail} /> : null;
   return (
     <>
-      {opens && <KeyButton keys={["↵"]} label="Open" icon={<OpenIcon />} tone="faint" onClick={onOpen} />}
-      <KeyHint keys={["J", "K"]} label="Move" />
+      {opens && <KeyButton keys={["↵"]} label={copy.actions.open} icon={<OpenIcon />} tone="faint" onClick={onOpen} />}
+      <KeyHint keys={["J", "K"]} label={copy.actions.move} />
     </>
   );
 }

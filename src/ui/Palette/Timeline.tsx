@@ -4,7 +4,8 @@ import { toZonedIso } from "../../lib/dates";
 import { formatAUD } from "../../lib/money";
 import type { ScanState } from "../../lib/scan-store";
 import { comingUp, nowIndex, type TimelineEntry, type TimelineTone } from "../timeline";
-import { clockTime, daysText, daysUntil, plural, shortDate } from "../format";
+import { clockTime, daysUntil, shortDate } from "../format";
+import { copy } from "../../copy";
 import { ViewHeading } from "./ViewHeading";
 
 // The case view: one vertical line through time. What already happened sits
@@ -12,8 +13,8 @@ import { ViewHeading } from "./ViewHeading";
 // agent activity sits just above the marker. Keyboard first (J/K, Enter,
 // Esc); the Palette owns the keys, this only draws.
 
-const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = copy.dates.months;
+const WEEKDAYS = copy.dates.weekdays;
 
 function weekdayOf(date: string): string {
   const [y, m, d] = date.split("-").map(Number);
@@ -23,10 +24,7 @@ function weekdayOf(date: string): string {
 /** "just now", "4 min ago", "2 h ago": for today's activity, from the real clock. */
 export function ago(at: number | undefined): string {
   if (!at) return "";
-  const minutes = Math.round((Date.now() - at) / 60_000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes} min ago`;
-  return `${Math.round(minutes / 60)} h ago`;
+  return copy.dates.ago(Math.round((Date.now() - at) / 60_000));
 }
 
 const DOT: Record<TimelineTone, string> = {
@@ -54,11 +52,11 @@ function Headline({
 }) {
   const q = query.trim();
   const next = comingUp(entries);
-  const parts = [`${formatAUD(next.totalCents)} expected to leave your accounts in the next 30 days`];
-  if (next.soon && next.lastSoon) parts.push(`${plural(next.soon, "date")} that need${next.soon === 1 ? "s" : ""} you before ${shortDate(next.lastSoon)}`);
-  if (q && entries.length === 0) parts.splice(0, parts.length, "Try a business, like Skylink, or a date, like 28 Nov. Esc clears the search");
-  let title = "What's coming";
-  if (q) title = entries.length ? `${plural(entries.length, "match", "matches")} for "${q}"` : `No matches for "${q}"`;
+  const parts = [copy.timeline.expected(next.totalCents)];
+  if (next.soon && next.lastSoon) parts.push(copy.timeline.soonDates(next.soon, shortDate(next.lastSoon)));
+  if (q && entries.length === 0) parts.splice(0, parts.length, copy.timeline.searchHelp);
+  let title = copy.timeline.title;
+  if (q) title = entries.length ? copy.search.matches(entries.length, q) : copy.search.noMatches(q);
   return (
     <ViewHeading
       view="timeline"
@@ -66,7 +64,7 @@ function Headline({
       search={search}
     >
       {parts.join(", and ")}.
-      {scan.phase === "scanning" && <span className="text-faint"> Still checking, so more may appear.</span>}
+      {scan.phase === "scanning" && <span className="text-faint"> {copy.timeline.stillChecking}</span>}
     </ViewHeading>
   );
 }
@@ -74,8 +72,8 @@ function Headline({
 function NowMarker() {
   const today = now();
   return (
-    <li className="relative flex h-10 items-center gap-3 px-3" aria-label={`Now: ${formatDay(today)}`}>
-      <span className="w-12 shrink-0 text-right font-mono text-[10.5px] font-medium tracking-[0.08em] text-amber uppercase">Now</span>
+    <li className="relative flex h-10 items-center gap-3 px-3" aria-label={copy.timeline.nowLabel(formatDay(today))}>
+      <span className="w-12 shrink-0 text-right font-mono text-[10.5px] font-medium tracking-[0.08em] text-amber uppercase">{copy.timeline.now}</span>
       <span className={RAIL}>
         <span className="size-3 rounded-full bg-amber shadow-[0_0_0_5px_var(--color-amber-glow),0_0_18px_var(--color-amber-glow)]" />
       </span>
@@ -91,7 +89,7 @@ function Row({ entry, showDate }: { entry: TimelineEntry; showDate: boolean }) {
   const future = entry.side === "future";
   const days = future ? daysUntil(entry.date) : undefined;
   const faded = entry.tone === "past";
-  const right = entry.tone === "agent" ? ago(entry.at) : days !== undefined ? daysText(days) : "";
+  const right = entry.tone === "agent" ? ago(entry.at) : days !== undefined ? copy.dates.days(days) : "";
   return (
     <>
       <span className="flex w-12 shrink-0 flex-col items-end leading-none">
@@ -114,7 +112,7 @@ function Row({ entry, showDate }: { entry: TimelineEntry; showDate: boolean }) {
         </span>
         {entry.detail && <span className="mt-0.5 block truncate text-[12px] text-faint">{entry.detail}</span>}
       </span>
-      {entry.tone === "done" && <span className="shrink-0 rounded-full border border-positive/30 px-2 py-px text-[11px] text-positive">Draft saved</span>}
+      {entry.tone === "done" && <span className="shrink-0 rounded-full border border-positive/30 px-2 py-px text-[11px] text-positive">{copy.shared.decided.approved}</span>}
       <span className={`w-[84px] shrink-0 text-right font-mono text-[12px] tabular ${faded ? "text-faint" : ""}`}>
         {entry.amountCents !== undefined ? formatAUD(entry.amountCents) : ""}
       </span>
@@ -217,7 +215,7 @@ export function Timeline({
           {/* The rail: one hairline behind every dot. It sits at the centre of the
               dot column: 8px outer padding + 12px row padding + 48px date + 12px gap + 10px. */}
           <span className="pointer-events-none absolute inset-y-0 left-[89.5px] w-px bg-hairline" aria-hidden="true" />
-          <ol role="listbox" aria-label="Timeline" className="relative flex flex-col">
+          <ol role="listbox" aria-label={copy.timeline.label} className="relative flex flex-col">
             {rows}
           </ol>
         </div>

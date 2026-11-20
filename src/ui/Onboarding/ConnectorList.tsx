@@ -1,5 +1,6 @@
 import { CalendarDays, Check, Cloud, FolderOpen, HeartPulse, Landmark, Loader2, Mail, PiggyBank, Plus, Wallet } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { copy } from "../../copy";
 import { Kbd } from "../Kbd";
 
 // The list of things you can connect, on the onboarding's connect screen.
@@ -53,18 +54,18 @@ export function ConnectorList({
             <span className="min-w-0 flex-1 text-left">
               <span className="block text-[13.5px] text-text">{row.name}</span>
               <span className="block truncate text-[12px] text-muted">{row.what}</span>
-              <span className="block truncate text-[11.5px] text-faint">by {row.by}</span>
+              <span className="block truncate text-[11.5px] text-faint">{copy.onboarding.by(row.by)}</span>
             </span>
             {row.state === "connected" && (
               <span className="tick-in flex shrink-0 items-center gap-1.5 text-[12px] text-positive" role="status">
                 <Check size={14} strokeWidth={2} aria-hidden="true" />
-                {row.note ?? "Connected"}
+                {row.note ?? copy.onboarding.connected}
               </span>
             )}
             {row.state === "connecting" && (
               <span className="flex shrink-0 items-center gap-1.5 text-[12px] text-muted" role="status">
                 <Loader2 size={14} strokeWidth={1.75} className="motion-safe:animate-spin" aria-hidden="true" />
-                {row.note ?? "Connecting"}
+                {row.note ?? copy.onboarding.connecting}
               </span>
             )}
             {row.state === "problem" && (
@@ -83,7 +84,7 @@ export function ConnectorList({
                 )}
               </span>
             )}
-            {off && <span className="shrink-0 text-[11.5px] text-faint">Not in this demo</span>}
+            {off && <span className="shrink-0 text-[11.5px] text-faint">{copy.onboarding.notInDemo}</span>}
             {row.state === "idle" && row.next && !mouse && (
               <span className="shrink-0" aria-hidden="true">
                 <Kbd keys={["↵"]} />
@@ -93,8 +94,8 @@ export function ConnectorList({
               <button
                 type="button"
                 tabIndex={-1}
-                aria-label={`Connect ${row.name}`}
-                title={`Connect ${row.name}`}
+                aria-label={copy.onboarding.connectSource(row.name)}
+                title={copy.onboarding.connectSource(row.name)}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => onConnect(row.id)}
                 className={`grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg border transition-colors duration-(--duration-fast) ${

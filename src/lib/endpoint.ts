@@ -12,6 +12,7 @@
 
 import { createContext, useContext, useSyncExternalStore } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { copy } from "../copy.ts";
 import { cacheKey, MODELS, requestBody } from "./llm.ts";
 import { llmConfigured, tauriTransport } from "./llm-tauri.ts";
 import { withLimit } from "./model-session.ts";
@@ -106,7 +107,7 @@ function forcedStatus(): EndpointStatus {
     state: "forced",
     checkedAt: Date.now(),
     byFlag: byFlag && !demo.saved,
-    detail: byFlag && !demo.saved ? (isTauri() ? "Started with LIFE_REPLAY=1." : "Started with ?replay.") : "Chosen in the demo panel.",
+    detail: byFlag && !demo.saved ? (isTauri() ? copy.endpoint.startedWithFlag : copy.endpoint.startedWithQuery) : copy.endpoint.chosenInPanel,
   };
 }
 
@@ -194,7 +195,7 @@ async function run(): Promise<EndpointStatus> {
     return status;
   }
   if (!isTauri()) {
-    set({ state: "browser", checkedAt: Date.now(), detail: "A browser tab has no model connection, only the answers saved by the scripts." });
+    set({ state: "browser", checkedAt: Date.now(), detail: copy.endpoint.browser });
     return status;
   }
   set({ ...status, state: "checking" });
@@ -208,7 +209,7 @@ type Check = { status: number; ms: number; models: string[] };
 
 async function probe(): Promise<EndpointStatus> {
   if (!(await llmConfigured())) {
-    return { state: "not_set_up", detail: "There's no API key. Add BC_API_KEY to .env, then restart the app." };
+    return { state: "not_set_up", detail: copy.endpoint.noKey };
   }
   // 1. The model list: network, key and models in one quick call (src-tauri/src/llm.rs).
   let check: Check;
@@ -216,18 +217,18 @@ async function probe(): Promise<EndpointStatus> {
     check = await invoke<Check>("llm_check");
   } catch (error) {
     const failure = error as { kind?: string; message?: string };
-    if (failure.kind === "not_configured") return { state: "not_set_up", detail: "There's no API key. Add BC_API_KEY to .env, then restart the app." };
+    if (failure.kind === "not_configured") return { state: "not_set_up", detail: copy.endpoint.noKey };
     return { state: "offline", detail: offlineDetail(failure.message ?? String(error)) };
   }
   if (check.status === 401 || check.status === 403) {
-    return { state: "key_rejected", detail: `The endpoint didn't accept the API key (it answered ${check.status}).` };
+    return { state: "key_rejected", detail: copy.endpoint.keyRejected(check.status) };
   }
   if (check.status < 200 || check.status >= 300) {
-    return { state: "unavailable", detail: `The endpoint answered with an error (${check.status}).` };
+    return { state: "unavailable", detail: copy.endpoint.error(check.status) };
   }
   const missing = Object.values(MODELS).filter((id) => !check.models.includes(id));
   if (missing.length) {
-    return { state: "unavailable", detail: `The endpoint doesn't list ${missing.join(", ")}.` };
+    return { state: "unavailable", detail: copy.endpoint.missingModels(missing) };
   }
 
   // 2. One tiny real request, to time an answer (the list can be up while the models are not).
@@ -241,9 +242,9 @@ async function probe(): Promise<EndpointStatus> {
   try {
     const reply = await withLimit(tauriTransport.post("chat/completions", body, await cacheKey(body), "live"), NO_ANSWER_MS);
     const ms = Date.now() - started;
-    if (reply.status === 401 || reply.status === 403) return { state: "key_rejected", detail: `The endpoint didn't accept the API key (it answered ${reply.status}).` };
-    if (reply.status < 200 || reply.status >= 300) return { state: "unavailable", detail: `The models answered with an error (${reply.status}).` };
-    if (ms > SLOW_MS) return { state: "slow", ms, detail: `A tiny test took ${(ms / 1000).toFixed(1)} s, so this check may take a few minutes.` };
+    if (reply.status === 401 || reply.status === 403) return { state: "key_rejected", detail: copy.endpoint.keyRejected(reply.status) };
+    if (reply.status < 200 || reply.status >= 300) return { state: "unavailable", detail: copy.endpoint.modelsError(reply.status) };
+    if (ms > SLOW_MS) return { state: "slow", ms, detail: copy.endpoint.slow(ms) };
     return { state: "live", ms };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -253,7 +254,7 @@ async function probe(): Promise<EndpointStatus> {
 
 function offlineDetail(message: string): string {
   if (/within|didn't answer|no answer/i.test(message)) return message.endsWith(".") ? message : `${message}.`;
-  return "Couldn't reach the endpoint. Check the network.";
+  return copy.endpoint.unreachable;
 }
 
 // When the Mac's network comes back, check again so the footer stops saying offline.
@@ -262,6 +263,6 @@ if (typeof window !== "undefined") {
     if (status.state === "offline") void checkEndpoint();
   });
   window.addEventListener("offline", () => {
-    if (!usesReplay(status.state)) set({ state: "offline", checkedAt: Date.now(), detail: "The Mac went offline." });
+    if (!usesReplay(status.state)) set({ state: "offline", checkedAt: Date.now(), detail: copy.endpoint.macOffline });
   });
 }

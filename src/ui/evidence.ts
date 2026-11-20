@@ -6,6 +6,7 @@ import type { Corpus } from "../agent/corpus.ts";
 import type { EvidenceRef } from "../agent/detectors.ts";
 import { formatAUD } from "../lib/money.ts";
 import { shortDate } from "./format.ts";
+import { copy } from "../copy.ts";
 
 export type EvidenceView = {
   id: string;
@@ -23,7 +24,7 @@ export type EvidenceView = {
 };
 
 export function lookupEvidence(corpus: Corpus | undefined, id: string, kind?: EvidenceRef["kind"]): EvidenceView {
-  const fallback: EvidenceView = { id, kind: kind ?? "doc", source: "Item", title: id, meta: "Not available in this check" };
+  const fallback: EvidenceView = { id, kind: kind ?? "doc", source: copy.evidence.item, title: id, meta: copy.evidence.notAvailable };
   if (!corpus) return fallback;
 
   const txn = corpus.transactions.find((t) => t.id === id);
@@ -32,9 +33,9 @@ export function lookupEvidence(corpus: Corpus | undefined, id: string, kind?: Ev
     return {
       id,
       kind: "txn",
-      source: "Bank",
+      source: copy.evidence.bank,
       title: txn.description,
-      meta: account?.name ?? "Bank account",
+      meta: account?.name ?? copy.evidence.bankAccount,
       date: txn.date,
       amount: txn.amountCents < 0 ? formatAUD(-txn.amountCents) : `+${formatAUD(txn.amountCents)}`,
     };
@@ -45,9 +46,9 @@ export function lookupEvidence(corpus: Corpus | undefined, id: string, kind?: Ev
     return {
       id,
       kind: "email",
-      source: "Email",
+      source: copy.evidence.email,
       title: email.subject,
-      meta: `${email.from.name}${email.unread ? " · unread" : ""}${files ? ` · ${files}` : ""}`,
+      meta: `${email.from.name}${email.unread ? ` · ${copy.evidence.unread}` : ""}${files ? ` · ${files}` : ""}`,
       date: email.date,
       body: email.body,
     };
@@ -58,7 +59,7 @@ export function lookupEvidence(corpus: Corpus | undefined, id: string, kind?: Ev
     return {
       id,
       kind: "doc",
-      source: image ? "Photo" : "Document",
+      source: image ? copy.evidence.photo : copy.evidence.document,
       title: doc.title,
       meta: doc.filename,
       date: doc.modifiedAt,
@@ -71,9 +72,9 @@ export function lookupEvidence(corpus: Corpus | undefined, id: string, kind?: Ev
     return {
       id,
       kind: "event",
-      source: "Calendar",
+      source: copy.evidence.calendar,
       title: event.title,
-      meta: [event.calendar, event.recurring ? "repeats" : ""].filter(Boolean).join(" · "),
+      meta: [event.calendar, event.recurring ? copy.evidence.repeats : ""].filter(Boolean).join(" · "),
       date: event.start,
       body: event.notes || undefined,
     };

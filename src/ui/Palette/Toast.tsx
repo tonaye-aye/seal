@@ -1,5 +1,6 @@
 import { TOAST_MS, dismissToast, undoLast, useScan } from "../../lib/scan-store";
 import { UndoIcon } from "../icons";
+import { copy } from "../../copy";
 import { Kbd } from "../Kbd";
 
 // The result of an action, with Undo for 10 seconds. The thin bar shows the
@@ -21,10 +22,10 @@ export function Toast() {
           className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-amber hover:bg-hairline"
         >
           <UndoIcon />
-          Undo <Kbd keys={["⌘", "Z"]} />
+          {copy.toasts.undo} <Kbd keys={["⌘", "Z"]} />
         </button>
       ) : (
-        <button type="button" onClick={dismissToast} aria-label="Dismiss" className="px-1.5 text-faint hover:text-muted">
+        <button type="button" onClick={dismissToast} aria-label={copy.toasts.dismiss} className="px-1.5 text-faint hover:text-muted">
           ×
         </button>
       )}

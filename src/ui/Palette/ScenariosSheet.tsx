@@ -3,6 +3,7 @@ import { toggleScenario, useLive, useScenarios } from "../../connectors/live";
 import { DROP_AFTER, toggleDrop, toggleSavedOnly, useModelDemo } from "../../lib/endpoint";
 import { useScan } from "../../lib/scan-store";
 import { CheckNowIcon, CloseIcon, ResetIcon } from "../icons";
+import { copy } from "../../copy";
 import { Kbd, KeyButton } from "../Kbd";
 
 // The hidden demo panel (Cmd+Shift+D): switches that make the fake connectors
@@ -11,49 +12,18 @@ import { Kbd, KeyButton } from "../Kbd";
 // switches are about the model endpoint: use saved answers only (so bad wifi
 // can't break a demo), and make the endpoint drop out partway through a check.
 
+const DEMO = copy.demo;
+
 export const SCENARIOS: { id: ScenarioId; key: string; name: string; short: string; simulates: string; expect: string }[] = [
-  {
-    id: "calendar_reauth",
-    key: "1",
-    name: "Calendar sign-in expires",
-    short: "Calendar signed out",
-    simulates: "Every calendar call fails with 401, like an expired token.",
-    expect: "Connectors at the bottom turns red with a 1 (open it for Reconnect), and the findings list says the calendar couldn't be read. Press R again to reconnect.",
-  },
-  {
-    id: "bank_rate_limit",
-    key: "2",
-    name: "Bank rate limit",
-    short: "Bank rate limit",
-    simulates: "Every 4th transactions call is refused with 429, asking to wait 3 seconds.",
-    expect: 'once per check, Connectors at the bottom counts down "Retrying in 3s" and the checking screen says the bank asked us to slow down. It carries on by itself.',
-  },
-  {
-    id: "slow_documents",
-    key: "3",
-    name: "Slow documents",
-    short: "Slow documents",
-    simulates: "Each document read takes 4 to 6 seconds.",
-    expect: "for about 15 s while documents are read, a loading card under the steps on the checking screen; Connectors at the bottom stays amber, and its menu says Documents are slow to respond.",
-  },
+  { id: "calendar_reauth", key: "1", ...DEMO.scenarios.calendar_reauth },
+  { id: "bank_rate_limit", key: "2", ...DEMO.scenarios.bank_rate_limit },
+  { id: "slow_documents", key: "3", ...DEMO.scenarios.slow_documents },
 ];
 
 /** The model endpoint's switches, keyed like the scenarios above. */
 export const MODEL_SWITCHES = [
-  {
-    id: "saved",
-    key: "M",
-    name: "Use saved answers only",
-    simulates: "Every model answer comes from the saved answers of earlier runs. No model calls are made.",
-    expect: 'a "Replay mode" banner says you chose saved answers, and a "Model: saved answers" chip sits at the bottom. Run one live check first so there is something saved.',
-  },
-  {
-    id: "drop",
-    key: "4",
-    name: "Endpoint drops partway",
-    simulates: `The first ${DROP_AFTER} model calls of the next check answer, then the endpoint stops answering.`,
-    expect: 'the trace says the endpoint was lost and the check starts again from saved answers; a "Replay mode" banner says so, and a "Model: offline" chip sits at the bottom.',
-  },
+  { id: "saved", key: "M", name: DEMO.saved.name, simulates: DEMO.saved.simulates, expect: DEMO.saved.expect },
+  { id: "drop", key: "4", name: DEMO.drop.name, simulates: DEMO.drop.simulates(DROP_AFTER), expect: DEMO.drop.expect },
 ] as const;
 
 export function ScenariosSheet({
@@ -78,19 +48,17 @@ export function ScenariosSheet({
     <div className="absolute inset-0 z-30 grid place-items-center bg-bg/70 backdrop-blur-sm" onClick={onClose}>
       <section
         role="dialog"
-        aria-label="Demo controls"
+        aria-label={DEMO.label}
         className="sheet-in max-h-[calc(100%-32px)] w-[640px] overflow-y-auto rounded-xl border border-hairline bg-surface p-5 shadow-[0_16px_48px_rgb(0_0_0/0.45)]"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="mb-4 flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-[15px] font-medium tracking-[-0.01em]">Demo controls</h2>
-            <p className="mt-0.5 text-[12px] text-muted">
-              Simulate failures for demos. These are demo connectors over seed data, so nothing real breaks. Switches stay on until you turn them off.
-            </p>
+            <h2 className="text-[15px] font-medium tracking-[-0.01em]">{DEMO.title}</h2>
+            <p className="mt-0.5 text-[12px] text-muted">{DEMO.intro}</p>
           </div>
           <span className="shrink-0 rounded-full border border-amber/30 px-2 py-0.5 font-mono text-[10px] tracking-[0.06em] text-amber uppercase">
-            Demo
+            {DEMO.badge}
           </span>
         </header>
 
@@ -120,7 +88,7 @@ export function ScenariosSheet({
                     <span className="block text-[13px] text-text">{s.name}</span>
                     <span className="mt-0.5 block text-[12px] text-muted">{s.simulates}</span>
                     {/* Where to look, once it's on (keeps the panel inside the window). */}
-                    {enabled && <span className="mt-0.5 block text-[12px] text-faint">You'll see: {s.expect}</span>}
+                    {enabled && <span className="mt-0.5 block text-[12px] text-faint">{DEMO.youllSee(s.expect)}</span>}
                   </span>
                   <Switch on={enabled} />
                 </button>
@@ -129,7 +97,7 @@ export function ScenariosSheet({
           })}
         </ul>
 
-        <h3 className="mt-3 mb-1.5 font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">Model endpoint</h3>
+        <h3 className="mt-3 mb-1.5 font-mono text-[10.5px] tracking-[0.06em] text-faint uppercase">{DEMO.modelTitle}</h3>
         <ul className="flex flex-col gap-1.5">
           {MODEL_SWITCHES.map((s) => {
             const enabled = s.id === "saved" ? model.saved || model.byFlag : model.drop;
@@ -156,10 +124,10 @@ export function ScenariosSheet({
                   <span className="min-w-0 flex-1">
                     <span className="block text-[13px] text-text">{s.name}</span>
                     <span className="mt-0.5 block text-[12px] text-muted">
-                      {locked ? "On for this launch: started with LIFE_REPLAY=1. Restart without it to go live." : s.simulates}
+                      {locked ? DEMO.saved.locked : s.simulates}
                     </span>
                     {/* Where to look, once it's on (keeps the panel inside the window). */}
-                    {enabled && <span className="mt-0.5 block text-[12px] text-faint">You'll see: {s.expect}</span>}
+                    {enabled && <span className="mt-0.5 block text-[12px] text-faint">{DEMO.youllSee(s.expect)}</span>}
                   </span>
                   <Switch on={enabled} />
                 </button>
@@ -170,35 +138,29 @@ export function ScenariosSheet({
 
         <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-hairline px-3 py-2.5">
           <span className="min-w-0">
-            <span className="block text-[13px] text-text">Start onboarding again</span>
+            <span className="block text-[13px] text-text">{DEMO.resetTitle}</span>
             <span className="mt-0.5 block text-[12px] text-muted">
-              {checking
-                ? "Wait for the check to finish first."
-                : "Forgets decisions, results and connections, then shows the welcome. Simulated failures stay as they are."}
+              {checking ? DEMO.resetWait : DEMO.resetBody}
             </span>
           </span>
-          <KeyButton keys={["O"]} label="Reset onboarding" icon={<ResetIcon />} disabled={checking} mouse={mouse} onClick={onReset} />
+          <KeyButton keys={["O"]} label={DEMO.resetButton} icon={<ResetIcon />} disabled={checking} mouse={mouse} onClick={onReset} />
         </div>
 
         <footer className="mt-4 flex min-h-7 items-center justify-between gap-3 text-[12px]">
           <p role="status" className="text-muted">
-            {checking
-              ? "A check is running. Changes may not show until the next one."
-              : pending.length > 0
-                ? "Shows up on the next check. Check now closes this so you can watch."
-                : "The next check uses these settings."}
+            {checking ? DEMO.statusRunning : pending.length > 0 ? DEMO.statusPending : DEMO.statusIdle}
           </p>
           <div className="flex shrink-0 items-center gap-3">
             <KeyButton
               keys={["R"]}
-              label={checking ? "Check in progress" : "Check now"}
+              label={checking ? DEMO.checkInProgress : DEMO.checkNow}
               icon={<CheckNowIcon />}
               tone={pending.length > 0 ? "amber" : "muted"}
               disabled={checking}
               mouse={mouse}
               onClick={onCheck}
             />
-            <KeyButton keys={["Esc"]} label="Close" icon={<CloseIcon />} tone="faint" mouse={mouse} onClick={onClose} />
+            <KeyButton keys={["Esc"]} label={DEMO.close} icon={<CloseIcon />} tone="faint" mouse={mouse} onClick={onClose} />
           </div>
         </footer>
       </section>
@@ -229,7 +191,7 @@ export function SimulatingChip({ onClick }: { onClick: () => void }) {
   const on = useScenarios();
   const model = useModelDemo();
   const names = SCENARIOS.filter((s) => on.includes(s.id)).map((s) => s.short as string);
-  if (model.drop) names.push("Endpoint drops");
+  if (model.drop) names.push(DEMO.drop.short);
   if (names.length === 0) return null;
   return (
     <button
@@ -237,14 +199,11 @@ export function SimulatingChip({ onClick }: { onClick: () => void }) {
       tabIndex={-1}
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
-      title={`Simulating: ${names.join(", ")}. Click to change.`}
+      title={DEMO.simulatingTitle(names)}
       className="fade-in flex h-6 min-w-0 cursor-pointer items-center gap-1.5 truncate rounded-full border border-amber/30 px-2.5 text-[11.5px] text-amber hover:bg-amber-glow/20"
     >
       <span className="size-1.5 shrink-0 rounded-full bg-amber" aria-hidden="true" />
-      <span className="truncate">
-        Simulating: {names[0]}
-        {names.length > 1 && ` +${names.length - 1}`}
-      </span>
+      <span className="truncate">{DEMO.simulating(names[0], names.length - 1)}</span>
     </button>
   );
 }
