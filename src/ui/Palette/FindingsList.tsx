@@ -141,7 +141,7 @@ const STATUS_CHIP: Record<Exclude<Finding["status"], "new">, { text: string; cla
   dismissed: { text: "Not a leak", className: "text-faint border-hairline" },
 };
 
-function DeadlineChip({ date }: { date: string }) {
+export function DeadlineChip({ date }: { date: string }) {
   const days = daysUntil(date);
   const soon = days <= SOON_DAYS;
   return (
@@ -163,7 +163,7 @@ export type RowAction = "approve" | "snooze" | "dismiss";
  * selected row while the mouse is in use). They show no key caps: they are
  * for clicking. Once a key is pressed they go away until the mouse moves.
  */
-function HoverActions({ finding, onAct }: { finding: Finding; onAct: (action: RowAction) => void }) {
+function HoverActions({ finding, onAct, held = false }: { finding: Finding; onAct: (action: RowAction) => void; held?: boolean }) {
   const approve = finding.draft ? "Approve" : finding.action.kind === "none" ? "Handled" : "Approve";
   const button = (label: string, action: RowAction, className: string) => (
     <button
@@ -182,7 +182,8 @@ function HoverActions({ finding, onAct }: { finding: Finding; onAct: (action: Ro
       // Clicks here act on the row; they must not also open it.
       onClick={(e) => e.stopPropagation()}
       // Shown only while the pointer is on this row (mouse mode starts on any movement in the palette).
-      className="fade-in absolute inset-y-0 right-1 hidden w-[290px] group-hover/row:flex items-center justify-end gap-0.5 bg-[linear-gradient(90deg,transparent,var(--color-raised)_32px)] pr-1 text-[12px]"
+      // `held` keeps them showing without a pointer (the dev gallery only).
+      className={`fade-in absolute inset-y-0 right-1 ${held ? "flex" : "hidden group-hover/row:flex"} w-[290px] items-center justify-end gap-0.5 bg-[linear-gradient(90deg,transparent,var(--color-raised)_32px)] pr-1 text-[12px]`}
     >
       {button(approve, "approve", "text-amber")}
       {button("Snooze", "snooze", "text-muted hover:text-text")}
@@ -248,6 +249,7 @@ export function FindingsList({
   onDismissHint,
   query,
   search,
+  holdHover = false,
 }: {
   items: ListItem[];
   /** Every finding, before search filters the list (the headline counts these). */
@@ -267,6 +269,8 @@ export function FindingsList({
   query: string;
   /** The search bar, pinned under the heading. */
   search: React.ReactNode;
+  /** Dev gallery only: show the selected row's click buttons without a pointer over it. */
+  holdHover?: boolean;
 }) {
   const live = useLive();
   const listRef = useRef<HTMLDivElement>(null);
@@ -297,7 +301,7 @@ export function FindingsList({
       return (
         <div key={item.key} {...common} className={rowClass(selected)}>
           <FindingRow finding={item.finding} selected={selected} />
-          {mouse && selected && item.finding.status === "new" && <HoverActions finding={item.finding} onAct={(action) => onAct(action, item.key)} />}
+          {mouse && selected && item.finding.status === "new" && <HoverActions finding={item.finding} onAct={(action) => onAct(action, item.key)} held={holdHover} />}
         </div>
       );
     if (item.type === "undecided")

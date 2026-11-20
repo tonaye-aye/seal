@@ -1,13 +1,18 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the palette window",
+  "description": "Capability for the palette window, and the dev-only gallery window",
   "windows": [
-    "palette"
+    "palette",
+    "gallery"
   ],
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",
-    "core:window:allow-center"
+    "core:window:allow-center",
+    "core:window:allow-close",
+    "core:window:allow-set-focus",
+    "core:window:allow-unminimize",
+    "core:webview:allow-create-webview-window"
   ]
 }

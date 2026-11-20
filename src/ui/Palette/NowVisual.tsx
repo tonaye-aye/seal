@@ -97,11 +97,12 @@ function breathSpeed(mix: number[], urgency: number): number {
   return mix[0] * 0.9 + mix[1] * 1.6 + mix[2] * (1.3 + 1.8 * urgency);
 }
 
-export function NowVisual() {
+/** `still` and `fallback` are for the dev gallery: force the reduced-motion frame or the CSS mark. */
+export function NowVisual({ still: forceStill = false, fallback = false }: { still?: boolean; fallback?: boolean } = {}) {
   const scan = useScan();
   const now = nowFrom(scan);
   const canvas = useRef<HTMLCanvasElement>(null);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState(fallback);
   // The latest state, read by the drawing loop without restarting it.
   const live = useRef(now);
   live.current = now;
@@ -109,6 +110,7 @@ export function NowVisual() {
 
   useEffect(() => {
     const el = canvas.current;
+    if (!el) return; // the CSS mark is showing
     const gl = el?.getContext("webgl", { premultipliedAlpha: true, antialias: false, alpha: true });
     const program = gl && build(gl);
     if (!el || !gl || !program) {
@@ -124,7 +126,8 @@ export function NowVisual() {
     gl.uniform2f(uRes, el.width, el.height);
     gl.uniform1f(uDpr, dpr);
 
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const reduced = { get matches() { return forceStill || media.matches; } };
     // Eased copies of the state, so changes blend over about half a second.
     const mix = [...TARGET[live.current.state]];
     let urgency = live.current.urgency;
@@ -189,13 +192,13 @@ export function NowVisual() {
     update();
     const stopVisibility = onPaletteVisibility(update);
     document.addEventListener("visibilitychange", update);
-    reduced.addEventListener("change", update);
+    media.addEventListener("change", update);
     el.addEventListener("webglcontextlost", lost);
     return () => {
       cancelAnimationFrame(frame);
       stopVisibility();
       document.removeEventListener("visibilitychange", update);
-      reduced.removeEventListener("change", update);
+      media.removeEventListener("change", update);
       el.removeEventListener("webglcontextlost", lost);
       kick.current = () => {};
     };
