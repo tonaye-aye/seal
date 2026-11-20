@@ -11,7 +11,7 @@
 // restart. A background check (startBackgroundChecks) runs the scan again
 // while the palette is hidden, and only swaps in the new results at the end.
 
-import { useSyncExternalStore } from "react";
+import { createContext, useContext, useSyncExternalStore } from "react";
 import { discardSaved, saveDraft } from "../agent/draft.ts";
 import type { Corpus } from "../agent/corpus.ts";
 import { rank, runScan, type AgentEvent, type Cleared, type Finding, type ScanResult, type Stage } from "../agent/pipeline.ts";
@@ -122,8 +122,15 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
+// The dev gallery passes fixed sample states through this. With no provider
+// (the real app), useScan reads the live store as before.
+const ScanPreview = createContext<ScanState | undefined>(undefined);
+export const ScanPreviewProvider = ScanPreview.Provider;
+
 export function useScan(): ScanState {
-  return useSyncExternalStore(subscribe, () => state);
+  const preview = useContext(ScanPreview);
+  const live = useSyncExternalStore(subscribe, () => state);
+  return preview ?? live;
 }
 
 export function getScan(): ScanState {

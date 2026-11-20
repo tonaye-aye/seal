@@ -8,6 +8,7 @@ import { AllClear, FindingsList, NotChecked, Scanning, ScanError, listItems, typ
 import { CommandBar } from "./CommandBar";
 import { Footer } from "./Footer";
 import { Header } from "./Header";
+import { PaletteShell } from "./PaletteShell";
 import { SwitchButton } from "../Kbd";
 import { BackIcon, ListIcon, TimelineIcon } from "./ViewHeading";
 import { ShortcutSheet } from "./ShortcutSheet";
@@ -472,61 +473,64 @@ export function Palette() {
   const actionItem = selected?.type === "undecided" ? { undecided: selected.error } : selectedItem;
 
   return (
-    <div
+    <PaletteShell
       key={openCount}
       ref={panelRef}
       tabIndex={-1}
-      className="palette-enter relative flex h-full flex-col overflow-hidden rounded-[14px] border border-white/[0.06] bg-bg/[0.86] outline-none"
+      className="palette-enter"
       // Any real pointer movement switches to mouse mode (click hints, no key
       // caps); any key press switches back. A still pointer under scrolling
       // content can fire a move event with no movement, so that doesn't count.
       onMouseMove={(e) => {
         if (e.movementX !== 0 || e.movementY !== 0) setMouse(true);
       }}
-    >
-      <Header
-        action={
-          view === "list" && !nothingYet ? (
-            <SwitchButton keys={["⌘", "↵"]} label="View timeline" icon={<TimelineIcon />} mouse={mouse} onClick={openTimeline} />
-          ) : view === "timeline" ? (
-            <SwitchButton keys={["Esc"]} label="View list" icon={<ListIcon />} mouse={mouse} onClick={back} />
-          ) : view === "detail" ? (
-            // "Back", not a view name: it returns to wherever the finding was opened from.
-            <SwitchButton keys={["Esc"]} label="Back" icon={<BackIcon />} mouse={mouse} onClick={back} />
-          ) : undefined
-        }
-      />
-      {scan.usedReplay && (
-        <p role="status" className="mx-3 mb-2 truncate rounded-md border border-amber/25 bg-amber-glow/30 px-3 py-1 text-[11.5px] text-muted">
-          <span className="font-medium text-amber">Replay mode.</span> Some answers are saved replies from an earlier run, not live from the model.
-        </p>
-      )}
-      <div className="h-px shrink-0 bg-hairline" />
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        {main}
-        {traceOpen && <TraceDrawer lines={scan.trace} onClose={() => setTraceOpen(false)} />}
-      </div>
-      {view === "timeline" ? (
-        <TimelineBar entry={selectedEntry} mouse={mouse} onOpen={() => openEntry()} />
-      ) : (
-        !nothingYet && <ActionBar item={actionItem} detail={inDetail} pane={pane} mouse={mouse} onCommand={run} />
-      )}
-      <Footer
-        hotkey={hotkey}
-        mouse={mouse}
-        onTrace={() => setTraceOpen((o) => !o)}
-        onKeys={() => setSheetOpen(true)}
-        onScenarios={() => setScenariosOpen(true)}
-      />
-      <Toast />
-      {sheetOpen && <ShortcutSheet onClose={() => setSheetOpen(false)} />}
-      {scenariosOpen && (
-        <ScenariosSheet mouse={mouse} onClose={() => setScenariosOpen(false)} onCheck={() => {
-            setScenariosOpen(false);
-            run("rescan");
-          }}
+      header={
+        <Header
+          action={
+            view === "list" && !nothingYet ? (
+              <SwitchButton keys={["⌘", "↵"]} label="View timeline" icon={<TimelineIcon />} mouse={mouse} onClick={openTimeline} />
+            ) : view === "timeline" ? (
+              <SwitchButton keys={["Esc"]} label="View list" icon={<ListIcon />} mouse={mouse} onClick={back} />
+            ) : view === "detail" ? (
+              // "Back", not a view name: it returns to wherever the finding was opened from.
+              <SwitchButton keys={["Esc"]} label="Back" icon={<BackIcon />} mouse={mouse} onClick={back} />
+            ) : undefined
+          }
         />
-      )}
-    </div>
+      }
+      replay={scan.usedReplay}
+      bar={
+        view === "timeline" ? (
+          <TimelineBar entry={selectedEntry} mouse={mouse} onOpen={() => openEntry()} />
+        ) : (
+          !nothingYet && <ActionBar item={actionItem} detail={inDetail} pane={pane} mouse={mouse} onCommand={run} />
+        )
+      }
+      footer={
+        <Footer
+          hotkey={hotkey}
+          mouse={mouse}
+          onTrace={() => setTraceOpen((o) => !o)}
+          onKeys={() => setSheetOpen(true)}
+          onScenarios={() => setScenariosOpen(true)}
+        />
+      }
+      overlay={
+        <>
+          <Toast />
+          {sheetOpen && <ShortcutSheet onClose={() => setSheetOpen(false)} />}
+          {scenariosOpen && (
+            <ScenariosSheet mouse={mouse} onClose={() => setScenariosOpen(false)} onCheck={() => {
+                setScenariosOpen(false);
+                run("rescan");
+              }}
+            />
+          )}
+        </>
+      }
+    >
+      {main}
+      {traceOpen && <TraceDrawer lines={scan.trace} onClose={() => setTraceOpen(false)} />}
+    </PaletteShell>
   );
 }

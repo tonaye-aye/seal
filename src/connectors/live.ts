@@ -3,7 +3,7 @@
 // state library is needed). The scan (src/lib/scan-store.ts) syncs them and
 // reports each connector's state here.
 
-import { useSyncExternalStore } from "react";
+import { createContext, useContext, useSyncExternalStore } from "react";
 import {
   createConnectors,
   Scenarios,
@@ -26,6 +26,11 @@ export type LiveState = {
 };
 
 let state: LiveState = { statuses: {}, pending: [] };
+
+// The dev gallery passes fixed connector states through this. With no provider
+// (the real app), useLive and useScenarios read the live store as before.
+const LivePreview = createContext<{ live: LiveState; scenarios: ScenarioId[] } | undefined>(undefined);
+export const LivePreviewProvider = LivePreview.Provider;
 const listeners = new Set<() => void>();
 
 function setState(change: Partial<LiveState>) {
@@ -77,7 +82,9 @@ scenarios.subscribe(() => {
 
 /** The scenarios that are switched on, for the demo panel and footer chip. */
 export function useScenarios(): ScenarioId[] {
-  return useSyncExternalStore(scenarios.subscribe.bind(scenarios), () => scenarioList);
+  const preview = useContext(LivePreview);
+  const live = useSyncExternalStore(scenarios.subscribe.bind(scenarios), () => scenarioList);
+  return preview?.scenarios ?? live;
 }
 
 /** Turns one simulated failure on or off. It is saved, so it survives a restart. */
@@ -154,7 +161,9 @@ function subscribe(listener: () => void) {
 }
 
 export function useLive(): LiveState {
-  return useSyncExternalStore(subscribe, () => state);
+  const preview = useContext(LivePreview);
+  const live = useSyncExternalStore(subscribe, () => state);
+  return preview?.live ?? live;
 }
 
 /** Statuses in display order (bank, email, documents, calendar). */
