@@ -16,6 +16,7 @@ import { now } from "../lib/clock";
 import { toZonedIso } from "../lib/dates";
 import type { ScanState, TraceLine } from "../lib/scan-store";
 import type { OnboardingState } from "../lib/onboarding";
+import type { EndpointStatus } from "../lib/endpoint";
 import { PRACTICE_FINDING_ID, PRACTICE_TRACE, practiceDone, practiceScanning } from "../onboarding/practice";
 
 const CHECKED_AT = toZonedIso(now());
@@ -37,7 +38,8 @@ export function sampleCorpus(): Promise<Corpus> {
 
 // ---------- Findings ----------
 
-const judged = { model: "sample", source: "cache" as const, ms: 0 };
+// Sample findings count as live answers; the replay samples below mark them saved.
+const judged = { model: "sample", source: "live" as "live" | "cache", ms: 0 };
 
 function draft(to: { name: string; address: string }, subject: string, body: string, extra: Partial<ProposedDraft> = {}): ProposedDraft {
   return {
@@ -50,7 +52,7 @@ function draft(to: { name: string; address: string }, subject: string, body: str
     problems: [],
     attempts: [],
     model: "sample",
-    source: "cache",
+    source: "live",
     ms: 0,
     ...extra,
   };
@@ -301,9 +303,37 @@ function base(corpus: Corpus | undefined): ScanState {
   };
 }
 
+/** A finding whose judgment and draft came from saved answers. */
+function saved(f: Finding): Finding {
+  return { ...f, judgedBy: { ...f.judgedBy, source: "cache" }, draft: f.draft && { ...f.draft, source: "cache" } };
+}
+
+function endpointTrace(text: string, tone: TraceLine["tone"]): TraceLine[] {
+  return [
+    { id: -11, t: 0, text: "Checking the model endpoint", tone: "info" },
+    { id: -12, t: 420, text, tone },
+  ];
+}
+
+/** The model endpoint in each state the footer chip and the Connectors menu show. */
+export const endpointSamples = {
+  live: { state: "live", ms: 420, checkedAt: Date.now() - 60_000 },
+  checking: { state: "checking" },
+  slow: { state: "slow", ms: 6200, checkedAt: Date.now() - 60_000, detail: "A tiny test took 6.2 s, so this check may take a few minutes." },
+  offline: { state: "offline", checkedAt: Date.now() - 60_000, detail: "Couldn't reach the endpoint. Check the network." },
+  key_rejected: { state: "key_rejected", checkedAt: Date.now() - 60_000, detail: "The endpoint didn't accept the API key (it answered 401)." },
+  not_set_up: { state: "not_set_up", checkedAt: Date.now() - 60_000, detail: "There's no API key. Add BC_API_KEY to .env, then restart the app." },
+  unavailable: { state: "unavailable", checkedAt: Date.now() - 60_000, detail: "The endpoint answered with an error (503)." },
+  forced: { state: "forced", checkedAt: Date.now() - 60_000, detail: "Chosen in the demo panel." },
+  flag: { state: "forced", byFlag: true, checkedAt: Date.now() - 60_000, detail: "Started with LIFE_REPLAY=1." },
+  browser: { state: "browser", checkedAt: Date.now() - 60_000, detail: "A browser tab has no model connection, only the answers saved by the scripts." },
+} satisfies Record<string, EndpointStatus>;
+
 /** Every scan state the gallery draws, by name. */
 export function scanSamples(corpus: Corpus | undefined) {
   const done = base(corpus);
+  // A whole check on saved answers (the reason is added per sample).
+  const savedCheck: ScanState = { ...done, findings: findings.map(saved), usedReplay: true };
   const mins = (n: number) => Date.now() - n * 60_000;
   return {
     done,
@@ -354,7 +384,56 @@ export function scanSamples(corpus: Corpus | undefined) {
       error: "The model endpoint didn't answer. Check the connection, then press R to try again.",
     } satisfies ScanState,
     idle: { ...done, phase: "idle", findings: [], cleared: [], undecided: [], result: undefined, trace: [] } satisfies ScanState,
-    replay: { ...done, usedReplay: true } satisfies ScanState,
+    // Replay: a single call fell back on its own, with no reason for the whole check.
+    replay: { ...done, findings: findings.map((f, i) => (i === 1 ? saved(f) : f)), usedReplay: true } satisfies ScanState,
+    replayForced: { ...savedCheck, replay: { why: "forced", detail: "Chosen in the demo panel." } } satisfies ScanState,
+    replayFlag: { ...savedCheck, replay: { why: "forced", detail: "Started with LIFE_REPLAY=1." } } satisfies ScanState,
+    replayOffline: { ...savedCheck, replay: { why: "offline", detail: "Couldn't reach the endpoint. Check the network." } } satisfies ScanState,
+    replayKey: { ...savedCheck, replay: { why: "key_rejected", detail: "The endpoint didn't accept the API key (it answered 401)." } } satisfies ScanState,
+    replayLost: { ...savedCheck, replay: { why: "lost", detail: "the endpoint stopped answering", stage: "extract" } } satisfies ScanState,
+    /** The checking screen after the endpoint check failed: the trace says why. */
+    checkingOffline: {
+      ...done,
+      phase: "scanning",
+      stage: "read",
+      progress: undefined,
+      findings: [],
+      cleared: [],
+      undecided: [],
+      result: undefined,
+      usedReplay: false,
+      replay: { why: "offline", detail: "Couldn't reach the endpoint. Check the network." },
+      trace: endpointTrace("Couldn't reach the endpoint. Check the network. Using saved answers from an earlier run.", "warn"),
+    } satisfies ScanState,
+    checkingLost: {
+      ...done,
+      phase: "scanning",
+      stage: "sync",
+      progress: undefined,
+      findings: [],
+      cleared: [],
+      undecided: [],
+      result: undefined,
+      usedReplay: false,
+      replay: { why: "lost", detail: "the endpoint stopped answering", stage: "extract" },
+      trace: [
+        ...endpointTrace("Model endpoint answered in 0.4 s", "good"),
+        { id: -13, t: 900, text: "Syncing bank, email, documents and calendar", tone: "info" },
+        { id: -14, t: 2400, text: "Reading the facts out of each piece of evidence", tone: "info" },
+        { id: -15, t: 7800, text: "Lost the model endpoint while reading the evidence: the endpoint stopped answering. Starting the check again from saved answers.", tone: "warn" },
+      ],
+    } satisfies ScanState,
+    /** On saved answers with none saved: the check can't finish. */
+    noSaved: {
+      ...done,
+      phase: "error",
+      findings: [],
+      cleared: [],
+      undecided: [],
+      result: undefined,
+      replay: { why: "offline", detail: "Couldn't reach the endpoint. Check the network." },
+      error: "Couldn't reach the model endpoint, and there are no saved answers yet. Check the network, then press R.",
+    } satisfies ScanState,
     handled: {
       ...done,
       decisions: Object.fromEntries(findings.map((f, i) => [f.id, i % 2 ? "snoozed" : "approved"])),

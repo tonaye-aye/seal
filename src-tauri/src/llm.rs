@@ -3,7 +3,7 @@
 // page builds the request (src/lib/llm.ts) and asks this command to send it.
 //
 // Successful replies are saved to the app's cache folder, one file per
-// request fingerprint. "Replay" mode reads those files instead of calling the
+// request fingerprint (the first reply only, see llm_request). "Replay" mode reads those files instead of calling the
 // endpoint, which is how the demo keeps working without a connection.
 
 use std::{collections::HashMap, fs, path::PathBuf, time::Duration};
@@ -139,7 +139,11 @@ pub async fn llm_request(
         .await
         .map_err(|e| fail("network", format!("The reply was cut off: {e}")))?;
 
-    if status.is_success() {
+    // Only the first answer to a request is kept. Later live answers can
+    // differ slightly, and each later question is built from earlier answers,
+    // so keeping the first set keeps the saved answers one consistent run
+    // that replay can follow from start to end.
+    if status.is_success() && !file.exists() {
         // Saving is best effort: a failed write shouldn't fail the call.
         if let Some(dir) = file.parent() {
             let _ = fs::create_dir_all(dir).and_then(|_| fs::write(&file, &text));
@@ -152,4 +156,61 @@ pub async fn llm_request(
 #[tauri::command]
 pub fn llm_configured(config: State<'_, LlmConfig>) -> bool {
     config.base_url.is_some() && config.api_key.is_some()
+}
+
+/// How long the launch check waits for the model list before calling the
+/// endpoint unreachable. A healthy endpoint answers in well under a second.
+const CHECK_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// What the endpoint check found: the HTTP status, how long it took, and the
+/// model names the endpoint lists (empty unless the status was a success).
+#[derive(Serialize)]
+pub struct Check {
+    status: u16,
+    ms: u64,
+    models: Vec<String>,
+}
+
+/// The endpoint check, run at launch and before each scan (src/lib/endpoint.ts).
+/// Asks for the model list with the API key, which tests three things at once:
+/// the network, the key (a bad key gets 401) and that the models are there.
+#[tauri::command]
+pub async fn llm_check(config: State<'_, LlmConfig>) -> Result<Check, Failure> {
+    let (Some(base_url), Some(api_key)) = (&config.base_url, &config.api_key) else {
+        return Err(fail("not_configured", "BC_BASE_URL or BC_API_KEY is missing."));
+    };
+    let started = std::time::Instant::now();
+    let response = config
+        .client
+        .get(format!("{base_url}/models"))
+        .bearer_auth(api_key)
+        // Overrides the client's three-minute limit for this one request.
+        .timeout(CHECK_TIMEOUT)
+        .send()
+        .await
+        .map_err(|e| {
+            if e.is_timeout() {
+                fail("network", "The endpoint didn't answer within 5 seconds.")
+            } else {
+                fail("network", format!("Could not reach the endpoint: {e}"))
+            }
+        })?;
+    let status = response.status();
+    let text = response.text().await.unwrap_or_default();
+    let ms = started.elapsed().as_millis() as u64;
+
+    // The reply looks like {"data": [{"id": "basecompute/qwen3.5-9b"}, ...]}.
+    // `serde_json::Value` reads it without declaring a type for it.
+    let models = if status.is_success() {
+        serde_json::from_str::<serde_json::Value>(&text)
+            .ok()
+            .and_then(|v| v.get("data").and_then(|d| d.as_array()).cloned())
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|m| m.get("id").and_then(|id| id.as_str()).map(String::from))
+            .collect()
+    } else {
+        Vec::new()
+    };
+    Ok(Check { status: status.as_u16(), ms, models })
 }

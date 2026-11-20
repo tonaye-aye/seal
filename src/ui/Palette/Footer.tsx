@@ -9,12 +9,14 @@ import { startScan } from "../../lib/scan-store";
 import { Kbd } from "../Kbd";
 import { CloseIcon, HideIcon, KeysIcon, TraceIcon } from "../icons";
 import { Menu, MenuItem } from "./Menu";
+import { ModelChip, ModelRow } from "./ModelChip";
 import { SimulatingChip } from "./ScenariosSheet";
 import { DOT, stateText, useTick } from "./StatusStrip";
 
 // Bottom bar: one Connectors button (with a count, and a warning when a source
 // needs attention) that opens a small menu. While a demo failure is switched
-// on, an amber "Simulating" chip sits next to it. Settings lives in the top bar
+// on, an amber "Simulating" chip sits next to it, and when the model endpoint
+// isn't answering normally (or saved answers are in use), a model chip does. Settings lives in the top bar
 // (SettingsButton below, placed by Header). During the onboarding's practice
 // round this bar is replaced by the practice bar.
 export function Footer({ onScenarios, right }: { onScenarios: () => void; right?: React.ReactNode }) {
@@ -22,6 +24,7 @@ export function Footer({ onScenarios, right }: { onScenarios: () => void; right?
     <footer className="relative flex h-10 shrink-0 items-center justify-between gap-3 border-t border-hairline px-3 text-[12px]">
       <div className="flex min-w-0 items-center gap-2">
         <ConnectorsButton />
+        <ModelChip />
         <SimulatingChip onClick={onScenarios} />
       </div>
       {/* What the selected row's keys or clicks do, or the setup step's action. */}
@@ -88,6 +91,10 @@ export function ConnectorsButton({ defaultOpen = false }: { defaultOpen?: boolea
           {(["bank", "email", "documents", "calendar"] as const).map((id) => (
             <ConnectorRow key={id} id={id} label={LABELS[id]} status={live.statuses[id]} now={now} slow={id === "documents" ? live.slowReads : undefined} />
           ))}
+        </ul>
+        <div className="mx-2.5 my-1 h-px bg-hairline" />
+        <ul className="flex flex-col">
+          <ModelRow />
         </ul>
         <p className="px-2.5 pt-1 pb-1.5 text-[11px] text-faint">Read-only. Demo connectors over sample data.</p>
       </Menu>

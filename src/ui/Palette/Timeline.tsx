@@ -21,7 +21,7 @@ function weekdayOf(date: string): string {
 }
 
 /** "just now", "4 min ago", "2 h ago": for today's activity, from the real clock. */
-function ago(at: number | undefined): string {
+export function ago(at: number | undefined): string {
   if (!at) return "";
   const minutes = Math.round((Date.now() - at) / 60_000);
   if (minutes < 1) return "just now";

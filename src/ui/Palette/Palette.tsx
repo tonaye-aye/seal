@@ -41,6 +41,8 @@ import { ShortcutSheet } from "./ShortcutSheet";
 import { SCENARIOS, ScenariosSheet } from "./ScenariosSheet";
 import { Toast } from "./Toast";
 import { TraceDrawer } from "./Trace";
+import { replayNote } from "../replay";
+import { getModelDemo, toggleDrop, toggleSavedOnly } from "../../lib/endpoint";
 import { Timeline } from "./Timeline";
 import { buildTimeline, filterTimeline, nowIndex } from "../timeline";
 
@@ -389,6 +391,14 @@ export function Palette() {
         if (scenario) {
           event.preventDefault();
           toggleScenario(scenario.id);
+        } else if (key === "4") {
+          // The model endpoint drops out partway through the next check.
+          event.preventDefault();
+          toggleDrop();
+        } else if (lower === "m") {
+          // Saved model answers only (not while LIFE_REPLAY=1 holds it on).
+          event.preventDefault();
+          if (!getModelDemo().byFlag) toggleSavedOnly();
         } else if (lower === "o") {
           // Start onboarding again from an empty account (to rehearse the demo).
           event.preventDefault();
@@ -738,7 +748,7 @@ export function Palette() {
           }
         />
       }
-      replay={scan.usedReplay}
+      replay={replayNote(scan)}
       banner={banner}
       // Only an open finding has a bar of its own (its actions). The list and
       // timeline put their hint in the footer, and setup steps their action.
