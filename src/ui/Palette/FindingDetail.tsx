@@ -31,7 +31,9 @@ import {
 } from "../icons";
 import { NextSteps } from "./NextSteps";
 import { CopyIcon, RouteChooser, RoutePanel } from "./RoutePanel";
-import { chosenRoute, usesEmail } from "../fix-route";
+import { chosenRoute, showsVerbs, usesEmail } from "../fix-route";
+import { DraftVerbs } from "./DraftVerbs";
+import type { Verb } from "../../agent/rewrite";
 import { Kbd, KeyButton } from "../Kbd";
 import { iconButton } from "./Controls";
 import { dragByBar } from "./Header";
@@ -636,11 +638,14 @@ function Draft({
   onStopEditing,
   onCopy,
   scanning,
+  rewriting,
 }: {
   finding: Finding;
   edited: boolean;
   editing: boolean;
   mouse: boolean;
+  /** A verb's rewrite is on its way: the text stays readable, dimmed, until it lands. */
+  rewriting: boolean;
   /** To, Subject and Attach are unfolded (open to start; Enter on the draft side, or a click, folds them). */
   detailsOpen: boolean;
   onToggleDetails: () => void;
@@ -655,7 +660,14 @@ function Draft({
   const textRef = useRef<HTMLTextAreaElement>(null);
   // Where in the text a click landed, so the editor opens with the caret there (else at the end).
   const caretAt = useRef<number | undefined>(undefined);
-
+  // A new version of the text fades in. Opening a finding doesn't count.
+  const lastText = useRef({ id: finding.id, body: draft?.body });
+  const [landed, setLanded] = useState(0);
+  useEffect(() => {
+    const { id, body } = lastText.current;
+    if (id === finding.id && body !== draft?.body && !editing) setLanded((n) => n + 1);
+    lastText.current = { id: finding.id, body: draft?.body };
+  }, [finding.id, draft?.body, editing]);
 
   // The editor grows with the text (no box that scrolls inside the page), so reading and editing take
   // the same room and nothing jumps when editing starts.
@@ -836,11 +848,14 @@ function Draft({
             <p
               ref={readRef}
               onClick={editAt}
-              className={`${DRAFT_TEXT} cursor-text overflow-hidden bg-raised/60 transition-shadow duration-(--duration-fast) group-hover:shadow-[0_0_0_1px_var(--color-hairline)]`}
+              aria-busy={rewriting}
+              className={`${DRAFT_TEXT} cursor-text overflow-hidden bg-raised/60 transition-[box-shadow,color] duration-(--duration-fast) group-hover:shadow-[0_0_0_1px_var(--color-hairline)] ${rewriting ? "text-muted" : ""}`}
             >
               {/* The inner line keeps its wrap while the sidebar slides; the box clips it. */}
               <span data-settle className="block">
-                {draft.body}
+                <span key={landed} className={landed ? "fade-in block" : "block"}>
+                  {draft.body}
+                </span>
               </span>
             </p>
             <div className={`${UNDER_DRAFT} justify-end`}>
@@ -916,6 +931,7 @@ export function FindingDetail({
   onFocusDraft,
   onCommand,
   onPickRoute,
+  onVerb,
   onSample,
   sidebarOpen,
   onToggleSidebar,
@@ -950,6 +966,8 @@ export function FindingDetail({
   onCommand: (command: Command) => void;
   /** Keys 1-4, or a click on a route. */
   onPickRoute: (index: number) => void;
+  /** ⇧1 or ⇧2, or a click on Firmer or Shorter. */
+  onVerb: (verb: Verb) => void;
   /** Show the labelled stand-in for this route's page. */
   onSample: (route: FixRoute) => void;
   /** The sidebar is showing (] or the icon at the window's top right slides it away). */
@@ -1066,6 +1084,7 @@ export function FindingDetail({
                   onStopEditing={onStopEditing}
                   onCopy={route ? () => onCommand("copy") : undefined}
                   scanning={scanning}
+                  rewriting={!!scan.rewriting[finding.id]}
                 />
               )}
               <SavedNote finding={finding} />
@@ -1078,6 +1097,8 @@ export function FindingDetail({
             </div>
           )}
         </div>
+        {/* Docked under the scrolling draft, so it stays put when a rewrite changes the text's length. */}
+        {finding && !traceOpen && showsVerbs(finding, scan) && <DraftVerbs finding={finding} editing={editing} mouse={mouse} onVerb={onVerb} />}
       </div>
 
       {/* Drawn in the window's full-height column, beside the top and bottom bars. */}

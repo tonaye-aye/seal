@@ -31,6 +31,11 @@ export function usesEmail(finding: WithPlan, s: Choices): boolean {
   return !route || route.kind === "email";
 }
 
+/** Firmer and Shorter show on an email draft that's still waiting for Maya. */
+export function showsVerbs(finding: WithPlan & Pick<Finding, "status">, s: Choices): boolean {
+  return finding.status === "new" && !!finding.draft && usesEmail(finding, s);
+}
+
 /** What an approved finding is waiting on when it isn't an email: "Ready to call". */
 export function readyLabel(finding: WithPlan, s: Choices): string | undefined {
   const route = chosenRoute(finding, s);

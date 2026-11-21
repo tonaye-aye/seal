@@ -333,6 +333,7 @@ function PaletteFrame({
         onFocusDraft={noop}
         onCommand={noop}
         onPickRoute={noop}
+        onVerb={noop}
         onSample={noop}
         sidebarOpen={sidebarShown}
         onToggleSidebar={noop}
@@ -1018,6 +1019,30 @@ export function Gallery() {
               </Shot>
               <Shot title="Editing with the trace open" note="Both at once: keys stay in the editor (T types a t), Esc ends editing first and then closes the drawer, so its Close shows an X. The draft keeps room to scroll clear of the drawer">
                 <PaletteFrame scan={s.edited} view="detail" selected="f-skylink" pane="draft" editing trace="finding" />
+              </Shot>
+              <Shot title="Draft verbs" note="Firmer and Shorter, docked under the draft on the Email route. Quiet: no violet, and the row stays put when the text changes length">
+                <PaletteFrame scan={s.done} view="detail" selected="f-skylink" pane="draft" />
+              </Shot>
+              <Shot title="Writing a rewrite" note="The text stays readable, a little quieter, until the checked version lands. Pressing the verb again or ⌘Z stops it">
+                <PaletteFrame scan={s.rewriting} view="detail" selected="f-skylink" pane="draft" />
+              </Shot>
+              <Shot title="A rewrite on screen" note="The active verb is pressed in. Pressing it again, or ⌘Z, goes back to the version before">
+                <PaletteFrame scan={s.rewritten} view="detail" selected="f-skylink" pane="draft" />
+              </Shot>
+              <Shot title="A saved rewrite" note="From saved answers, and it says so. Never shown as live">
+                <PaletteFrame scan={s.rewrittenSaved} view="detail" selected="f-skylink" pane="draft" />
+              </Shot>
+              <Shot title="Draft verbs, mouse mode" note="Icons in place of the key caps">
+                <PaletteFrame scan={s.rewritten} view="detail" selected="f-skylink" pane="draft" mouse />
+              </Shot>
+              <Shot title="Hand-edited: verbs off" note="Revert first. Their tooltip says how">
+                <PaletteFrame scan={s.edited} view="detail" selected="f-skylink" pane="draft" />
+              </Shot>
+              <Shot title="No version passed the checks" note="The draft on screen is kept, and the toast says so plainly">
+                <PaletteFrame scan={s.rewriteFailed} view="detail" selected="f-skylink" pane="draft" />
+              </Shot>
+              <Shot title="Not available offline" note="On saved answers, with no saved rewrite">
+                <PaletteFrame scan={s.rewriteOffline} view="detail" selected="f-skylink" pane="draft" />
               </Shot>
               <Shot title="Nothing to send" note="The fix is a step Maya takes herself">
                 <PaletteFrame scan={s.done} view="detail" selected="f-streambox" />

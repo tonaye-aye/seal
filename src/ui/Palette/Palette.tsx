@@ -14,8 +14,9 @@ import {
 } from "../../lib/onboarding";
 import { getPreferences } from "../../lib/preferences";
 import { DetailHint, ListHint, TimelineHint } from "./FooterHint";
+import { VERB_BY_CODE } from "./DraftVerbs";
 import { SetupScreen, welcomeLocked } from "../Onboarding/SetupScreen";
-import { approve, cancelReminder, chooseRoute, dismiss, isEdited, notify, rankedFindings, remind, reopen, resetEdit, syncEverything, undoLast, useScan } from "../../lib/scan-store";
+import { approve, cancelReminder, cancelRewrite, chooseRoute, pressVerb, dismiss, isEdited, notify, rankedFindings, remind, reopen, resetEdit, syncEverything, undoLast, useScan } from "../../lib/scan-store";
 import { openComplaintBody, seal, sealTarget } from "../seal";
 import { chosenRoute, escalationPage, routePage, routeText, usesEmail, type SamplePage } from "../fix-route";
 import { SamplePageSheet } from "./RoutePanel";
@@ -601,6 +602,8 @@ export function Palette() {
         const email = finding.fix?.routes.find((r) => r.kind === "email");
         if (finding.fix && !email) return;
         const startEditing = () => {
+          // Maya's own edit wins over a rewrite still on its way.
+          cancelRewrite(finding.id);
           if (email) chooseRoute(finding.id, email.id);
           if (!inDetail) open(selected.key);
           setPane("draft");
@@ -819,7 +822,13 @@ export function Palette() {
         return;
       }
 
-      if (inDetail && /^[1-4]$/.test(key)) {
+      // ⇧1 and ⇧2: Firmer and Shorter. Matched on the physical key, because Shift+1 types "!".
+      if (inDetail && event.shiftKey && VERB_BY_CODE[event.code]) {
+        event.preventDefault();
+        if (selectedFinding) pressVerb(selectedFinding.id, VERB_BY_CODE[event.code]);
+        return;
+      }
+      if (inDetail && !event.shiftKey && /^[1-4]$/.test(key)) {
         event.preventDefault();
         pickRoute(Number(key) - 1);
         return;
@@ -932,6 +941,7 @@ export function Palette() {
         onFocusDraft={() => setPane("draft")}
         onCommand={run}
         onPickRoute={pickRoute}
+        onVerb={(verb) => selectedFinding && pressVerb(selectedFinding.id, verb)}
         onSample={(route) => setSamplePage(routePage(route))}
         sidebarOpen={sidebarShown}
         onToggleSidebar={toggleSidebar}

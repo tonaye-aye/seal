@@ -52,6 +52,7 @@ Press **⌥Space** to bring it up (or **⌘⇧Space** if ⌥Space is taken). The
 | `J` / `K` | Next / previous finding |
 | `↵` | Open the evidence and the draft |
 | `1`-`4` | In a finding: choose how to fix it (email, call, chat or online) |
+| `⇧1` / `⇧2` | On the Email route: rewrite the draft Firmer or Shorter (checked by code; press again or `⌘Z` to go back) |
 | `Y` | Copy the prepared script, opener, figures or draft |
 | `A` | Approve the chosen way (only Email saves a draft, and nothing is sent) |
 | `S` | Seal the leak, once approved: opens Mail with the draft filled in, or a labelled sample page for a call, chat or online step |
