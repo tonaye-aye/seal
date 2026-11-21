@@ -58,6 +58,7 @@ Press **⌥Space** to bring it up (or **⌘⇧Space** if ⌥Space is taken). The
 | `S` | Seal the leak, once approved: opens Mail with the draft filled in, or a labelled sample page for a call, chat or online step |
 | `O` | If they say no: opens the real complaint body's form, or a labelled sample |
 | `E` / `D` / `L` | Edit the draft (takes an approval back) / Not a leak / Remind me (a calendar reminder) |
+| `1`-`3` after `D` | Say why it isn't a leak: We want this, Already sorted, or Seal got it wrong. Seal remembers the answer in Settings, and the finding comes back if the charge changes or a new problem appears. Plain code applies it, and it never reaches a model |
 | `⌘Z` | Undo |
 | `⌘↵` | Timeline: what's coming |
 | `V` | Switch between findings and the timeline |
