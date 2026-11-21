@@ -13,6 +13,7 @@ email, a synced documents folder and a family calendar. Everything is fictional;
 | `calendar/events.json` | Family, Maya and Ben calendars (some recurring) |
 | `connectors/manifest.json` | Connection state, paging, latency, opt-in failure scenarios |
 | `persona.json` | Household profile and the agent's standing preferences |
+| `help/` | Hand-written help directory: each business's channels, short help articles, and where to escalate. Merchants are fictional; complaint bodies marked `real` are real and were checked on their official sites |
 | `eval/` | Ground truth for scoring. **The app must never load this.** |
 
 ## Regenerate / check

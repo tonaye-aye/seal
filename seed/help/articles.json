@@ -1,0 +1,77 @@
+{
+  "note": "Short help pages from each fictional business. Route scripts may rely on these, so keep them general: no household, no account details.",
+  "articles": [
+    {
+      "id": "skylink-billing",
+      "provider": "skylink",
+      "title": "Questions about your bill",
+      "body": "If you think your bill doesn't match your agreement, tell us what you were promised and which charges are affected. Disputes sent by email are logged against your account. Our billing team can apply a credit once it has checked your agreement."
+    },
+    {
+      "id": "apple-subscriptions",
+      "provider": "apple",
+      "title": "Cancel a subscription",
+      "body": "Subscriptions bought through the store are managed in your account's Subscriptions list. Cancelling stops the next renewal. To avoid being charged, cancel at least one day before the renewal date."
+    },
+    {
+      "id": "apple-refunds",
+      "provider": "apple",
+      "title": "Request a refund",
+      "body": "Charges made by the store can only be refunded by the store. Use Report a Problem, choose the charges and give a reason. Requests are reviewed and the result is sent by email."
+    },
+    {
+      "id": "streambox-billing",
+      "provider": "streambox",
+      "title": "Billing and duplicate accounts",
+      "body": "We can review and credit charges we billed to you directly. If you subscribed through an app store, that store handles your billing and cancellation. Tell us the email on each account if you think you're paying twice."
+    },
+    {
+      "id": "ironworks-cancelling",
+      "provider": "ironworks",
+      "title": "Cancelling your membership",
+      "body": "Cancellation notice must be sent in writing to our memberships address. Notice given by phone or at the front desk doesn't count. If you've missed a notice period, you can ask the club manager to consider your situation; this is at the club's discretion."
+    },
+    {
+      "id": "brightpage-cancelling",
+      "provider": "brightpage",
+      "title": "Cancel your subscription",
+      "body": "You can cancel at any time from Account, then Subscription. Your access continues until the end of the period you've paid for, and you won't be charged again."
+    },
+    {
+      "id": "brightpage-refunds",
+      "provider": "brightpage",
+      "title": "Refund requests",
+      "body": "If you were charged after a trial and haven't used the app, ask our support team. We look at each request individually."
+    },
+    {
+      "id": "kestrel-payments",
+      "provider": "kestrel",
+      "title": "Payments and receipts",
+      "body": "Quote your invoice number and receipt numbers when you contact the office. If a job has been paid twice, we can return the extra payment to the account it came from."
+    },
+    {
+      "id": "wattle-renewals",
+      "provider": "wattle",
+      "title": "Your renewal",
+      "body": "Your renewal notice shows your new premium and any changes to discounts. If you've found a better price, call us before your renewal date. Have your policy number and the other quote ready so we can compare like for like."
+    },
+    {
+      "id": "banksia-switching",
+      "provider": "banksia",
+      "title": "Switching to Banksia Direct",
+      "body": "Your saved quote can be resumed with its quote number until it expires. Check the agreed value and excess before you accept. Set your start date to the day your current policy ends so you aren't left without insurance."
+    },
+    {
+      "id": "redgum-estimates",
+      "provider": "redgum",
+      "title": "Estimated bills and meter reads",
+      "body": "If your bill used an estimated read, send us an actual reading with a clear photo of the meter. Reads with a photo are reviewed first. If the estimate was too high, we'll issue a corrected bill and credit the difference."
+    },
+    {
+      "id": "kookaburra-pricing",
+      "provider": "kookaburra",
+      "title": "Price changes",
+      "body": "Plan prices can change with indexation as set out in your plan terms. We tell you in advance by email before a new price applies."
+    }
+  ]
+}

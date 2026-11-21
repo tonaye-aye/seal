@@ -5,8 +5,10 @@ from __future__ import annotations
 import csv
 import datetime as dt
 import json
+import re
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parent
 fails: list[str] = []
@@ -161,6 +163,62 @@ for L in gt["leaks"]:
     check(sum(len(v) for v in L["evidence"].values()) >= 2, f"{L['id']} has too little evidence")
 for D_ in gt["decoys"]:
     refs_ok(D_["evidence"], D_["id"])
+
+# ---------- Help directory (seed/help) ----------
+providers = load("help/providers.json")["providers"]
+bodies = load("help/bodies.json")["bodies"]
+articles = load("help/articles.json")["articles"]
+inbox_text = (ROOT / "email" / "inbox.json").read_text(encoding="utf-8")
+doc_text = "\n".join(p.read_text(encoding="utf-8") for p in (ROOT / "documents" / "_text").glob("*.txt"))
+
+# Numbers the ACMA reserves for fiction, so a made-up business can't reach a real person.
+FICTION_PHONE = re.compile(
+    r"^(\(03\) (5550|7010) \d{4}|1[38]00 975 7(07|08|09|10|11)|1800 160 401)$"
+)
+# The two numbers already printed in the seed's own documents.
+PRINTED_PHONES = {"1300 000 000", "1300 000 111"}
+CAPABILITIES = {"cancel", "refund", "dispute_price", "waive_fee", "retain", "switch", "correct_bill"}
+REAL_HOSTS = {"www.tio.com.au", "www.ewov.com.au", "www.consumer.vic.gov.au"}
+HOUSEHOLD = re.compile(r"Whitlock|Maya|Ollie|\bPia\b|\bBen\b|Albion|Brunswick")
+
+article_ids = {a["id"] for a in articles}
+check(len(article_ids) == len(articles), "help: article ids are unique")
+keys = [p["key"] for p in providers]
+check(len(set(keys)) == len(keys), "help: provider keys are unique")
+channel_ids = [c["id"] for p in providers for c in p["channels"]]
+check(len(set(channel_ids)) == len(channel_ids), "help: channel ids are unique")
+
+for p in providers:
+    for c in p["channels"]:
+        where = f"help {c['id']}"
+        check(c["kind"] in {"email", "call", "chat", "online"}, f"{where}: known kind")
+        check(bool(c["canDo"]) and set(c["canDo"]) <= CAPABILITIES, f"{where}: known capabilities")
+        check(set(c.get("requiredFor", [])) <= set(c["canDo"]), f"{where}: requiredFor is something it can do")
+        check(c.get("articleId") in article_ids, f"{where}: article exists")
+        if c["kind"] == "email":
+            check(f'"{c["address"]}"' in inbox_text, f"{where}: address appears in the mailbox")
+        if c["kind"] == "call":
+            check(bool(FICTION_PHONE.match(c["phone"])) or c["phone"] in PRINTED_PHONES, f"{where}: phone is reserved or printed")
+            check(c["phone"] not in PRINTED_PHONES or c["phone"] in doc_text, f"{where}: printed phone is in the documents")
+        if c["kind"] in {"chat", "online"}:
+            host = urlparse(c["href"]).hostname or ""
+            check(c["href"].startswith("https://") and host == p["domain"], f"{where}: link is on the business's fictional domain")
+        if c["kind"] == "online":
+            check(len(c.get("steps", [])) >= 2, f"{where}: has steps")
+
+for b in bodies:
+    where = f"help body {b['id']}"
+    host = urlparse(b["href"]).hostname or ""
+    if b["real"]:
+        check(host in REAL_HOSTS, f"{where}: link is on its official site")
+        check(bool(b.get("verifiedOn")), f"{where}: has a checked date")
+    else:
+        check(host.endswith(".example"), f"{where}: fictional link")
+        check(bool(FICTION_PHONE.match(b["phone"])), f"{where}: phone is reserved")
+
+for name in ("providers", "bodies", "articles"):
+    text = (ROOT / "help" / f"{name}.json").read_text(encoding="utf-8")
+    check(not HOUSEHOLD.search(text), f"help/{name}.json never mentions the household")
 
 print(f"\n{passes} checks passed, {len(fails)} failed")
 sys.exit(1 if fails else 0)
