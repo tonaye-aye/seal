@@ -1,79 +1,130 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
+import * as Accordion from "@radix-ui/react-accordion";
+import { Check, ChevronRight, CircleAlert, Loader2 } from "lucide-react";
 import type { ConnectorStatus } from "../../connectors";
 import type { ConnectorId } from "../../connectors/types";
 import { useLive } from "../../connectors/live";
-import { switchToFallbackHotkey } from "../../lib/native";
-import { SOURCES, connectNext, next, retrySource, runFirstCheck, type OnboardingState } from "../../lib/onboarding";
+import { chooseHotkey } from "../../lib/native";
+import { SOURCES, connectNext, finishOnboarding, next, retestSummon, retrySource, runFirstCheck, type OnboardingState } from "../../lib/onboarding";
+import { rankedFindings, useScan } from "../../lib/scan-store";
 import { copy, plural } from "../../copy";
 import { Kbd, KeyButton } from "../Kbd";
 import { KeyText } from "../KeyText";
-import { CheckNowIcon, NextIcon } from "../icons";
+import { useScrollFade } from "../motion";
+import { CheckNowIcon, NextIcon, ResetIcon } from "../icons";
+import { SlowDocuments } from "../Palette/FindingsList";
 import { stateText, useTick } from "../Palette/StatusStrip";
-import { ConnectorList, ICONS, type ConnectorRow } from "./ConnectorList";
+import { TraceLines } from "../Palette/Trace";
+import { scanPercent } from "../scan-percent";
+import { ConnectorList, MORE_ROWS, SOURCE_ROWS, type ConnectorRow } from "./ConnectorList";
+import { OnboardingCta } from "./OnboardingCta";
+import { SealAnimation } from "./SealAnimation";
 
-// The onboarding screens that stand in for the palette's views: welcome and
-// connect. The first check after them runs in the real palette (see
-// Palette.tsx). The palette owns the keys; these screens only draw, and their
-// buttons call the same actions as Enter and Cmd+Enter.
+// The three onboarding steps: welcome (press the summon key), connect, and the
+// first check. They fill the palette with no rail or bottom bar. The palette
+// owns the keys; these screens only draw, and each step's big button calls the
+// same action as its key.
 
 export function SetupScreen({
   onboarding,
   hotkey,
+  hotkeyReady = true,
   onHotkey,
   mouse = false,
   desktop = isTauri(),
+  agentOpen = false,
+  onAgentOpen = () => {},
+  sealFallback = false,
 }: {
   onboarding: OnboardingState;
   hotkey: string[];
-  /** Mouse mode: the next row's + drops its Enter key cap. */
+  /** False until the app has said which key registered. */
+  hotkeyReady?: boolean;
+  /** Mouse mode: buttons show icons instead of key caps. */
   mouse?: boolean;
   /** The hotkey changed (after "Use ⌘⇧Space instead"). */
   onHotkey: (keys: string[]) => void;
   /** Drawn as in the desktop app (the gallery sets this to show the welcome's ⌘⇧Space link). */
   desktop?: boolean;
+  /** Step 3: the "Agent working" fold is open (T, or a click). */
+  agentOpen?: boolean;
+  onAgentOpen?: (open: boolean) => void;
+  /** The dev gallery only: draw the plain seal instead of the animation. */
+  sealFallback?: boolean;
 }) {
   switch (onboarding.step) {
     case "welcome":
-      return <Welcome hotkey={hotkey} onHotkey={onHotkey} desktop={desktop} />;
+      return <Welcome onboarding={onboarding} hotkey={hotkey} hotkeyReady={hotkeyReady} onHotkey={onHotkey} mouse={mouse} desktop={desktop} />;
     case "connect":
       return <Connect onboarding={onboarding} mouse={mouse} />;
+    case "first-scan":
+      return <FirstCheck mouse={mouse} agentOpen={agentOpen} onAgentOpen={onAgentOpen} sealFallback={sealFallback} />;
     default:
       return null;
   }
 }
 
+/**
+ * Step 1's button stays locked until the summon key has been pressed. If the
+ * app couldn't register any key there is nothing to press, so it never blocks.
+ */
+export function welcomeLocked(onboarding: OnboardingState, hotkey: string[], hotkeyReady: boolean, desktop = isTauri()): boolean {
+  if (onboarding.summoned) return false;
+  if (!hotkeyReady) return true;
+  return !(desktop && hotkey.length === 0);
+}
+
 function Eyebrow({ children }: { children: React.ReactNode }) {
-  return <p className="mb-2 label text-faint">{children}</p>;
+  return <p className="mb-3 label text-faint">{children}</p>;
 }
 
 // ---------- 1. Welcome ----------
 
-/** What Life does, and the key that opens it from any app. */
-function Welcome({ hotkey, onHotkey, desktop }: { hotkey: string[]; onHotkey: (keys: string[]) => void; desktop: boolean }) {
+/** What Seal does, and the key that opens it, pressed once to prove it. */
+function Welcome({
+  onboarding,
+  hotkey,
+  hotkeyReady,
+  onHotkey,
+  mouse,
+  desktop,
+}: {
+  onboarding: OnboardingState;
+  hotkey: string[];
+  hotkeyReady: boolean;
+  onHotkey: (keys: string[]) => void;
+  mouse: boolean;
+  desktop: boolean;
+}) {
   const [switching, setSwitching] = useState(false);
   const keys = hotkey.length ? hotkey : ["⌥", "Space"];
   // The desktop app couldn't register any shortcut: the menu bar icon is the way in.
-  const noShortcut = hotkey.length === 0 && desktop;
-  const canSwitch = desktop && keys.join("") === "⌥Space";
+  const noShortcut = hotkeyReady && hotkey.length === 0 && desktop;
+  // Either key can be taken by another app, so the link always offers the other one.
+  const onFallback = keys.join("") === "⌘⇧Space";
+  const locked = welcomeLocked(onboarding, hotkey, hotkeyReady, desktop);
   return (
-    <section className="fade-in flex flex-1 flex-col items-center justify-center px-10 text-center">
+    <section className="fade-in flex flex-1 flex-col items-center justify-center px-10 pb-12 text-center">
       <Eyebrow>{copy.onboarding.step(1)}</Eyebrow>
-      <h1 className="heading text-display font-semibold">{copy.onboarding.welcomeTitle}</h1>
-      <p className="mt-2 max-w-[54ch] text-muted">{copy.onboarding.welcomeBody}</p>
-      <div className="mt-7 flex w-[400px] flex-col items-center gap-1.5 rounded-xl border border-hairline bg-raised/60 px-5 py-4">
+      <h1 className="heading text-hero font-semibold">{copy.onboarding.welcomeTitle}</h1>
+      <p className="mt-3 max-w-[54ch] text-lead text-muted">{copy.onboarding.welcomeBody}</p>
+      <div className="mt-12 flex w-[480px] flex-col items-center rounded-xl border border-hairline bg-raised/60 px-5 py-6">
         {noShortcut ? (
           <p className="text-body text-muted">{copy.onboarding.noShortcut}</p>
         ) : (
           <>
-            <p className="text-body text-text">
-              <KeyText text={copy.onboarding.openWith} slots={{ keys: <PlusKeys keys={keys} /> }} />
+            {/* The same line before and after the key is pressed, so nothing moves when it unlocks. */}
+            <p role="status" className="flex min-h-8 items-center gap-2 text-lead text-text">
+              {!locked && <Check size={18} strokeWidth={2} aria-hidden="true" className="tick-in shrink-0 text-positive" />}
+              <span>
+                <KeyText text={locked ? copy.onboarding.openWith : copy.onboarding.provedIt} slots={{ keys: <PlusKeys keys={keys} /> }} />
+              </span>
             </p>
-            <p className="text-meta text-faint">{copy.onboarding.menuBar}</p>
           </>
         )}
       </div>
-      {canSwitch && (
+      {desktop && (
         <button
           type="button"
           tabIndex={-1}
@@ -81,15 +132,27 @@ function Welcome({ hotkey, onHotkey, desktop }: { hotkey: string[]; onHotkey: (k
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => {
             setSwitching(true);
-            void switchToFallbackHotkey()
-              .then(onHotkey)
+            void chooseHotkey(!onFallback)
+              .then((next) => {
+                onHotkey(next);
+                // A new key has to be pressed for itself.
+                retestSummon();
+              })
               .finally(() => setSwitching(false));
           }}
           className="mt-2 cursor-pointer rounded-md px-2 py-1 text-meta text-faint hover:bg-raised hover:text-text"
         >
-          <KeyText text={copy.onboarding.useFallback} />
+          <KeyText text={onFallback ? copy.onboarding.useDefault : copy.onboarding.useFallback} />
         </button>
       )}
+      <div className="mt-8 w-[480px]">
+        <OnboardingCta keys={["↵"]} label={copy.onboarding.getStarted} icon={<NextIcon />} disabled={locked} mouse={mouse} onClick={next} />
+      </div>
+      {/* Another app can hold both shortcuts, so this step must never trap anyone. The
+          space stays when it goes, so nothing moves as the button unlocks. */}
+      <div className="mt-1.5 flex h-7 items-center text-meta">
+        {locked && <KeyButton keys={["⌘", "↵"]} label={copy.onboarding.skipShortcut} icon={<NextIcon />} tone="faint" mouse={mouse} onClick={next} />}
+      </div>
     </section>
   );
 }
@@ -97,11 +160,11 @@ function Welcome({ hotkey, onHotkey, desktop }: { hotkey: string[]; onHotkey: (k
 /** A shortcut written out with plus signs, e.g. ⌥ + Space. */
 function PlusKeys({ keys }: { keys: string[] }) {
   return (
-    <span className="inline-flex items-center gap-1 align-middle">
+    <span className="mx-0.5 inline-flex items-center gap-1.5 align-middle">
       {keys.map((k, i) => (
-        <span key={k} className="inline-flex items-center gap-1">
+        <span key={k} className="inline-flex items-center gap-1.5">
           {i > 0 && <span className="text-faint">+</span>}
-          <Kbd keys={[k]} />
+          <Kbd keys={[k]} large />
         </span>
       ))}
     </span>
@@ -109,21 +172,6 @@ function PlusKeys({ keys }: { keys: string[] }) {
 }
 
 // ---------- 2. Connect the real sources ----------
-
-const SOURCE_ROWS: Record<ConnectorId, Omit<ConnectorRow, "state" | "id"> & { unit: readonly [string, string] }> = {
-  bank: { ...copy.onboarding.sources.bank, icon: ICONS.Landmark },
-  email: { ...copy.onboarding.sources.email, icon: ICONS.Mail },
-  documents: { ...copy.onboarding.sources.documents, icon: ICONS.FolderOpen },
-  calendar: { ...copy.onboarding.sources.calendar, icon: ICONS.CalendarDays },
-};
-
-/** More things people would connect. Off in this demo: the sample data has only the four above. Fictional brands. */
-const MORE_ROWS: ConnectorRow[] = [
-  { id: "ferro", ...copy.onboarding.more.ferro, icon: ICONS.Wallet, state: "disabled" },
-  { id: "southerly", ...copy.onboarding.more.southerly, icon: ICONS.PiggyBank, state: "disabled" },
-  { id: "kinbridge", ...copy.onboarding.more.kinbridge, icon: ICONS.HeartPulse, state: "disabled" },
-  { id: "cloudnest", ...copy.onboarding.more.cloudnest, icon: ICONS.Cloud, state: "disabled" },
-];
 
 function countText(id: ConnectorId, status: ConnectorStatus): string {
   const [one, many] = SOURCE_ROWS[id].unit;
@@ -161,58 +209,149 @@ function Connect({ onboarding, mouse }: { onboarding: OnboardingState; mouse: bo
       fix: failed ? (status.state === "needs_reconnect" ? copy.onboarding.reconnect : copy.onboarding.tryAgain) : undefined,
     };
   });
+  const count = onboarding.connected.length;
+  const list = useRef<HTMLDivElement>(null);
+  useScrollFade(list);
   return (
-    <section className="fade-in flex min-h-0 flex-1 flex-col items-center px-10 pt-6">
+    <section className="fade-in flex min-h-0 flex-1 flex-col items-center px-10 pt-5">
       <Eyebrow>{copy.onboarding.step(2)}</Eyebrow>
-      <h1 className="text-center heading text-display font-semibold">{copy.onboarding.connectTitle}</h1>
-      <p className="mt-1.5 max-w-[60ch] text-center text-muted">{copy.onboarding.connectBody}</p>
-      <div className="scroll-fade mt-4 min-h-0 flex-1 overflow-y-auto pb-3">
-        <ConnectorList
-          rows={[...rows, ...MORE_ROWS]}
-          mouse={mouse}
-          onConnect={(id) => void connectNext(id as ConnectorId)}
-          onFix={(id) => void retrySource(id as ConnectorId)}
-        />
-        <p className="mt-3 text-center text-meta text-faint">{copy.onboarding.connectNote}</p>
+      <h1 className="text-center heading text-hero font-semibold">{copy.onboarding.connectTitle}</h1>
+      <p className="mt-3 max-w-[84ch] text-center text-lead text-muted">{copy.onboarding.connectBody}</p>
+      {/* Two columns: the list scrolls on the left, the next step stays put on the right. */}
+      <div className="mt-10 grid min-h-0 w-full max-w-[880px] flex-1 grid-cols-[minmax(0,1fr)_288px] gap-5">
+        <div ref={list} className="scroll-fade min-h-0 overflow-y-auto pb-6">
+          <ConnectorList
+            rows={[...rows, ...MORE_ROWS]}
+            mouse={mouse}
+            onConnect={(id) => void connectNext(id as ConnectorId)}
+            onFix={(id) => void retrySource(id as ConnectorId)}
+          />
+        </div>
+        <aside className="flex h-fit flex-col gap-3 rounded-xl border border-hairline bg-raised/60 p-4">
+          <p className="heading text-title font-semibold tabular">{copy.onboarding.connectedCount(count, SOURCES.length)}</p>
+          <div className="grid grid-cols-4 gap-1" aria-hidden="true">
+            {SOURCES.map((id, i) => (
+              <span key={id} className={`h-1 rounded-full transition-colors duration-(--duration-base) ${i < count ? "bg-positive" : "bg-hairline"}`} />
+            ))}
+          </div>
+          <p className="min-h-[38px] text-small text-muted">{count ? copy.onboarding.readyToCheck : copy.onboarding.connectFirst}</p>
+          <OnboardingCta
+            keys={["⌘", "↵"]}
+            label={copy.onboarding.runFirstCheck}
+            icon={<CheckNowIcon />}
+            // Connect at least one source first (each row's +, or Enter for the next one).
+            disabled={count === 0 || !!onboarding.connecting}
+            mouse={mouse}
+            onClick={runFirstCheck}
+          />
+        </aside>
       </div>
     </section>
   );
 }
 
-// ---------- The setup screens' main button ----------
+// ---------- 3. The first check ----------
 
-/** The footer's main button on each screen. Disabled until the screen's own step is done. */
-export function primaryAction(onboarding: OnboardingState): { label: string; icon: React.ReactNode; disabled: boolean; keys: string[] } | undefined {
-  switch (onboarding.step) {
-    case "welcome":
-      return { label: copy.onboarding.getStarted, icon: <NextIcon />, disabled: false, keys: ["↵"] };
-    case "connect":
-      // Connect at least one source first (each row's +, or Enter for the next one).
-      return {
-        label: copy.onboarding.runFirstCheck,
-        icon: <CheckNowIcon />,
-        disabled: onboarding.connected.length === 0 || !!onboarding.connecting,
-        keys: ["⌘", "↵"],
-      };
-    default:
-      return undefined;
-  }
+/**
+ * The first real check: the seal, the button, and the agent's live steps
+ * folded away under it. View findings unlocks when the check finishes. If it
+ * doesn't finish, the button tries again and a quiet link carries on, so this
+ * step can never trap anyone.
+ */
+function FirstCheck({
+  mouse,
+  agentOpen,
+  onAgentOpen,
+  sealFallback,
+}: {
+  mouse: boolean;
+  agentOpen: boolean;
+  onAgentOpen: (open: boolean) => void;
+  sealFallback: boolean;
+}) {
+  const scan = useScan();
+  const failed = scan.phase === "error";
+  const done = scan.phase === "done";
+  const found = rankedFindings(scan).length;
+  const title = failed ? copy.onboarding.checkFailedTitle : done ? copy.onboarding.checkDoneTitle : copy.onboarding.checkTitle;
+  // The reason is in the agent's steps. scan.error's own wording points at R, which this step doesn't use.
+  const body = failed ? copy.onboarding.checkFailedBody : done ? copy.onboarding.checkDoneBody(found) : copy.onboarding.checkBody;
+  return (
+    <section className="fade-in flex flex-1 flex-col items-center justify-center px-10 pb-20 text-center">
+      <Eyebrow>{copy.onboarding.step(3)}</Eyebrow>
+      {/* The app is unselectable by default, like a native one. This step's words can be highlighted. */}
+      <h1 className="heading text-hero font-semibold select-text" aria-live="polite">
+        {title}
+      </h1>
+      <p className="mt-3 max-w-[72ch] text-lead text-muted select-text">{body}</p>
+      <div className="mt-8">
+        <SealAnimation fallback={sealFallback} />
+      </div>
+      <div className="mt-8 flex w-[480px] items-center gap-3 text-small">
+        {failed ? (
+          <>
+            <div className="min-w-0 flex-1">
+              <OnboardingCta keys={["↵"]} label={copy.onboarding.tryCheckAgain} icon={<ResetIcon />} mouse={mouse} onClick={next} />
+            </div>
+            <KeyButton keys={["⌘", "↵"]} label={copy.onboarding.carryOn} icon={<NextIcon />} mouse={mouse} onClick={finishOnboarding} />
+          </>
+        ) : (
+          <OnboardingCta keys={["↵"]} label={copy.onboarding.viewFindings} icon={<NextIcon />} disabled={!done} mouse={mouse} onClick={next} />
+        )}
+      </div>
+      <AgentSteps open={agentOpen} onOpen={onAgentOpen} mouse={mouse} />
+    </section>
+  );
 }
 
-/** A setup screen's main action (Enter on welcome, ⌘↵ on connect), as a button for the footer. */
-export function PrimaryButton({ onboarding, mouse }: { onboarding: OnboardingState; mouse: boolean }) {
-  const primary = primaryAction(onboarding);
-  if (!primary) return null;
+/**
+ * "Seal is on it...": the agent's live steps in a fold, closed to start, with how far along it is. The
+ * steps open over the empty space below it, so the seal and the button above
+ * never move. T or a click opens it.
+ */
+function AgentSteps({ open, onOpen, mouse }: { open: boolean; onOpen: (open: boolean) => void; mouse: boolean }) {
+  const scan = useScan();
+  const failed = scan.phase === "error";
+  const done = scan.phase === "done";
+  const steps = useRef<HTMLDivElement>(null);
+  // Follows the newest step while it is open.
+  useEffect(() => {
+    if (open && steps.current) steps.current.scrollTop = steps.current.scrollHeight;
+  }, [open, scan.trace.length]);
+  const label = failed ? copy.onboarding.agentStopped : done ? copy.onboarding.agentDone : copy.onboarding.agentWorking;
   return (
-    <KeyButton
-      keys={primary.keys}
-      label={primary.label}
-      icon={primary.icon}
-      tone="primary"
-      mouse={mouse}
-      disabled={primary.disabled}
-      // On the connect step the button runs the check (Enter there connects the next source).
-      onClick={onboarding.step === "connect" ? runFirstCheck : next}
-    />
+    <Accordion.Root type="single" collapsible value={open ? "agent" : ""} onValueChange={(v) => onOpen(v === "agent")} className="relative mt-2 w-[480px]">
+      <Accordion.Item value="agent">
+        <Accordion.Header>
+          <Accordion.Trigger
+            tabIndex={-1}
+            onMouseDown={(e) => e.preventDefault()}
+            className="press flex h-9 w-full cursor-pointer items-center gap-2 rounded-lg px-3 text-small text-muted hover:bg-raised/60 hover:text-text"
+          >
+            <span className="grid size-4 shrink-0 place-items-center">
+              {failed ? (
+                <CircleAlert size={14} strokeWidth={1.75} aria-hidden="true" className="text-danger" />
+              ) : done ? (
+                <Check size={14} strokeWidth={2} aria-hidden="true" className="text-positive" />
+              ) : (
+                <Loader2 size={14} strokeWidth={1.75} aria-hidden="true" className="motion-safe:animate-spin" />
+              )}
+            </span>
+            <span className="flex-1 text-left" aria-live="polite">
+              {label}
+            </span>
+            {!failed && <span className="min-w-9 text-right figure text-meta text-muted">{copy.onboarding.percent(scanPercent(scan))}</span>}
+            {!mouse && <Kbd keys={["T"]} />}
+            <ChevronRight size={14} strokeWidth={1.75} aria-hidden="true" className="accordion-chevron" />
+          </Accordion.Trigger>
+        </Accordion.Header>
+        <Accordion.Content className="accordion-content absolute inset-x-0 top-full z-5 mt-1 rounded-lg border border-hairline bg-surface text-left shadow-(--shadow-menu)">
+          <div ref={steps} className="h-[104px] overflow-y-auto px-3 py-2.5 select-text">
+            <TraceLines lines={scan.trace} />
+            <SlowDocuments />
+          </div>
+        </Accordion.Content>
+      </Accordion.Item>
+    </Accordion.Root>
   );
 }

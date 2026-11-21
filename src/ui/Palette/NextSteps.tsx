@@ -195,7 +195,7 @@ function NextLine({
           </span>
           {/* The saved draft: a pencil appears on hover, the same as Edit (E). */}
           {line.editable && (
-            <Tip content={copy.actions.editTip} keys={["E"]}>
+            <Tip content={copy.actions.edit} keys={["E"]}>
               <button
                 type="button"
                 tabIndex={-1}

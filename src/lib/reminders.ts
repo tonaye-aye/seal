@@ -1,4 +1,4 @@
-// "Remind me" (key L): the calendar reminder Life adds for a finding, only
+// "Remind me" (key L): the calendar reminder Seal adds for a finding, only
 // when Maya asks. This file works out its date and words; the scan store
 // adds it to the calendar, keeps it, and undoes it.
 

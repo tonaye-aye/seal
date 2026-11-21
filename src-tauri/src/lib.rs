@@ -15,7 +15,7 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 /// Placeholder product name, shown in the menu bar menu. Kept in sync with
 /// APP_NAME in src/lib/app.ts until the real name is chosen.
-const APP_NAME: &str = "Life";
+const APP_NAME: &str = "Seal";
 
 /// Hotkeys to try, in order. The first one that registers wins. Option+Space
 /// is often taken (Raycast, Alfred), so we fall back rather than fail.
@@ -114,17 +114,25 @@ fn open_external(target: String) -> Result<(), String> {
     open.spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
-/// Onboarding's "Use Cmd+Shift+Space instead": drops Option+Space (another app
-/// probably has it), registers the fallback and remembers the choice for next
-/// launch. Returns the new key labels for the UI.
+/// Onboarding's first step: while armed, the next hotkey press proves the user
+/// knows it, instead of hiding the window.
 #[tauri::command]
-fn use_fallback_hotkey(app: AppHandle, state: State<ActiveHotkey>) -> Vec<String> {
+fn set_summon_test(armed: bool) {
+    palette::set_summon_test(armed);
+}
+
+/// Chooses the summon hotkey (onboarding's "Use Cmd+Shift+Space instead", and
+/// Settings): `fallback` true is Cmd+Shift+Space, false is Option+Space. Drops
+/// the current one, registers the choice and remembers it for next launch.
+/// Returns the labels of the key that registered.
+#[tauri::command]
+fn use_fallback_hotkey(app: AppHandle, state: State<ActiveHotkey>, fallback: bool) -> Vec<String> {
     let _ = app.global_shortcut().unregister_all();
     if let Ok(dir) = app.path().app_config_dir() {
         let _ = std::fs::create_dir_all(&dir);
-        let _ = std::fs::write(dir.join(HOTKEY_CHOICE_FILE), "fallback");
+        let _ = std::fs::write(dir.join(HOTKEY_CHOICE_FILE), if fallback { "fallback" } else { "default" });
     }
-    let keys = register_hotkey(&app, true);
+    let keys = register_hotkey(&app, fallback);
     if let Ok(mut active) = state.0.lock() {
         *active = keys.clone();
     }
@@ -216,6 +224,7 @@ pub fn run() {
             launch_flags,
             use_fallback_hotkey,
             set_hide_on_blur,
+            set_summon_test,
             palette_visible,
             open_external,
             llm::llm_request,

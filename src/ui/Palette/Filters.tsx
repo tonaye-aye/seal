@@ -1,17 +1,18 @@
 import { ListFilter, X } from "lucide-react";
 import { copy } from "../../copy";
 import { Kbd } from "../Kbd";
-import { Menu, MenuCheckItem, MenuItem, MenuSeparator, Tip } from "../layers";
+import { Menu, MenuCheckItem, MenuItem, MenuSections, Tip } from "../layers";
 import { filterLabel, type FilterId, type FilterOption } from "../filters";
-import { railButton } from "./Rail";
+import { iconButton } from "./Controls";
 
-// Filters for the findings list: a funnel on the icon rail (or F) opens a
+// Filters for the findings list: a funnel in the top bar (or F) opens a
 // menu of ticks, and each filter that is on shows as a chip under the
 // heading. The rules for what a filter matches are in src/ui/filters.ts.
 
 /**
- * The rail's Filter button and its menu. Inside the menu, the number on a row
- * ticks it (the menu stays open), Backspace clears them all, F or Esc closes it.
+ * The Filter button and its menu. Inside the menu, the number on a row
+ * ticks it (the menu stays open), Backspace clears them all, comma opens Filter
+ * settings, F or Esc closes it.
  * In the timeline it is dimmed: filters are for the findings list, so using
  * it goes back there first (the palette does that in `onOpenChange`).
  */
@@ -22,6 +23,7 @@ export function FilterButton({
   onClear,
   open,
   onOpenChange,
+  onSettings,
   mouse,
   away = false,
   preview,
@@ -32,6 +34,8 @@ export function FilterButton({
   onClear: () => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The last row: Settings, on its Filters tab. */
+  onSettings: () => void;
   mouse: boolean;
   /** In the timeline (or a finding opened from it): the list isn't showing. */
   away?: boolean;
@@ -39,11 +43,12 @@ export function FilterButton({
   preview?: { hover?: boolean; tip?: boolean };
 }) {
   // 1 to 9 tick the rows (there are at most 9: one deadline, seven kinds, Not sure).
-  const shortcuts: Record<string, () => boolean> = { f: () => false, backspace: () => (onClear(), true) };
+  const shortcuts: Record<string, () => boolean> = {
+    f: () => false,
+    ",": () => (onSettings(), false),
+    backspace: () => (onClear(), true),
+  };
   options.slice(0, 9).forEach((o, i) => (shortcuts[String(i + 1)] = () => (onToggle(o.id), true)));
-  const deadline = options.filter((o) => o.id === "soon");
-  const kinds = options.filter((o) => o.id.startsWith("kind:"));
-  const unsure = options.filter((o) => o.id === "unsure");
   const item = (o: FilterOption) => (
     <MenuCheckItem
       key={o.id}
@@ -58,62 +63,47 @@ export function FilterButton({
       }
     />
   );
-  const groups = [deadline, kinds, unsure].filter((g) => g.length);
   const look = open ? "on" : "off";
   return (
     <Menu
       open={open}
       onOpenChange={onOpenChange}
-      side="right"
-      align="start"
+      side="bottom"
+      align="end"
       label={copy.filters.label}
       shortcuts={shortcuts}
       trigger={
         <Tip
-          content={away ? copy.rail.filterFromTimeline : copy.rail.filter}
+          content={copy.controls.filter}
           keys={["F"]}
-          side="right"
+          side="bottom"
           open={preview?.tip || undefined}
         >
           <button
             type="button"
             tabIndex={-1}
-            aria-label={copy.rail.filter}
+            aria-label={copy.controls.filter}
             onMouseDown={(e) => e.preventDefault()}
-            className={`${railButton(look, !!preview?.hover)} ${away && !open ? "opacity-60" : ""}`}
+            className={`${iconButton(look, !!preview?.hover)} ${away && !open ? "opacity-60" : ""}`}
           >
             <ListFilter size={16} strokeWidth={1.75} aria-hidden="true" className="block" />
             {/* How many filters are on: a small neutral badge (violet is kept for the main action). */}
             {active.length > 0 && (
               <span className="absolute -top-1 -right-1 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-text px-0.5 figure text-label leading-none text-bg">
                 {active.length}
-                <span className="sr-only"> {copy.rail.filtersOn(active.length)}</span>
+                <span className="sr-only"> {copy.controls.filtersOn(active.length)}</span>
               </span>
             )}
           </button>
         </Tip>
       }
     >
-      {options.length === 0 && <MenuItem icon={null} label={copy.filters.nothing} disabled onSelect={() => {}} />}
-      {groups.map((g, i) => (
-        <div key={g[0].id}>
-          {i > 0 && <MenuSeparator />}
-          {g.map(item)}
-        </div>
-      ))}
-      {options.length > 0 && (
-        <>
-          <MenuSeparator />
-          <MenuItem
-            icon={<X size={14} strokeWidth={1.75} aria-hidden="true" />}
-            label={copy.filters.clear}
-            disabled={active.length === 0}
-            stayOpen
-            keys={mouse ? undefined : <Kbd keys={["⌫"]} />}
-            onSelect={onClear}
-          />
-        </>
-      )}
+      <MenuSections
+        mouse={mouse}
+        first={options.length ? item(options[0]) : <MenuItem icon={null} label={copy.filters.nothing} disabled onSelect={() => {}} />}
+        rest={options.slice(1).map(item)}
+        dialog={{ label: copy.settings.menu.filters, onOpen: onSettings }}
+      />
     </Menu>
   );
 }

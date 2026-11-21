@@ -113,8 +113,13 @@ export const copy = {
     checkingAgain: "Checking again",
     checkedAt: (time: string) => `Checked ${time}`,
     didntFinish: "Check didn't finish",
-    /** The breadcrumb after the app name ("Life / Timeline / Skylink Internet"), read out by screen readers. */
+    /** The sync button in the top bar. */
+    sync: "Sync everything",
+    syncing: "Syncing…",
+    /** The breadcrumb after the app name ("Seal / Timeline / Skylink Internet"), read out by screen readers. */
     breadcrumb: "Where you are",
+    /** The tooltip on a breadcrumb that goes back. */
+    backTo: (place: string) => `Back to ${place}`,
     /** The "now" mark, read out by screen readers. */
     now: {
       working: "Checking now",
@@ -146,6 +151,7 @@ export const copy = {
     allDealtWith: "You've dealt with everything",
     needAttention: (n: number) => `${plural(n, "thing")} ${pick(n, "needs", "need")} attention`,
     /** The line under the heading. */
+    needAttentionLine: "Charges that look wrong or unwanted, most urgent first.",
     findingsAppear: "Findings appear here as soon as each one is checked.",
     allClearLine: "Nothing looks wrong or unwanted. The ones below were checked and look fine.",
     allDealtWithLine: "Approved drafts are waiting in your mailbox. Nothing was sent.",
@@ -183,7 +189,7 @@ export const copy = {
 
     /** Whole-area states. */
     scanningTitle: "Checking this month's money",
-    scanningLine: "Reading your bank, email, documents and calendar. Findings appear here as soon as each one is checked.",
+    scanningLine: "Reading what you've connected. Findings appear here as soon as each one is checked.",
     slowDocuments: (done: number) => `Documents are slow to respond. ${done > 0 ? `${done} read so far, ` : ""}still waiting on the rest.`,
     allClearTitle: "All clear this month",
     allClearBody: (charges: number) =>
@@ -197,14 +203,10 @@ export const copy = {
   // ---------- Actions (row menu, action bar, footer hints) ----------
   actions: {
     approve: "Approve",
-    /** Tooltips on Approve: what it does. */
-    approveTip: "Saves the draft to Drafts. Nothing is sent.",
+    /** Tooltips on Approve: with a draft, and when the fix is a step with nothing to approve. */
+    approveTip: "Approve the draft",
     approveHandledTip: "Marks it handled: the fix is a step you take yourself.",
     edit: "Edit",
-    /** Edit before approving: change the wording first. */
-    editNewTip: "Change the draft before you approve it",
-    /** Edit on an approved finding takes the approval back. */
-    editTip: "Takes the approval back so you can change the draft",
     /** Once approved: opens the app where Maya does the fix (Mail, a call, Calendar, her bank). */
     seal: "Seal the leak",
     sealTip: {
@@ -214,9 +216,6 @@ export const copy = {
       bank: (account: string) => `Do it in your bank's app (${account})`,
     },
     notALeak: "Not a leak",
-    /** Tooltips on the heading's right-hand buttons. */
-    notALeakTip: "It's fine: it moves to Checked and left alone. ⌘Z brings it back.",
-    remindTip: (date: string) => `Adds an all-day reminder to your calendar for ${date}. Nothing is sent.`,
     remind: "Remind me",
     /** The ⋯ menu's Remind me, when the calendar wasn't connected. */
     remindNoCalendar: "Remind me: connect Calendar first",
@@ -233,8 +232,9 @@ export const copy = {
     close: "Close",
     toDraft: "Draft",
     toEvidence: "Evidence",
-    /** The trace icon at the end of an open finding's button row. */
-    traceTip: "What the agent did for this finding",
+    /** The trace icon in an open finding's sidebar: on a leak, and on a case the agent left alone. */
+    traceTip: "Trace this leak",
+    traceClearedTip: "Trace this check",
     /** Enter on the draft side: open or fold the draft's Details (To, Subject, Attach). */
     showDetails: "Show details",
     hideDetails: "Hide details",
@@ -266,9 +266,9 @@ export const copy = {
     /** The sidebar's heading: a finding, or a case the agent left alone. */
     sidebarTitle: "Leaks found",
     sidebarTitleCleared: "Why it looks fine",
-    /** The button at the sidebar's top (and ]): fold it to a strip, or bring it back. */
-    hideSidebar: "Hide evidence for more room",
-    showSidebar: "Show evidence",
+    /** The icon at the window's top right (and ]): slide the sidebar away, or bring it back. */
+    hideSidebar: "Collapse sidebar",
+    showSidebar: "Expand sidebar",
     reliedOn: "Evidence it relied on",
     alsoGathered: "Also gathered",
     /** The card a piece of evidence opens, and the sheet with the whole source. */
@@ -296,6 +296,8 @@ export const copy = {
     editsNotChecked: "Your edits aren't re-checked by code, so read the figures once more.",
     revert: "Revert",
     doneEditing: "Done",
+    /** The same action in the top bar, where it needs to say what it finishes. */
+    doneEditingCta: "Done editing",
     nothingToSend: "Nothing to send yet",
     writingDraftLabel: "Writing the draft",
     writingDraft: "Writing the draft…",
@@ -360,14 +362,14 @@ export const copy = {
     },
   },
 
-  /** The calendar event Remind me (L) adds. Titles end in "(Life)" so Maya knows where it came from. */
+  /** The calendar event Remind me (L) adds. Titles end in "(Seal)" so Maya knows where it came from. */
   reminders: {
     calendar: "Maya",
-    suffix: "(Life)",
+    suffix: "(Seal)",
     checkReplied: (merchant: string) => `Check ${merchant} replied`,
     beforeDeadline: (merchant: string, label: string, date: string) => `${merchant}: ${label}, ${date}`,
     lookAgain: (merchant: string) => `Look at ${merchant} again`,
-    notes: (title: string) => `${title}. Added by Life when you asked for a reminder. Nothing was sent.`,
+    notes: (title: string) => `${title}. Added by Seal when you asked for a reminder. Nothing was sent.`,
   },
 
   // ---------- Timeline ----------
@@ -412,28 +414,23 @@ export const copy = {
 
   // ---------- Icon rail ----------
   /** The column of icons on the left: View at the top, Trace and Settings at the foot. */
-  rail: {
-    label: "Sidebar",
+  controls: {
     /** The View button and its menu. */
     view: "View",
-    viewTip: (current: string) => `View: ${current}`,
     list: "Findings",
     timeline: "Timeline",
     trace: "Trace",
     /** The Filter button (its menu is under `filters`). */
-    filter: "Filter findings",
-    /** Its tooltip in the timeline: F takes you back to the findings first. */
-    filterFromTimeline: "Filter findings (back to Findings)",
+    filter: "Filter",
     /** Screen reader text for the small count on the button. */
     filtersOn: (n: number) => `${plural(n, "filter")} on`,
   },
 
   // ---------- Filters (the findings list) ----------
   filters: {
-    label: "Filter findings",
+    label: "Filter",
     soon: "Due within 7 days",
     unsure: "Not sure",
-    clear: "Clear filters",
     /** The menu with nothing in the list to filter yet. */
     nothing: "Nothing to filter yet",
     /** In front of the chips under the heading. */
@@ -456,19 +453,19 @@ export const copy = {
   // ---------- Footer ----------
   footer: {
     connectors: "Connectors",
-    whatsConnected: "What's connected",
-    /** Screen reader text after the count. */
-    needAttention: (n: number) => `, ${n} need attention`,
-    connectedCount: (n: number) => `, ${n} connected`,
-    connectorsNote: "Read-only. Demo connectors over sample data.",
-    connect: "Connect",
+    /** A source's state in Settings when its switch is off, or is the last one on. */
+    off: "Off",
+    keepOne: "Keep one on",
     reconnect: "Reconnect",
-    countRead: (n: number) => `${n} read`,
+    /** Rows in the Settings menu. */
+    models: "Models",
+    problems: (n: number) => `${n} to fix`,
     /** The strip of connection chips (gallery). */
     connectionsLabel: "Connections",
     slowShort: "Slow",
-    /** The settings cog at the foot of the icon rail. */
+    /** The settings cog in the bottom bar. */
     settings: "Settings",
+    settingsAttention: "Settings: something needs a look",
     keysItem: "Keyboard shortcuts",
     hide: `Hide ${APP_NAME}`,
     close: "Close",
@@ -494,15 +491,25 @@ export const copy = {
   // ---------- Model endpoint (footer chip and menu) ----------
   model: {
     title: "Model endpoint",
+    /** A few words on the Settings menu's Models row. */
     chip: {
-      slow: "Model: slow",
-      offline: "Model: offline",
-      key_rejected: "Model: key not accepted",
-      not_set_up: "Model: not set up",
-      unavailable: "Model: error",
-      forced: "Model: saved answers",
-      browser: "Model: saved answers",
+      live: "Live",
+      checking: "Checking",
+      slow: "Slow",
+      offline: "Offline",
+      key_rejected: "Key not accepted",
+      not_set_up: "Not set up",
+      unavailable: "Error",
+      forced: "Saved answers",
+      browser: "Saved answers",
     },
+    /** The three models the app uses, and what each one does. */
+    roles: {
+      fast: { name: "Qwen 3.5 9B", job: "Reads", detail: "Pulls the facts out of emails, documents and the meter photo.", thinking: "Thinking off" },
+      judge: { name: "Qwen 3.6 35B", job: "Decides", detail: "Judges whether each candidate is really a leak, and rewrites a draft that fails the claim check.", thinking: "Thinks to judge, not to rewrite" },
+      flash: { name: "Qwen 3.8 Flash", job: "Drafts", detail: "Writes the fix, using only figures checked by code.", thinking: "Thinking off" },
+    },
+    testConnection: "Test connection",
     /** What the endpoint is doing, in a few words. */
     state: {
       unknown: "Not checked yet",
@@ -518,8 +525,6 @@ export const copy = {
     },
     checkedAgo: (ago: string) => `checked ${ago}`,
     savedNote: "Saved answers come from an earlier run and are always labelled Replay mode.",
-    tryLive: "Try live again",
-    goLive: "Go back to live answers",
     useSaved: "Use saved answers only",
     byFlag: "Started with LIFE_REPLAY=1. Restart without it to go live.",
   },
@@ -619,19 +624,24 @@ export const copy = {
   onboarding: {
     step: (n: number) => `Step ${n} of 3`,
     /** 1. Welcome. */
-    welcomeTitle: `Hi, I'm ${APP_NAME}`,
-    welcomeBody:
-      "Once a month I look through your bank, email, documents and calendar for charges that are wrong or unwanted. I gather the proof and draft the fix, and you approve it. I never send, cancel or pay for anything.",
+    welcomeTitle: `This is ${APP_NAME}`,
+    welcomeBody: "I look through your data and find pesky leaks.",
     noShortcut: "The keyboard shortcut couldn't be set up on this Mac, so open me from the ring icon in the menu bar.",
-    openWith: "Open and hide me from any app with {keys}",
-    menuBar: "I also live in the menu bar.",
+    /** Step 1's line, before and after the summon key is pressed. */
+    openWith: "Open and hide me using {keys}",
+    provedIt: "That's it, I am just one {keys} away!",
     useFallback: "Taken by another app? Use [⌘ ⇧ Space] instead",
+    useDefault: "Not working? Go back to [⌥ Space]",
     getStarted: "Get started",
+    /** For when neither shortcut works: the menu bar icon still opens the app. */
+    skipShortcut: "Skip, I'll use the menu bar",
     /** 2. Connect. */
     connectTitle: "Connect your data",
-    connectBody: "I can only read, and save drafts in your email. I can't send, cancel or pay for anything.",
-    connectNote: "Demo connectors over sample data. No sign-in needed.",
+    connectBody: "I just take a look and draft things for you, you make the final call.",
     runFirstCheck: "Run my first check",
+    connectedCount: (n: number, total: number) => `${n} of ${total} connected`,
+    connectFirst: "Connect at least one source to run your first check.",
+    readyToCheck: "Ready when you are. You can change these later.",
     sources: {
       bank: { name: "Harbour Bank", what: "Your joint everyday account and Visa card", by: "Harbour Bank", unit: ["transaction", "transactions"] },
       email: { name: "Mailbox", what: "Your inbox and the shared home address", by: "your email provider", unit: ["email", "emails"] },
@@ -654,9 +664,91 @@ export const copy = {
     notInDemo: "Not in this demo",
     by: (who: string) => `by ${who}`,
     connectSource: (name: string) => `Connect ${name}`,
-    /** 3. The first check, in a banner under the top bar. */
-    firstCheckLead: "Your first check.",
-    firstCheckBody: "It reads everything, so it takes a little while. You can hide me, I'll keep going.",
+    /** 3. The first check. */
+    checkTitle: "Checking your data",
+    checkBody: "Working on it! Sit back and relax.",
+    checkDoneTitle: "Your first check is done",
+    checkDoneBody: (n: number) =>
+      n === 0 ? "Nothing looks wrong this month." : `I found ${plural(n, "thing")} worth a look. Nothing is sent until you approve it.`,
+    checkFailedTitle: "The check didn't finish",
+    checkFailedBody: "Nothing is lost. Try again, or carry on and check later.",
+    viewFindings: "View findings",
+    tryCheckAgain: "Try again",
+    carryOn: "Carry on without it",
+    /** The fold that holds the agent's live steps. */
+    agentWorking: "Seal is on it...",
+    agentDone: "Seal is done",
+    agentStopped: "Seal stopped",
+    percent: (n: number) => `${n}%`,
+    sealAlt: "A seal, looking around",
+  },
+
+  // ---------- The Settings dialog ----------
+  settings: {
+    title: "Settings",
+    tabs: { connectors: "Connectors", models: "Models", view: "View", filters: "Filters", general: "General" },
+    /** The last row of each menu, which opens this dialog on its tab. */
+    menu: {
+      connectors: "Connector settings",
+      models: "Model settings",
+      filters: "Filter settings",
+      general: "All settings",
+    },
+    close: "Close",
+    connectors: {
+      intro: "Choose what I can read. Changes apply on the next sync.",
+      access: {
+        bank: "Read only",
+        email: "Reads, saves approved drafts",
+        documents: "Read only",
+        calendar: "Reads, adds reminders you ask for",
+      },
+      synced: (time: string) => `Synced ${time}`,
+      syncToApply: "Sync to apply",
+      pending: "Saved answers may not cover a check with different sources.",
+      upToDate: "Demo connectors over sample data. Nothing is sent anywhere except your model endpoint.",
+      checking: "A check is running. Switches come back when it finishes.",
+    },
+    models: {
+      intro: "Models read, judge and write. Plain code does the arithmetic, dates and verification.",
+      endpoint: "Endpoint",
+      used: "Models in use",
+      savedHelp: "Use answers from an earlier run instead of calling the models.",
+      browserHelp: "A browser tab can only use saved answers.",
+    },
+    view: {
+      intro: "Choose where I open when you summon me.",
+      openOn: "Open on",
+      list: { name: "Findings", note: "What needs you, most urgent first" },
+      timeline: { name: "Timeline", note: "What's coming, and what's been done" },
+      last: { name: "Where I left off", note: "The view or finding you last had open" },
+    },
+    filters: {
+      intro: "Filters narrow the Findings list. They clear each time you summon me.",
+      clearAll: "Clear all",
+      none: "Nothing to filter yet. Filters appear after a check finds something.",
+      meaning: {
+        soon: "Has a deadline in the next week",
+        unsure: "The agent isn't confident, so check the evidence",
+        price_increase: "A regular charge went up",
+        duplicate_subscription: "The same service is billed twice",
+        duplicate_payment: "One bill was paid twice",
+        trial_converted: "A free trial became a paid plan",
+        renewal_trap: "A renewal with a notice deadline",
+        renewal_price_creep: "A renewal costing more than last time",
+        billing_error: "A bill that looks wrong",
+      } satisfies Record<"soon" | "unsure" | FindingKind, string>,
+    },
+    general: {
+      intro: "How you reach me, and when I work in the background.",
+      summon: "Summon key",
+      summonNote: "Opens and hides me from any app",
+      fallbackNote: "If another app already uses ⌥ Space",
+      noShortcut: "No shortcut could be set up on this Mac. Use the menu bar icon.",
+      background: "Background",
+      backgroundName: "Check every 30 minutes",
+      backgroundNote: "Only while I'm hidden, so results never change under you",
+    },
   },
 
   // ---------- Sheets ----------
@@ -691,7 +783,9 @@ export const copy = {
           [["Tab"], "Draft or evidence (in a finding)"],
           [["]"], "Hide or show the evidence (in a finding)"],
           [["T"], "What the agent did (in a finding: for that one)"],
-          [["R"], "Check again (reconnects first)"],
+          [["R"], "Sync everything (reconnects first)"],
+          [["N"], "Connectors"],
+          [["M"], "Models"],
           [["Esc"], "Back, then close"],
           [["⌘", ","], "Settings"],
           [["?"], "This sheet"],
@@ -699,6 +793,20 @@ export const copy = {
       },
     ] as { title: string; keys: [string[], string][] }[],
     footnote: "Nothing is ever sent. Approving saves a draft you send yourself.",
+    /** The short version, shown once when onboarding ends. */
+    intro: {
+      title: "A few keys to get around",
+      body: "The mouse works too. These are the ones you'll use most.",
+      keys: [
+        [["J", "K"], "Move down and up"],
+        [["↵"], "Open a finding"],
+        [["A"], "Approve its fix"],
+        [["⌘", "Z"], "Undo"],
+        [["Esc"], "Go back"],
+      ] as [string[], string][],
+      all: "All shortcuts",
+      gotIt: "Got it",
+    },
   },
 
   /** The hidden demo panel (⌘⇧D). */
@@ -794,7 +902,7 @@ export const copy = {
     privacy: "Connectors are read-only. Nothing is sent anywhere except to your model endpoint (on-device in production).",
     /** Each stage as it starts. */
     stage: {
-      sync: "Syncing bank, email, documents and calendar",
+      sync: "Syncing your connected sources",
       read: "Reading emails and documents",
       detect: "Looking for charges worth a closer look",
       retrieve: "Gathering the evidence for each one",

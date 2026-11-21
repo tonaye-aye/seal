@@ -1,21 +1,21 @@
-import { forwardRef, useCallback, useLayoutEffect, useState } from "react";
+import { createContext, forwardRef, useCallback, useContext, useLayoutEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { LayerContainer, Tip } from "../layers";
 
-// The palette's frame: top bar, replay banner, the icon rail beside the middle
-// area, the footer, plus anything floating on top (toast, sheets). The real
+// The palette's frame: top bar, replay banner, the middle area, the footer,
+// plus anything floating on top (toast, sheets). The real
 // palette and the dev gallery both draw through this, so they can't drift apart.
+// To the right of all that is a slot for a column that runs the whole height
+// of the window: an open finding's sidebar (ShellAside).
 
 type Props = Omit<React.HTMLAttributes<HTMLDivElement>, "children"> & {
   header: React.ReactNode;
   /** The "Replay mode" banner under the top bar (src/ui/replay.tsx says what it reads). */
   replay?: React.ReactNode;
-  /** Another one-line note under the top bar (onboarding: the first check). */
-  banner?: React.ReactNode;
-  /** The icon rail on the left (Rail.tsx), left out on the setup screens. */
-  rail?: React.ReactNode;
   /** What fills the middle (a view, plus the trace drawer when open). */
   children: React.ReactNode;
-  footer: React.ReactNode;
+  /** The bottom bar, left out on the onboarding steps. */
+  footer?: React.ReactNode;
   /** Things that float above everything: the toast and the sheets. */
   overlay?: React.ReactNode;
 };
@@ -51,12 +51,21 @@ function Notice({ children }: { children: React.ReactNode }) {
   );
 }
 
+const AsideSlot = createContext<HTMLElement | null>(null);
+
+/** Draws its children in the full-height column at the right of the window. */
+export function ShellAside({ children }: { children: React.ReactNode }) {
+  const slot = useContext(AsideSlot);
+  return slot ? createPortal(children, slot) : null;
+}
+
 export const PaletteShell = forwardRef<HTMLDivElement, Props>(function PaletteShell(
-  { header, replay, banner, rail, children, footer, overlay, className = "", ...rest },
+  { header, replay, children, footer, overlay, className = "", ...rest },
   ref,
 ) {
   // Menus, tooltips and sheets draw inside this panel (src/ui/layers.tsx).
   const [element, setElement] = useState<HTMLDivElement | null>(null);
+  const [aside, setAside] = useState<HTMLDivElement | null>(null);
   const setRefs = useCallback(
     (node: HTMLDivElement | null) => {
       setElement(node);
@@ -68,24 +77,20 @@ export const PaletteShell = forwardRef<HTMLDivElement, Props>(function PaletteSh
   return (
     <div
       ref={setRefs}
-      className={`relative flex h-full flex-col overflow-hidden rounded-[14px] border border-edge bg-panel outline-none ${className}`}
+      className={`relative flex h-full overflow-hidden rounded-[14px] border border-edge bg-panel outline-none ${className}`}
       {...rest}
     >
       <LayerContainer element={element}>
-        {header}
-        {replay && <Notice>{replay}</Notice>}
-        {banner && <Notice>{banner}</Notice>}
-        <div className="h-px shrink-0 bg-hairline" />
-        {/* The rail runs from the top bar to the footer; the trace drawer stays
-            beside it, so Trace and Settings are never covered. */}
-        <div className="flex min-h-0 flex-1">
-          {rail}
+        <AsideSlot.Provider value={aside}>
           <div className="flex min-w-0 flex-1 flex-col">
+            {header}
+            {replay && <Notice>{replay}</Notice>}
             <div className="relative flex min-h-0 flex-1 flex-col">{children}</div>
+            {footer}
           </div>
-        </div>
-        {footer}
-        {overlay}
+          <div ref={setAside} className="flex shrink-0" />
+          {overlay}
+        </AsideSlot.Provider>
       </LayerContainer>
     </div>
   );

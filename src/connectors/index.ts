@@ -227,7 +227,7 @@ export async function syncSome(
     }),
     run("calendar", async (report) => {
       report({ state: "syncing", detail: copy.connector.readingEvents });
-      // Reminders Life added are left out: they are the app's own notes, not
+      // Reminders Seal added are left out: they are the app's own notes, not
       // household evidence, and leaving them out means a check after adding
       // one asks the models exactly the same questions as before.
       const events = await connectors.calendar.listEvents({

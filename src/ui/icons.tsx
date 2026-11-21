@@ -1,7 +1,7 @@
 // The icons buttons show in mouse mode (in keyboard mode the key caps show
 // instead). From lucide-react (ISC licence), all at one size and weight so
 // they read as a set. The list and timeline icons at the end are hand-drawn
-// for the icon rail (src/ui/Palette/Rail.tsx).
+// for the View button (src/ui/Palette/Controls.tsx).
 
 import {
   Activity,
@@ -63,6 +63,16 @@ export const EditIcon = icon(Pencil);
 export const OpenIcon = icon(ArrowUpRight);
 export const PaneIcon = icon(Columns2);
 export const TraceIcon = icon(Activity);
+/** The sidebar's collapse icon, hand-drawn so its little panel slides with the real one (.sidebar-glyph in tokens.css). */
+export function SidebarIcon({ open }: { open: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" data-open={open} className="sidebar-glyph block">
+      <rect className="sidebar-glyph-pane" x="10" y="2.5" width="3.75" height="11" fill="currentColor" />
+      <path className="sidebar-glyph-line" d="M10 2.5v11" stroke="currentColor" strokeWidth="1.3" />
+      <rect x="2.25" y="2.5" width="11.5" height="11" rx="2" stroke="currentColor" strokeWidth="1.3" />
+    </svg>
+  );
+}
 export const KeysIcon = icon(Keyboard);
 export const HideIcon = icon(EyeOff);
 export const CloseIcon = icon(X);

@@ -25,41 +25,6 @@ export function pillButton(small = false): string {
   }`;
 }
 
-/**
- * One row in the Connectors menu (a data source or the model endpoint): a
- * status dot, the name, and either the state in a few words or a button that
- * fixes it. Every row is the same height, with or without a button.
- */
-export function StatusRow({
-  dot,
-  label,
-  state,
-  tone = "faint",
-  tip,
-  action,
-}: {
-  /** The dot's classes (from DOT). */
-  dot: string;
-  label: string;
-  /** The state in a few words. With an action, the dot and button say it, so it goes to screen readers only. */
-  state: string;
-  tone?: "faint" | "info" | "danger";
-  tip?: string;
-  action?: React.ReactNode;
-}) {
-  const colour = tone === "danger" ? "text-danger" : tone === "info" ? "text-info" : "text-faint";
-  return (
-    <Tip content={tip} side="right">
-      <li className="flex h-8 items-center gap-2.5 rounded-md px-2.5 text-small">
-        <span className={`size-1.5 shrink-0 rounded-full ${dot}`} aria-hidden="true" />
-        <span className="min-w-0 flex-1 truncate text-text">{label}</span>
-        <span className={`shrink-0 font-mono text-label ${colour} ${action ? "sr-only" : ""}`}>{state}</span>
-        {action}
-      </li>
-    </Tip>
-  );
-}
-
 /** Re-renders every second while `active`, for countdowns. */
 export function useTick(active: boolean): number {
   const [now, setNow] = useState(Date.now());

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 import * as Accordion from "@radix-ui/react-accordion";
-import { ChevronRight, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import type { Corpus } from "../../agent/corpus";
 import type { Cleared, Finding } from "../../agent/pipeline";
 import { getConnectors } from "../../connectors/live";
@@ -22,20 +22,23 @@ import {
   TraceIcon,
   RemindIcon,
   ResetIcon,
+  SidebarIcon,
   AttachIcon,
   SubjectIcon,
   ToIcon,
   UndoIcon,
 } from "../icons";
 import { NextSteps } from "./NextSteps";
-import { reminderDate } from "../../lib/reminders";
 import { Kbd, KeyButton } from "../Kbd";
+import { iconButton } from "./Controls";
+import { dragByBar } from "./Header";
+import { ShellAside } from "./PaletteShell";
 import { ViewHeading } from "./ViewHeading";
 import { DEADLINE_TONE } from "./FindingsList";
 import { SavedNote } from "../replay";
 import { Peek, Sheet, Tip } from "../layers";
 import { CountUp } from "../CountUp";
-import { useGlide } from "../motion";
+import { useGlide, useSettleText } from "../motion";
 
 // One finding, opened. The main column has the header (business, kind, the
 // amount at stake, the deadline) and the drafted fix. The sidebar on the right
@@ -311,7 +314,7 @@ function SourceSheet({ view, needles, onClose }: { view?: EvidenceView; needles:
   );
 }
 
-/** A small square button with an icon and a tooltip that names its key (the sidebar's trace and fold buttons). */
+/** A small square button with an icon and a tooltip that names it and its key (the sidebar's buttons). */
 function IconButton({
   label,
   keys,
@@ -328,7 +331,7 @@ function IconButton({
   children: React.ReactNode;
 }) {
   return (
-    <Tip content={label} keys={keys} side="left">
+    <Tip content={label} keys={keys} side="bottom">
       <button
         type="button"
         tabIndex={-1}
@@ -337,12 +340,8 @@ function IconButton({
         aria-expanded={expanded}
         // Keep keyboard focus where it is (the palette, or the draft being edited), so the keys keep working.
         onMouseDown={(e) => e.preventDefault()}
-        onClick={(e) => {
-          // The folded strip opens on a click; a button on it does only its own thing.
-          e.stopPropagation();
-          onClick();
-        }}
-        className={`press grid size-7 shrink-0 cursor-pointer place-items-center rounded-md hover:bg-raised hover:text-text ${pressed ? "bg-raised text-text" : "text-faint"}`}
+        onClick={onClick}
+        className={iconButton(pressed ? "on" : "off", false)}
       >
         {children}
       </button>
@@ -351,10 +350,12 @@ function IconButton({
 }
 
 function Sidebar({
+  asideRef,
   open,
   onToggleOpen,
   traceOpen,
   onTrace,
+  onNotALeak,
   item,
   corpus,
   finding,
@@ -370,13 +371,17 @@ function Sidebar({
   onPeek,
   onOpenSource,
 }: {
-  /** Folded to a slim strip (the button at its top, or ]), to give the draft more room. */
+  /** The sliding column, so the draft can tell how wide it will end up. */
+  asideRef: React.RefObject<HTMLElement | null>;
+  /** Slid away (the icon at the window's top right, or ]), so the rest of the app takes the full width. */
   open: boolean;
   onToggleOpen: () => void;
   /** The trace drawer is open on this finding (the trace icon shows as pressed). */
   traceOpen: boolean;
   /** The trace icon (or T): opens this finding's trace, or closes it. */
   onTrace: () => void;
+  /** Not a leak (or D), while the finding still needs a decision. */
+  onNotALeak?: () => void;
   item: Finding | Cleared;
   corpus: Corpus | undefined;
   finding?: Finding;
@@ -465,7 +470,7 @@ function Sidebar({
     const selectedHere = isPanel(at, id);
     const open = panels.includes(id);
     return (
-      <Accordion.Item key={id} value={id} data-glide-rows className="border-t border-hairline pt-1 first:border-0 first:pt-0 [&+&]:mt-1">
+      <Accordion.Item key={id} value={id} data-glide-rows className="[&+&]:mt-1">
         <Accordion.Trigger asChild>
           <div aria-selected={selectedHere} className={`${LINE} text-muted hover:text-text`}>
             <span className={`label ${selectedHere || open ? "text-muted" : "text-faint"}`}>{title}</span>
@@ -485,42 +490,43 @@ function Sidebar({
     );
   };
 
-  // The button that folds the sidebar away, or brings it back. Its tooltip names the key.
-  const toggle = (
-    <IconButton label={open ? copy.detail.hideSidebar : copy.detail.showSidebar} keys={["]"]} expanded={open} onClick={onToggleOpen}>
-      {open ? <PanelRightClose size={15} strokeWidth={1.75} aria-hidden="true" /> : <PanelRightOpen size={15} strokeWidth={1.75} aria-hidden="true" />}
-    </IconButton>
-  );
   // What the agent did for this finding: the trace drawer, opened on it (T does the same; a second press closes it).
   const trace = (
-    <IconButton label={copy.actions.traceTip} keys={["T"]} pressed={traceOpen} onClick={onTrace}>
+    <IconButton label={finding ? copy.actions.traceTip : copy.actions.traceClearedTip} keys={["T"]} pressed={traceOpen} onClick={onTrace}>
       <TraceIcon />
     </IconButton>
   );
 
+  const notALeak = onNotALeak && (
+    <IconButton label={copy.actions.notALeak} keys={["D"]} onClick={onNotALeak}>
+      <DismissIcon />
+    </IconButton>
+  );
+
   return (
-    // The width slides between the full sidebar and a slim strip; the contents
-    // keep their full width while it does, so they're clipped, not squeezed.
+    <>
+    {/* The column's width slides between the sidebar and nothing. Its contents keep their full width and
+        ride its left edge, so they glide out past the window's side instead of being squeezed. */}
     <aside
+      ref={asideRef}
       aria-label={copy.detail.sidebarLabel}
-      className={`relative flex shrink-0 flex-col overflow-hidden border-l border-hairline transition-[width] duration-(--duration-base) ease-(--ease-out) ${open ? "w-84" : "w-11"}`}
+      className={`relative flex h-full shrink-0 flex-col overflow-clip transition-[width] duration-(--duration-panel) ease-(--ease-panel) ${open ? "w-84" : "w-0"}`}
     >
-      {!open ? (
-        // Folded: the unfold button and the trace icon under it (still in reach). A click anywhere else on
-        // the strip brings the sidebar back.
-        <div onClick={onToggleOpen} className="flex h-full w-11 cursor-pointer flex-col items-center gap-1 py-1.5 hover:bg-raised/40">
-          {toggle}
-          {trace}
-        </div>
-      ) : (
-      <>
-      {/* The sidebar's own heading, pinned like the main one: its title, then the trace and fold buttons. */}
-      <div className="flex h-11 w-84 shrink-0 items-center gap-1 border-b border-hairline pr-1.5 pl-4">
+      {/* Stays in the page while closed so it can slide back; inert keeps clicks and screen readers out of it. */}
+      <div
+        inert={!open}
+        className={`relative flex h-full w-84 shrink-0 flex-col transition-opacity duration-(--duration-panel) ease-(--ease-panel) ${open ? "opacity-100" : "opacity-0"}`}
+      >
+      {/* The open sidebar's edge: a dotted zig-zag line down its whole height. */}
+      <div className="stitch-y pointer-events-none absolute inset-y-0 left-0 z-1" aria-hidden="true" />
+      {/* The sidebar's own heading, pinned like the main one. It runs up beside the top bar, so like the
+          top bar it also moves the window. The right padding leaves room for the collapse icon. */}
+      <div onMouseDown={dragByBar} className="flex h-12 w-84 shrink-0 items-center gap-1 pr-12 pl-4">
         <h2 className="min-w-0 flex-1 truncate heading text-small font-semibold">{finding ? copy.detail.sidebarTitle : copy.detail.sidebarTitleCleared}</h2>
+        {notALeak}
         {trace}
-        {toggle}
       </div>
-      <div ref={listRef} onAnimationStart={onAnimationStart} onAnimationEnd={redraw} className={`relative min-h-0 w-84 flex-1 overflow-y-auto p-2 ${traceOpen ? "pb-(--trace-height)" : ""}`}>
+      <div ref={listRef} onAnimationStart={onAnimationStart} onAnimationEnd={redraw} className="relative min-h-0 w-84 flex-1 overflow-y-auto p-2">
         {focused && !mouse && <div ref={highlightRef} className="glide inset-x-2" style={{ "--glide-bar-inset": "7px" } as React.CSSProperties} aria-hidden="true" />}
         <Accordion.Root
           type="multiple"
@@ -557,10 +563,17 @@ function Sidebar({
             )}
         </Accordion.Root>
       </div>
-      </>
-      )}
+      </div>
       <SourceSheet view={source >= 0 ? all[source] : undefined} needles={needles} onClose={() => onOpenSource(-1)} />
     </aside>
+    {/* One icon that never moves: pinned to the window's top right, while the sidebar slides beneath it.
+        Closed, it is simply the last icon in the top bar. */}
+    <div className="absolute top-2.5 right-4 z-5">
+      <IconButton label={open ? copy.detail.hideSidebar : copy.detail.showSidebar} keys={["]"]} expanded={open} onClick={onToggleOpen}>
+        <SidebarIcon open={open} />
+      </IconButton>
+    </div>
+    </>
   );
 }
 
@@ -657,6 +670,23 @@ function Draft({
     t.style.height = `${t.scrollHeight}px`;
     if (scroller && keep !== undefined) scroller.scrollTop = keep;
   }, [editing, draft?.body]);
+  // The sidebar sliding changes the editor's width, so its lines rewrap: keep it the height of its text.
+  useEffect(() => {
+    const t = textRef.current;
+    if (!editing || !t) return;
+    let width = t.offsetWidth;
+    const watch = new ResizeObserver(() => {
+      if (t.offsetWidth === width) return;
+      width = t.offsetWidth;
+      const scroller = t.closest<HTMLElement>(".overflow-y-auto");
+      const keep = scroller?.scrollTop;
+      t.style.height = "0px";
+      t.style.height = `${t.scrollHeight}px`;
+      if (scroller && keep !== undefined) scroller.scrollTop = keep;
+    });
+    watch.observe(t);
+    return () => watch.disconnect();
+  }, [editing]);
 
   useEffect(() => {
     if (editing) {
@@ -773,8 +803,9 @@ function Draft({
             />
             <div className={`${UNDER_DRAFT} justify-between`}>
               <span className="text-faint">{copy.detail.editsNotChecked}</span>
-              {/* Like every button: the key in keyboard mode, an icon with the mouse. They keep focus in the editor. */}
-              <span className="flex shrink-0 items-center gap-3">
+              {/* Like every button: the key in keyboard mode, an icon with the mouse. They keep focus in the editor.
+                  The right padding cancels the button's own negative margin, so its edge lines up with the text box's. */}
+              <span className="flex shrink-0 items-center gap-3 pr-1.5">
                 {/* One step: the agent's draft back, and editing done. */}
                 {edited && (
                   <KeyButton
@@ -799,18 +830,25 @@ function Draft({
             <p
               ref={readRef}
               onClick={editAt}
-              className={`${DRAFT_TEXT} cursor-text transition-colors duration-(--duration-fast) group-hover:bg-raised/60`}
+              className={`${DRAFT_TEXT} cursor-text overflow-hidden bg-raised/60 transition-shadow duration-(--duration-fast) group-hover:shadow-[0_0_0_1px_var(--color-hairline)]`}
             >
-              {draft.body}
+              {/* The inner line keeps its wrap while the sidebar slides; the box clips it. */}
+              <span data-settle className="block">
+                {draft.body}
+              </span>
             </p>
             <div className={`${UNDER_DRAFT} justify-end`}>
-              <span className="opacity-0 transition-opacity duration-(--duration-fast) group-hover:opacity-100">
+              <span className="pr-1.5 opacity-0 transition-opacity duration-(--duration-fast) group-hover:opacity-100">
                 <KeyButton keys={["E"]} label={copy.actions.edit} icon={<EditIcon />} mouse={mouse} onClick={onEdit} />
               </span>
             </div>
           </div>
         ) : (
-          <p className={DRAFT_TEXT}>{draft.body}</p>
+          <p className={`${DRAFT_TEXT} overflow-hidden bg-raised/60`}>
+            <span data-settle className="block">
+              {draft.body}
+            </span>
+          </p>
         )}
       </>
     );
@@ -901,7 +939,7 @@ export function FindingDetail({
   onFocusDraft: () => void;
   /** The action row's buttons (Approve, Seal the leak, Edit, ...). */
   onCommand: (command: Command) => void;
-  /** The sidebar is unfolded (] or its button folds it to a strip). */
+  /** The sidebar is showing (] or the icon at the window's top right slides it away). */
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
   /** The trace drawer is open over the bottom: the draft keeps room to scroll above it, and the trace icon shows pressed. */
@@ -914,7 +952,6 @@ export function FindingDetail({
   const finding = "evidence" in item ? item : undefined;
   const scan = useScan();
   const reminder = scan.reminders[item.id];
-  const actions = finding ? findingActions(finding, scan, editing) : [];
   // Amounts code checked, written the ways a bill or email would show them.
   const needles = finding
     ? [...new Set(finding.figures.filter((f) => f.unit === "cents").flatMap((f) => {
@@ -922,12 +959,17 @@ export function FindingDetail({
         return s.endsWith(".00") ? [s, s.slice(0, -3)] : [s];
       }))]
     : [];
+  // While the sidebar slides, the heading and draft text wrap once rather than on every frame.
+  const areaRef = useRef<HTMLElement>(null);
+  const asideRef = useRef<HTMLElement>(null);
+  useSettleText(areaRef, asideRef, sidebarOpen);
 
   return (
-    <section aria-label={copy.detail.label} className="flex min-h-0 flex-1">
+    <section ref={areaRef} aria-label={copy.detail.label} className="flex min-h-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Pinned, like the list's and the timeline's headings. */}
         <ViewHeading
+          divider
           title={item.title}
           eyebrow={
             <>
@@ -954,15 +996,17 @@ export function FindingDetail({
             </>
           }
           action={finding && <Amounts finding={finding} />}
-          // What Maya can do, under the reason: always in view, whatever the draft below is doing.
-          actions={actions.length > 0 && <FindingActions actions={actions} mouse={mouse} onCommand={onCommand} />}
         >
           {/* A case left alone gives its reason once, in the main column below, so the header leaves it out. */}
           {finding && (
             <>
               {/* Three lines: the model's longest reasons need them at the palette's width. */}
               {/* The date is in the chip above, and a reminder in the notice below. */}
-              <span className="line-clamp-3">{item.why}</span>
+              <span className="block overflow-hidden">
+                <span data-settle className="line-clamp-3">
+                  {item.why}
+                </span>
+              </span>
             </>
           )}
         </ViewHeading>
@@ -1014,11 +1058,15 @@ export function FindingDetail({
         </div>
       </div>
 
+      {/* Drawn in the window's full-height column, beside the top and bottom bars. */}
+      <ShellAside>
       <Sidebar
+        asideRef={asideRef}
         open={sidebarOpen}
         onToggleOpen={onToggleSidebar}
         traceOpen={tracePressed}
         onTrace={() => onCommand("trace")}
+        onNotALeak={finding?.status === "new" ? () => onCommand("dismiss") : undefined}
         item={item}
         corpus={corpus}
         finding={finding}
@@ -1034,6 +1082,7 @@ export function FindingDetail({
         onPeek={onPeek}
         onOpenSource={onOpenSource}
       />
+      </ShellAside>
     </section>
   );
 }
@@ -1054,35 +1103,28 @@ export function MouseIcon() {
 export type Command = "approve" | "seal" | "details" | "trace" | "edit" | "done" | "dismiss" | "remind" | "undo" | "rescan" | "open" | "pane" | "toggle" | "figures";
 
 /**
- * The heading's buttons for an open finding, under the reason. Each has its
- * key and can be clicked; how to move around (J/K, Enter, Tab) is in the
- * footer. On the left, the ways to act: Approve (the main action) and Edit
- * before approving, Edit (or Undo, with nothing drafted) once approved, and
- * Done while editing. On the right, the ways to put it off or set it aside:
- * Remind me, then Not a leak. Once approved, Seal the leak is on the Next
+ * An open finding's buttons, in the top bar where Search, Filter and View
+ * sit on the other pages. Approve (the main action) keeps its word; Edit and
+ * Remind me are icons with tooltips. Done stands in for Approve and Edit while
+ * editing. Not a leak is in the sidebar's heading. Once approved, Seal the leak is on the Next
  * timeline, not here.
  */
-function findingActions(finding: Finding, scan: ScanState, editing: boolean): Action[] {
-  // Remind me (L) shows while it can still be added: calendar connected, none set yet. It sits on the right,
-  // with Not a leak: the ways to put a finding off or set it aside, away from the ways to act on it.
+export function findingActions(finding: Finding, scan: ScanState, editing: boolean): Action[] {
+  // Remind me (L) shows while it can still be added: calendar connected, none set yet.
   const canRemind = !scan.reminders[finding.id] && !cannotRemind(finding.id, scan);
   const remind: Action = {
     keys: ["L"],
     label: copy.actions.remind,
     command: "remind",
     icon: <RemindIcon />,
-    end: true,
-    // The day it would land, worked out the same way the reminder is (two days before the deadline, or a fortnight out).
-    tip: copy.actions.remindTip(shortDate(reminderDate(finding))),
+    iconOnly: true,
   };
-  const notALeak: Action = { keys: ["D"], label: copy.actions.notALeak, command: "dismiss", icon: <DismissIcon />, end: true, tip: copy.actions.notALeakTip };
   if (editing) {
     // Mid-edit, Approve and Edit give way to Done (Esc): finish the wording first. Not primary, since
     // approving is still the main step after.
     return [
-      { keys: ["Esc"], label: copy.detail.doneEditing, command: "done", icon: <ApproveIcon /> },
+      { keys: ["Esc"], label: copy.detail.doneEditingCta, command: "done", icon: <ApproveIcon /> },
       ...(canRemind ? [remind] : []),
-      ...(finding.status === "new" ? [notALeak] : []),
     ];
   }
   if (finding.status === "new") {
@@ -1096,17 +1138,15 @@ function findingActions(finding: Finding, scan: ScanState, editing: boolean): Ac
         tip: finding.draft ? copy.actions.approveTip : copy.actions.approveHandledTip,
       },
       // Change the wording first, then approve it.
-      ...(finding.draft ? [{ keys: ["E"], label: copy.actions.edit, command: "edit" as const, icon: <EditIcon />, tip: copy.actions.editNewTip }] : []),
+      ...(finding.draft ? [{ keys: ["E"], label: copy.actions.edit, command: "edit" as const, icon: <EditIcon />, iconOnly: true }] : []),
       ...(canRemind ? [remind] : []),
-      // On the right, away from Approve: saying it's fine is the other way out.
-      notALeak,
     ];
   }
   if (finding.status === "approved") {
     return [
       // Edit takes the approval back to change the draft; with nothing drafted there's nothing to edit, so it's plain Undo.
       finding.draft
-        ? { keys: ["E"], label: copy.actions.edit, command: "edit" as const, icon: <EditIcon />, tip: copy.actions.editTip }
+        ? { keys: ["E"], label: copy.actions.edit, command: "edit" as const, icon: <EditIcon />, iconOnly: true }
         : { keys: ["⌘", "Z"], label: copy.actions.undo, command: "undo" as const, icon: <UndoIcon /> },
       ...(canRemind ? [remind] : []),
     ];
@@ -1115,39 +1155,66 @@ function findingActions(finding: Finding, scan: ScanState, editing: boolean): Ac
   return [{ keys: ["⌘", "Z"], label: copy.actions.undo, command: "undo", icon: <UndoIcon /> }];
 }
 
-function FindingActions({ actions, mouse, onCommand }: { actions: Action[]; mouse: boolean; onCommand: (command: Command) => void }) {
-  const button = (a: Action) => (
-    <Tip key={a.label} content={a.tip}>
-      <span className="inline-flex">
-        <KeyButton
-          keys={a.keys}
-          label={a.label}
-          icon={a.icon}
-          tone={a.primary ? "primary" : "muted"}
-          // The actions stay, as plain buttons once the mouse moves.
-          mouse={mouse}
-          onClick={() => onCommand(a.command)}
-        />
-      </span>
-    </Tip>
-  );
+export function FindingActions({
+  actions,
+  mouse,
+  sidebarOpen = true,
+  onCommand,
+}: {
+  actions: Action[];
+  mouse: boolean;
+  /** Closed, the sidebar's icon joins the end of this row, so the row leaves it room. */
+  sidebarOpen?: boolean;
+  onCommand: (command: Command) => void;
+}) {
   return (
-    // One height whatever the buttons (the violet Approve is taller than Done), so the page below never moves.
-    <div aria-label={copy.detail.actionsLabel} className="flex h-7 items-center gap-3">
-      {actions.filter((a) => !a.end).map(button)}
-      <span className="flex-1" />
-      {actions.filter((a) => a.end).map(button)}
+    <div
+      role="group"
+      aria-label={copy.detail.actionsLabel}
+      className={`flex h-7 items-center gap-1 transition-[margin-right] duration-(--duration-panel) ease-(--ease-panel) ${sidebarOpen ? "" : "mr-8"}`}
+    >
+      {actions.map((a) =>
+        a.iconOnly ? (
+          <Tip key={a.label} content={a.label} keys={a.keys} side="bottom">
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-label={a.label}
+              // Keep keyboard focus where it is (the palette, or the draft being edited).
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => onCommand(a.command)}
+              className={iconButton("off", false)}
+            >
+              {a.icon}
+            </button>
+          </Tip>
+        ) : (
+          <Tip key={a.label} content={a.tip ?? a.label} keys={a.keys} side="bottom">
+            <span className="mr-1.5 inline-flex text-small">
+              <KeyButton
+                keys={a.keys}
+                label={a.label}
+                icon={a.icon}
+                tone={a.primary ? "primary" : "muted"}
+                // The actions stay, as plain buttons once the mouse moves.
+                mouse={mouse}
+                onClick={() => onCommand(a.command)}
+              />
+            </span>
+          </Tip>
+        ),
+      )}
     </div>
   );
 }
 
-type Action = {
+export type Action = {
   keys: string[];
   label: string;
   command: Command;
   icon: React.ReactNode;
   primary?: boolean;
-  /** Pushed to the right end of the row (Not a leak). */
-  end?: boolean;
+  /** Just the icon, with its name in the tooltip (Edit, Remind me). */
+  iconOnly?: boolean;
   tip?: string;
 };

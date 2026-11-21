@@ -64,7 +64,7 @@ if (import.meta.env.DEV) {
       await open.unminimize();
       return open.setFocus();
     }
-    new WebviewWindow("gallery", { url: "/", title: "Life gallery", maximized: true, focus: true });
+    new WebviewWindow("gallery", { url: "/", title: "Seal gallery", maximized: true, focus: true });
   };
   const palette = () => (isTauri() && getCurrentWindow().label === "gallery" ? getCurrentWindow().close() : go(""));
   w.__life = { ...w.__life, gallery: openGallery, palette };

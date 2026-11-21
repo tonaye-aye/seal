@@ -253,6 +253,10 @@ export function liveSamples(retryAt: number) {
     error: liveWith({ ...allOk, email: status("email", "error", { detail: "Email didn't answer" }) }),
     slow: liveWith({ ...allOk, documents: status("documents", "syncing") }, { slowReads: { done: 3, total: 10 } }, ["slow_documents"]),
     pending: liveWith(allOk, { pending: ["calendar_reauth"] }, ["calendar_reauth"]),
+    // Calendar switched off in Connectors or Settings, waiting for the next sync.
+    sourceOff: liveWith({ bank: allOk.bank, email: allOk.email, documents: allOk.documents }),
+    // Only the bank left on: its switch is locked, as a check needs something to read.
+    lastSource: liveWith({ bank: allOk.bank }),
     // Onboarding's connect screen: two sources in, the third on its way; and all four with the calendar signed out.
     connecting: liveWith({ bank: allOk.bank, email: allOk.email, documents: status("documents", "syncing", { detail: "Reading documents" }) }),
     connectedReconnect: liveWith({ ...allOk, calendar: status("calendar", "needs_reconnect", { detail: "Calendar sign-in expired" }) }, {}, ["calendar_reauth"]),
@@ -355,8 +359,8 @@ export function scanSamples(corpus: Corpus | undefined) {
       decisions: { "f-skylink": "approved" },
       decidedAt: { "f-skylink": mins(6) },
       reminders: {
-        "f-skylink": { eventId: "evt_new_001", date: "2026-12-12", title: "Check Skylink Internet replied (Life)", at: mins(5) },
-        "f-streambox": { eventId: "evt_new_002", date: "2026-11-20", title: "StreamBox: Cancel the Apple one before it renews, 20 Nov (Life)", at: mins(2) },
+        "f-skylink": { eventId: "evt_new_001", date: "2026-12-12", title: "Check Skylink Internet replied (Seal)", at: mins(5) },
+        "f-streambox": { eventId: "evt_new_002", date: "2026-11-20", title: "StreamBox: Cancel the Apple one before it renews, 20 Nov (Seal)", at: mins(2) },
       },
     } satisfies ScanState,
     reminderFailed: {

@@ -6,7 +6,7 @@ import { useScan } from "../../lib/scan-store";
 import { CheckNowIcon, CloseIcon, ResetIcon } from "../icons";
 import { copy } from "../../copy";
 import { Kbd, KeyButton } from "../Kbd";
-import { Sheet, SheetDescription, SheetTitle, Tip } from "../layers";
+import { Sheet, SheetDescription, SheetTitle, SwitchLook, Tip } from "../layers";
 
 // The hidden demo panel (Cmd+Shift+D): switches that make the fake connectors
 // fail the way real ones do, so the demo can show how the app copes. Nothing
@@ -121,7 +121,7 @@ export function ScenariosSheet({
                   {/* Where to look, once it's on (keeps the panel inside the window). */}
                   {enabled && <span className="mt-0.5 block text-meta text-faint">{DEMO.youllSee(s.expect)}</span>}
                 </span>
-                <SwitchTrack />
+                <SwitchLook tone="info" className="mt-0.5" />
               </Switch.Root>
             </li>
           );
@@ -156,7 +156,7 @@ export function ScenariosSheet({
                   {/* Where to look, once it's on (keeps the panel inside the window). */}
                   {enabled && <span className="mt-0.5 block text-meta text-faint">{DEMO.youllSee(s.expect)}</span>}
                 </span>
-                <SwitchTrack />
+                <SwitchLook tone="info" className="mt-0.5" />
               </Switch.Root>
             </li>
           );
@@ -191,21 +191,6 @@ export function ScenariosSheet({
         </div>
       </footer>
     </Sheet>
-  );
-}
-
-/**
- * The small on/off track drawn from the tokens. The whole row is the switch
- * (Switch.Root), so it is big to click; this follows its on/off state.
- */
-function SwitchTrack() {
-  return (
-    <span
-      aria-hidden="true"
-      className="relative mt-0.5 h-[18px] w-[30px] shrink-0 rounded-full border border-hairline bg-raised transition-colors duration-(--duration-fast) group-data-[state=checked]:border-info/60 group-data-[state=checked]:bg-info/80"
-    >
-      <Switch.Thumb className="absolute top-[2px] left-[2px] block size-3 rounded-full bg-muted transition-transform duration-(--duration-fast) ease-out data-[state=checked]:translate-x-3 data-[state=checked]:bg-bg" />
-    </span>
   );
 }
 
