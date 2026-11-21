@@ -71,6 +71,7 @@ const MUST: Record<string, string[]> = {
   L5: ["KP-20418", "R-77311", "R-77402", "$385.00"],
   L6: ["1,109", "1,485.54", "4 December"],
   L7: ["47,006", "30 October"],
+  L8: ["NVK-204417", "E18", "6 December"],
 };
 const INTERNAL_ID = /\b(?:msg|doc|evt)_\d+|\b(?:JE|MC)-\d{5}\b/;
 
@@ -84,6 +85,7 @@ const BEST_ROUTE: Record<string, { kind: string; provider: string }> = {
   L5: { kind: "call", provider: "Kestrel Plumbing" },
   L6: { kind: "call", provider: "Wattle Insurance" },
   L7: { kind: "online", provider: "Redgum Energy" },
+  L8: { kind: "online", provider: "Norvik" },
 };
 
 type RouteScore = { best: boolean; grounded: boolean; written: boolean; detail: string };

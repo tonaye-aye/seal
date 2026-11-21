@@ -1,6 +1,6 @@
 {
   "root": "Household Admin (synced folder)",
-  "count": 10,
+  "count": 12,
   "documents": [
     {
       "id": "doc_001",
@@ -130,6 +130,32 @@
       "modifiedAt": "2025-11-01T10:00+11:00",
       "source": "Attachment to email 'Welcome to Kookaburra Mobile'",
       "textPath": "_text/Kookaburra-Mobile-Plan-Terms-2025-11.txt",
+      "textExtraction": "pdf-text"
+    },
+    {
+      "id": "doc_011",
+      "path": "Home & Utilities/Appliances/Larkspur-Receipt-Norvik-WM-8-2024-12-06.pdf",
+      "folder": "Home & Utilities/Appliances",
+      "filename": "Larkspur-Receipt-Norvik-WM-8-2024-12-06.pdf",
+      "title": "Tax invoice LA-60418: Norvik WM-8",
+      "mimeType": "application/pdf",
+      "sizeBytes": 2381,
+      "modifiedAt": "2024-12-06T10:00+11:00",
+      "source": "Saved from Larkspur Appliances online order",
+      "textPath": "_text/Larkspur-Receipt-Norvik-WM-8-2024-12-06.txt",
+      "textExtraction": "pdf-text"
+    },
+    {
+      "id": "doc_012",
+      "path": "Home & Utilities/Appliances/Norvik-Warranty-Terms-WM-8.pdf",
+      "folder": "Home & Utilities/Appliances",
+      "filename": "Norvik-Warranty-Terms-WM-8.pdf",
+      "title": "Warranty terms: WM-8 washing machine",
+      "mimeType": "application/pdf",
+      "sizeBytes": 2688,
+      "modifiedAt": "2024-12-06T10:00+11:00",
+      "source": "Saved from Norvik product registration",
+      "textPath": "_text/Norvik-Warranty-Terms-WM-8.txt",
       "textExtraction": "pdf-text"
     }
   ],

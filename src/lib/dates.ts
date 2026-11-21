@@ -89,9 +89,13 @@ export function addMonths(date: string, months: number): string {
   return `${year}-${String(month).padStart(2, "0")}-${String(Math.min(d, last)).padStart(2, "0")}`;
 }
 
+// Written out because these words go into model prompts. Left to the system,
+// the app's WebKit says "Sep" where Node says "Sept", and a saved answer only
+// matches a word-for-word identical request.
+const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"];
+
 /** "2026-11-28" to "28 Nov 2026" (for people and for prompts; never for logic). */
 export function formatDate(date: string): string {
   const [y, m, d] = date.split("-").map(Number);
-  const month = new Date(Date.UTC(y, m - 1, 1)).toLocaleString("en-AU", { month: "short", timeZone: "UTC" });
-  return `${d} ${month} ${y}`;
+  return `${d} ${SHORT_MONTHS[m - 1]} ${y}`;
 }

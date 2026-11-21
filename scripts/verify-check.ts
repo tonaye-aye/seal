@@ -82,6 +82,15 @@ const expectations: Record<string, Expect[]> = {
     ["overcharge (±$15)", fig("cand_redgum", "overcharge_estimate"), 17500, 1500],
     ["already paid", fig("cand_redgum", "bill_paid_on"), "2026-11-10"],
   ],
+  "L8 Norvik": [
+    ["serial", fig("cand_norvik+spinwell", "product_serial"), "NVK-204417"],
+    ["bought", fig("cand_norvik+spinwell", "purchase_date"), "2024-12-06"],
+    ["warranty ends", fig("cand_norvik+spinwell", "warranty_ends"), "2026-12-06"],
+    ["repair price", fig("cand_norvik+spinwell", "repair_booked"), 26400],
+    ["repair visit", fig("cand_norvik+spinwell", "repair_visit"), "2026-11-26"],
+    ["repair booking", fig("cand_norvik+spinwell", "repair_reference"), "SR-5521"],
+    ["cancel by", fig("cand_norvik+spinwell", "cancel_by"), "10:00 am on 25 November 2026"],
+  ],
   "D1 Kookaburra (decoy)": [
     ["matches announced CPI", fig("cand_kookaburra", "matches_announced_change"), true],
     ["increase", fig("cand_kookaburra", "overcharged_so_far"), 220],

@@ -1,0 +1,30 @@
+NORVIK
+======
+Warranty terms: WM-8 washing machine
+
+Product         : Norvik WM-8 washing machine
+Serial number   : NVK-204417
+Purchase date   : 6 December 2024
+Warranty period : 24 months from the purchase date
+Warranty ends   : 6 December 2026
+
+
+WHAT'S INCLUDED
+---------------
+During the warranty period a Norvik service agent will repair or replace a faulty part,
+including labour, at no charge. A claim must be lodged on or before the day the warranty
+ends.
+
+
+WHAT ISN'T INCLUDED
+-------------------
+Work by anyone other than a Norvik service agent is not included, and damage caused by that
+work will not be repaired under this warranty.
+
+
+HOW TO CLAIM
+------------
+Lodge a claim at norvik.example/warranty, or email warranty@norvik.example with the serial
+number, your proof of purchase and a description of the fault.
+
+NOTE: These benefits are in addition to your rights under the Australian Consumer Law.

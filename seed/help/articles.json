@@ -72,6 +72,18 @@
       "provider": "kookaburra",
       "title": "Price changes",
       "body": "Plan prices can change with indexation as set out in your plan terms. We tell you in advance by email before a new price applies."
+    },
+    {
+      "id": "norvik-claims",
+      "provider": "norvik",
+      "title": "Making a warranty claim",
+      "body": "Lodge a claim on or before the day your warranty ends. We need the serial number, proof of purchase and a description of the fault. A Norvik service agent then contacts you to arrange the repair."
+    },
+    {
+      "id": "spinwell-bookings",
+      "provider": "spinwell",
+      "title": "Changing or cancelling a booking",
+      "body": "Bookings can be cancelled free of charge up to 24 hours before the visit. Have your booking number ready."
     }
   ]
 }

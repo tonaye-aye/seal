@@ -77,8 +77,8 @@ The connectors are fake, but they behave like real ones. They load from [`seed/`
 realistic latency, paging and errors. The data covers:
 
 - three months of bank history across two accounts (134 transactions with messy descriptors)
-- 75 emails
-- nine PDFs and a photo of an electricity meter
+- 78 emails
+- eleven PDFs and a photo of an electricity meter
 - a family calendar
 
 | Folder | What's in it |
@@ -93,7 +93,8 @@ realistic latency, paging and errors. The data covers:
 | `seed/eval/` | Ground truth for scoring. **Only the eval scripts read it.** The app never bundles or reads it. |
 
 `python3 seed/verify.py` checks that the data adds up (balances, cross-references, arithmetic).
-`python3 seed/generate.py` rebuilds it exactly (needs `reportlab` and `Pillow`).
+`python3 seed/generate.py` rebuilds it (needs `reportlab` and `Pillow`). PDFs and the photo already on disk are
+kept, so their bytes stay exact whichever library version you have.
 
 ## How it works
 
@@ -126,12 +127,14 @@ The models read, judge and write. Plain code does all the arithmetic, date maths
 
 Scored end to end against `seed/eval/ground_truth.json`:
 
-- **Leaks found:** 7/7, each with the right kind, amount, deadline and cited evidence.
+- **Leaks found:** 8/8, each with the right kind, amount, deadline and cited evidence.
 - **Decoys flagged:** 0/2. A mobile price rise allowed by the contract and two school payments that look
   like duplicates are both correctly left alone.
-- **Drafts:** 7/7 grounded and complete.
+- **Drafts:** 8/8 grounded and complete.
+- **Best way to fix it:** 8/8.
 
-Over three runs the totals were 21/21 leaks, 0/6 decoys and 21/21 drafts.
+Those are from saved model answers. Over three fully live runs the totals were 24/24 leaks and 0/6 decoys. 23/24
+drafts had every key fact (all 24 passed the claim check), and 23/24 picked the best route.
 
 - [`scripts/SPIKE.md`](scripts/SPIKE.md): what the endpoint supports and how each model did at each task,
   which decided who does what.

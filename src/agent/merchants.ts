@@ -67,6 +67,11 @@ export function references(text: string): string[] {
   return text.match(/\b[A-Z]{1,4}(?:-[A-Z0-9]{1,6})+\b/g) ?? [];
 }
 
+/** A product's serial number where the text says so, e.g. "serial NVK-204417". */
+export function serialNumbers(text: string): string[] {
+  return [...new Set([...text.matchAll(/\bserial(?:\s+number)?[\s:]+([A-Z]{1,4}-\d{3,})\b/gi)].map((m) => m[1].toUpperCase()))];
+}
+
 /**
  * Card descriptors that name a payment platform, not the seller. The real
  * merchant has to be found elsewhere (usually a receipt email).

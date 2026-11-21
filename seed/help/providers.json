@@ -358,6 +358,78 @@
           "articleId": "kookaburra-pricing"
         }
       ]
+    },
+    {
+      "key": "norvik",
+      "name": "Norvik",
+      "sector": "appliances",
+      "domain": "norvik.example",
+      "channels": [
+        {
+          "id": "norvik_claim",
+          "kind": "online",
+          "label": "Lodge a warranty claim",
+          "href": "https://norvik.example/warranty",
+          "canDo": ["claim_warranty"],
+          "immediate": true,
+          "keepsRecord": true,
+          "acceptsFiles": true,
+          "needs": ["Serial number", "Proof of purchase", "Description of the fault"],
+          "steps": [
+            "Open the warranty claim form on the Norvik website.",
+            "Enter the serial number and the purchase date.",
+            "Describe the fault and upload your proof of purchase.",
+            "Submit the form and keep the claim number it gives you."
+          ],
+          "note": "A claim is dated when you submit it, and you get a claim number straight away.",
+          "articleId": "norvik-claims"
+        },
+        {
+          "id": "norvik_email",
+          "kind": "email",
+          "label": "Email the warranty team",
+          "address": "warranty@norvik.example",
+          "canDo": ["claim_warranty"],
+          "replyDays": 3,
+          "keepsRecord": true,
+          "acceptsFiles": true,
+          "needs": ["Serial number", "Proof of purchase", "Description of the fault"],
+          "note": "The team replies by email with a claim number.",
+          "articleId": "norvik-claims"
+        }
+      ]
+    },
+    {
+      "key": "spinwell",
+      "name": "Spinwell Repairs",
+      "sector": "trades",
+      "domain": "spinwell.example",
+      "channels": [
+        {
+          "id": "spinwell_call",
+          "kind": "call",
+          "label": "Call to cancel the booking",
+          "phone": "(03) 5550 0174",
+          "hours": "Mon-Sat 8am-5pm",
+          "waitMinutes": 2,
+          "canDo": ["cancel"],
+          "immediate": true,
+          "needs": ["Booking number"],
+          "note": "The person who answers can cancel a booking while you're on the line.",
+          "articleId": "spinwell-bookings"
+        },
+        {
+          "id": "spinwell_email",
+          "kind": "email",
+          "label": "Email bookings",
+          "address": "bookings@spinwell.example",
+          "canDo": ["cancel"],
+          "replyDays": 1,
+          "keepsRecord": true,
+          "needs": ["Booking number"],
+          "articleId": "spinwell-bookings"
+        }
+      ]
     }
   ]
 }

@@ -50,6 +50,7 @@ export const copy = {
       renewal_trap: "Renewal",
       renewal_price_creep: "Renewal price",
       billing_error: "Bill error",
+      warranty_claim: "Warranty",
     } satisfies Record<FindingKind, string>,
     /** The four data sources, by their short name. */
     source: { bank: "Bank", email: "Email", documents: "Documents", calendar: "Calendar" },
@@ -365,7 +366,10 @@ export const copy = {
       refund: (amount: string) => `a ${amount} refund`,
       replyBefore: (until: string) => `a reply before the quote ends on ${until}`,
       credit: (amount: string) => `a credit of about ${amount} on your next bill`,
+      warranty: (amount: string, on: string) => `no ${amount} repair on ${on}, and a reply about your claim`,
     },
+    /** The last day a warranty can be claimed, as its own line in the Next timeline. */
+    warrantyEnds: "Last day to claim the warranty",
   },
 
   // ---------- Ways to fix a finding ----------
@@ -807,6 +811,7 @@ export const copy = {
         renewal_trap: "A renewal with a notice deadline",
         renewal_price_creep: "A renewal costing more than last time",
         billing_error: "A bill that looks wrong",
+        warranty_claim: "A paid repair a warranty may handle",
       } satisfies Record<"soon" | "unsure" | FindingKind, string>,
     },
     general: {

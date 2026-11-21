@@ -208,6 +208,41 @@ const redgum: Finding = {
   ),
 };
 
+// Only in the route samples below, so the other gallery frames keep their five rows.
+const norvik: Finding = {
+  id: "f-norvik",
+  kind: "warranty_claim",
+  merchant: "Norvik + Spinwell Repairs",
+  keys: ["norvik", "spinwell"],
+  title: "Cancel the paid repair and claim the Norvik warranty",
+  why: "A repair is booked for 26 November, but the Norvik warranty runs until 6 December.",
+  action: { kind: "claim_warranty", summary: "Claim the warranty and cancel the Spinwell booking." },
+  amounts: { atStake: 26400 },
+  deadline: { date: "2026-11-25", label: "Cancel Spinwell Repairs by 10:00 am" },
+  confidence: "high",
+  evidence: [ev("email", "msg_0078"), ev("email", "msg_0077"), ev("doc", "doc_012"), ev("doc", "doc_011"), ev("event", "evt_015", false), ev("email", "msg_0076", false)],
+  figures: [
+    fig("product_serial", "Serial number", "NVK-204417", "text", ["doc:doc_012"]),
+    fig("purchase_date", "Bought on", "2024-12-06", "date", ["doc:doc_011"]),
+    fig("warranty_ends", "Warranty ends", "2026-12-06", "date", ["doc:doc_012"]),
+    fig("repair_reference", "Repair booking", "SR-5521", "text", ["email:msg_0077"]),
+    fig("repair_visit", "Repair visit", "2026-11-26", "date", ["email:msg_0077"]),
+    fig("repair_booked", "Repair price", 26400, "cents", ["email:msg_0077"]),
+    fig("cancel_by", "Cancel the repair by", "10:00 am on 25 November 2026", "text", ["email:msg_0077"]),
+  ],
+  notes: [],
+  doubts: [],
+  status: "new",
+  verified: true,
+  judgedBy: judged,
+  draft: draft(
+    { name: "Norvik", address: "warranty@norvik.example" },
+    "Warranty claim: Norvik WM-8, serial NVK-204417",
+    "Hi Norvik team,\n\nWe'd like to lodge a warranty claim for our Norvik WM-8 washing machine (serial NVK-204417), bought on 6 December 2024. The fault is error E18; it stops mid-cycle.\n\nThe warranty ends on 6 December 2026. We have a repair booked with Spinwell Repairs for 26 November 2026, and it must be cancelled by 10:00 am on 25 November 2026, so a reply before then would help.\n\nThanks, Maya",
+    { attachDocumentIds: ["doc_011", "doc_012"] },
+  ),
+};
+
 export const FINDINGS = { skylink, streambox, ironworks, brightpage, redgum };
 
 const kookaburra: Cleared = {
@@ -227,9 +262,9 @@ function status(id: ConnectorStatus["id"], state: ConnectorStatus["state"], extr
 
 const allOk: LiveState["statuses"] = {
   bank: status("bank", "ok", { count: 134 }),
-  email: status("email", "ok", { count: 75 }),
-  documents: status("documents", "ok", { count: 10 }),
-  calendar: status("calendar", "ok", { count: 14 }),
+  email: status("email", "ok", { count: 78 }),
+  documents: status("documents", "ok", { count: 12 }),
+  calendar: status("calendar", "ok", { count: 15 }),
 };
 
 export type LiveSample = { live: LiveState; scenarios: import("../connectors/index").ScenarioId[] };
@@ -247,7 +282,7 @@ export function liveSamples(retryAt: number) {
     syncing: liveWith({
       bank: status("bank", "syncing", { detail: "Read 50 of 134 transactions" }),
       email: status("email", "connecting"),
-      documents: status("documents", "ok", { count: 10 }),
+      documents: status("documents", "ok", { count: 12 }),
       calendar: status("calendar", "connecting"),
     }),
     retrying: liveWith({ ...allOk, bank: status("bank", "retrying", { retryAt, detail: "The bank asked us to slow down" }) }, {}, ["bank_rate_limit"]),
@@ -269,7 +304,7 @@ export function liveSamples(retryAt: number) {
 
 const trace: TraceLine[] = [
   { id: 1, t: 120, text: "Synced bank, email, documents and calendar", tone: "good" },
-  { id: 2, t: 410, text: "Read 75 emails and 10 documents", tone: "info" },
+  { id: 2, t: 410, text: "Read 78 emails and 12 documents", tone: "info" },
   { id: 3, t: 980, text: "9 charges worth a closer look", tone: "info" },
   { id: 4, t: 2300, text: "Matched APPLE.COM/BILL to StreamBox through Apple receipts", tone: "good" },
   { id: 5, t: 4100, text: "Read the meter photo: 47,006 kWh", tone: "good" },
@@ -395,6 +430,60 @@ const redgumPlan: FixPlan = {
   ms: 3800,
 };
 
+const CAV: Escalation = {
+  id: "cav",
+  name: "Consumer Affairs Victoria",
+  shortName: "Consumer Affairs",
+  real: true,
+  phone: "1300 55 81 81",
+  hours: "Mon-Fri 9am-5pm",
+  href: "https://www.consumer.vic.gov.au/contact-us/resolve-your-problem/general-complaint",
+  afterDays: 14,
+  whenToUse: "Use it if you've tried to sort the problem out with the business and couldn't.",
+};
+
+// Two businesses, two jobs: the claim goes to Norvik, the call cancels Spinwell.
+const norvikPlan: FixPlan = {
+  routes: [
+    route({
+      id: "norvik_claim",
+      kind: "online",
+      provider: "Norvik",
+      label: "Lodge a warranty claim",
+      href: "https://norvik.example/warranty",
+      immediate: true,
+      keepsRecord: true,
+      acceptsFiles: true,
+      needs: ["Serial number", "Proof of purchase", "Description of the fault"],
+      steps: ["Open the warranty claim form on the Norvik website.", "Enter the serial number and the purchase date.", "Describe the fault and upload your proof of purchase.", "Submit the form and keep the claim number it gives you."],
+      note: "A claim is dated when you submit it, and you get a claim number straight away.",
+    }),
+    route({ id: "norvik_email", kind: "email", provider: "Norvik", label: "Email the warranty team", address: "warranty@norvik.example", keepsRecord: true, acceptsFiles: true, replyDays: 3 }),
+    route({ id: "spinwell_call", kind: "call", provider: "Spinwell Repairs", label: "Call to cancel the booking", phone: "(03) 5550 0174", hours: "Mon-Sat 8am-5pm", waitMinutes: 2, immediate: true, needs: ["Booking number"] }),
+  ],
+  recommendedId: "norvik_claim",
+  reason: "A claim is dated when you submit it, and you get a claim number straight away.",
+  chosenBy: "model",
+  callScript: {
+    opening: "Hi, I'm calling to cancel a repair booking. It's in Ben's name.",
+    points: ["Please cancel booking SR-5521.", "The visit is booked for Thursday 26 November 2026 at 10:00 am."],
+    ask: "Can you please confirm the booking is cancelled?",
+    ifNo: "Ask them to note it needs cancelling by 10:00 am on 25 November 2026.",
+  },
+  haveReady: [
+    { label: "Serial number", value: "NVK-204417" },
+    { label: "Bought on", value: "6 December 2024" },
+    { label: "Warranty ends", value: "6 December 2026" },
+    { label: "Repair booking", value: "SR-5521" },
+    { label: "Cancel the repair by", value: "10:00 am on 25 November 2026" },
+  ],
+  escalation: CAV,
+  grounded: true,
+  problems: [],
+  attempts: [],
+  ms: 4300,
+};
+
 /** The route switcher's states: the same samples with fix plans added. */
 export function routeSamples(done: ScanState) {
   const withPlans = (plans: Record<string, FixPlan>, change: Partial<ScanState> = {}): ScanState => {
@@ -404,7 +493,15 @@ export function routeSamples(done: ScanState) {
   const plans = { "f-skylink": skylinkPlan, "f-redgum": redgumPlan };
   const approved = (id: string, routeId: string) => ({ decisions: { [id]: "approved" as const }, decidedAt: { [id]: Date.now() - 60_000 }, routes: { [id]: routeId } });
   const script = skylinkPlan.callScript!;
+  const withWarranty = (change: Partial<ScanState> = {}): ScanState => {
+    const planned = withPlans(plans);
+    const f: Finding = { ...norvik, fix: norvikPlan };
+    return { ...planned, findings: [...planned.findings, f], result: planned.result && { ...planned.result, findings: [...planned.result.findings, f] }, ...change };
+  };
   return {
+    warranty: withWarranty(),
+    warrantyCall: withWarranty({ routes: { "f-norvik": "spinwell_call" } }),
+    warrantyApproved: withWarranty(approved("f-norvik", "norvik_claim")),
     email: withPlans(plans),
     call: withPlans(plans, { routes: { "f-skylink": "skylink_call" } }),
     chat: withPlans(plans, { routes: { "f-skylink": "skylink_chat" } }),

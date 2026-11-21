@@ -157,7 +157,7 @@ def refs_ok(ev, where):
         check(c in cal_ids, f"{where}: unknown event {c}")
 
 
-check(len(gt["leaks"]) == 7 and len(gt["decoys"]) == 2, "expected 7 leaks and 2 decoys")
+check(len(gt["leaks"]) == 8 and len(gt["decoys"]) == 2, "expected 8 leaks and 2 decoys")
 for L in gt["leaks"]:
     refs_ok(L["evidence"], L["id"])
     check(sum(len(v) for v in L["evidence"].values()) >= 2, f"{L['id']} has too little evidence")
@@ -177,7 +177,7 @@ FICTION_PHONE = re.compile(
 )
 # The two numbers already printed in the seed's own documents.
 PRINTED_PHONES = {"1300 000 000", "1300 000 111"}
-CAPABILITIES = {"cancel", "refund", "dispute_price", "waive_fee", "retain", "switch", "correct_bill"}
+CAPABILITIES = {"cancel", "refund", "dispute_price", "waive_fee", "retain", "switch", "correct_bill", "claim_warranty"}
 REAL_HOSTS = {"www.tio.com.au", "www.ewov.com.au", "www.consumer.vic.gov.au"}
 HOUSEHOLD = re.compile(r"Whitlock|Maya|Ollie|\bPia\b|\bBen\b|Albion|Brunswick")
 
@@ -219,6 +219,22 @@ for b in bodies:
 for name in ("providers", "bodies", "articles"):
     text = (ROOT / "help" / f"{name}.json").read_text(encoding="utf-8")
     check(not HOUSEHOLD.search(text), f"help/{name}.json never mentions the household")
+
+# ---------- The washing machine (L8) ----------
+washer = next(L for L in gt["leaks"] if L["id"] == "L8")
+check(washer["evidence"]["emails"] == ["msg_0076", "msg_0077", "msg_0078"], "L8 emails take the next ids")
+check(washer["evidence"]["documents"] == ["doc_011", "doc_012"], "L8 documents take the next ids")
+check(washer["evidence"]["calendar"] == ["evt_015"], "L8 event takes the next id")
+check(not washer["evidence"]["transactions"], "L8 has no bank rows")
+check(not any("264.00" in r["Debit"] or "1049.00" in r["Debit"] for r in je + mc), "L8 amounts collide with no bank row")
+check(dt.date(2024, 12, 6).replace(year=2026) == dt.date(2026, 12, 6), "24 months from purchase ends 6 Dec 2026")
+check(dt.date(2026, 11, 26) - dt.timedelta(hours=24) == dt.date(2026, 11, 25), "free cancellation ends the day before the visit")
+check(dt.date(2026, 11, 26) <= dt.date(2026, 12, 6), "repair visit falls inside the warranty")
+for text_name in ("Larkspur-Receipt-Norvik-WM-8-2024-12-06.pdf", "Norvik-Warranty-Terms-WM-8.pdf"):
+    check("NVK-204417" in txt[text_name], f"{text_name} has the serial")
+for m_ in inbox:
+    if m_["id"] in washer["evidence"]["emails"][1:]:
+        check("NVK-204417" in m_["body"], f"{m_['id']} quotes the serial that links the case")
 
 print(f"\n{passes} checks passed, {len(fails)} failed")
 sys.exit(1 if fails else 0)

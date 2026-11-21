@@ -15,7 +15,7 @@
       "id": "Ben"
     }
   ],
-  "count": 14,
+  "count": 15,
   "events": [
     {
       "calendar": "Family",
@@ -198,6 +198,19 @@
       "recurrence": null,
       "location": "",
       "id": "evt_014"
+    },
+    {
+      "calendar": "Family",
+      "title": "Spinwell repair visit (Norvik washer)",
+      "start": "2026-11-26T10:00+11:00",
+      "end": "2026-11-26T11:00+11:00",
+      "allDay": false,
+      "notes": "Booking SR-5521, payable on the day.",
+      "createdAt": "2026-11-10T11:30+11:00",
+      "createdBy": "Ben",
+      "recurrence": null,
+      "location": "",
+      "id": "evt_015"
     }
   ],
   "note": "Recurring events carry an RRULE; the connector expands instances for a requested range."

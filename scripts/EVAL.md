@@ -183,11 +183,32 @@ The three misses: one Skylink draft said "24-month term" where the scorer looks 
 not the $14.99 price, and one Skylink route picked chat over the expected route. Five runs is a small sample, so read these as much
 better, not as proof it can't fail.
 
+## The warranty case, all eight leaks (22 Nov)
+
+L8 adds a paid repair booked for a washing machine still under warranty. It has no bank rows, and it needs two businesses: the claim
+goes to Norvik, and the booking is cancelled with Spinwell. Code links them through the serial number both quote, and reads the
+warranty dates, price and cancel time straight from the source text. Existing seed records and prompts did not change, and a replay of
+the earlier seven findings had zero misses.
+
+Three fully live runs (`eval.ts --live --repeat 3`), every model call fresh:
+
+| | Result |
+| --- | --- |
+| Leaks flagged, right kind, amount, deadline, cites evidence | 24/24 each |
+| Decoys flagged, other false alarms | 0/6, 0 |
+| Drafts fully correct / pass the claim check | 23/24 / 24/24 |
+| Best route / pass the check / have their scripts | 23/24 / 24/24 / 24/24 |
+| L8 alone: found, draft and route all correct | 3/3 |
+| Time per scan | 129-295 s |
+
+The two misses were both in earlier cases: one Wattle draft left out the quote's 4 December end date, and one Redgum route chose Email
+over the meter-read form. The 295 s run was the first of the three, and the other two took about 130 s. Three runs is a small sample.
+
 ## Caveats
 
 - The detectors' keyword rules and verify's label matching were written while looking at this seed. They are
   general (no merchant names), but a broader test set would be needed before trusting them on real mail.
-- Apart from a bill's meter readings, verify still finds facts by the labels the 9B gave them (e.g. "Promotional period
+- Apart from a bill's meter readings and the warranty case, verify still finds facts by the labels the 9B gave them (e.g. "Promotional period
   duration"). Labels vary between runs; a production version would fix them in the extraction schema.
 - Results above reuse saved extraction replies unless they say fully live.
 - The draft "key facts" list (`MUST` in `scripts/eval.ts`) is short and hand-picked from the spike. It checks a
