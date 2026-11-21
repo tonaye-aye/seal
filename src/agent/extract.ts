@@ -7,7 +7,7 @@
 // If the 9B returns something unusable, it tries once more, then hands the
 // item to the 35B (thinking off). Each result records which model answered.
 
-import type { LlmClient, ModelRole, ReplySchema } from "../lib/llm.ts";
+import type { ChatResult, LlmClient, ModelRole, ReplySchema } from "../lib/llm.ts";
 import { LlmError } from "../lib/llm.ts";
 import type { Connectors } from "../connectors/index.ts";
 import type { Corpus } from "./corpus.ts";
@@ -169,6 +169,31 @@ function ground(raw: RawFacts, source: string): Omit<SourceFacts, "key" | "kind"
   };
 }
 
+// ---------- Bill readings ----------
+
+/**
+ * The two meter readings on a bill, found by their sums rather than their
+ * labels: the pair whose difference is the usage printed on the bill. Labels
+ * change between runs, but these numbers have to add up.
+ */
+export function billReadings(quantities: { value: number; unit: string; label: string }[]) {
+  const kwh = quantities.filter((q) => /kwh/i.test(q.unit));
+  const printedUsage = kwh.filter((q) => /usage|consumption/i.test(q.label)).map((q) => q.value);
+  for (const current of kwh) {
+    for (const previous of kwh) {
+      const usage = Math.round((current.value - previous.value) * 100) / 100;
+      if (usage > 0 && printedUsage.includes(usage)) return { estimate: current.value, previous: previous.value, usage };
+    }
+  }
+  return undefined;
+}
+
+/** Is this a bill on an estimated reading whose readings didn't come through? */
+function missingReadings(raw: RawFacts, text: string): boolean {
+  if (!/meter reading/i.test(text) || !/\(estimated\)/i.test(text)) return false;
+  return !billReadings(raw.quantities.filter((q) => numberIn(q.value, text)));
+}
+
 // ---------- Calls with escalation ----------
 
 /** The 9B first (twice), then the 35B. Thinking stays off: this is copying. */
@@ -192,22 +217,36 @@ async function withLadder<T>(
 
 async function extractText(llm: LlmClient, kind: "email" | "doc", id: string, text: string): Promise<SourceFacts> {
   const label = kind === "email" ? "email" : "document";
-  const { value, attempts } = await withLadder(async (model, attempt) => {
-    const r = await llm.chat<RawFacts>({
-      model,
-      think: false,
-      maxTokens: 1500,
-      // A second try at the same model needs a different request, or the
-      // saved reply would come straight back.
-      temperature: attempt === 1 ? 0.3 : 0.1,
-      schema: FACTS_SCHEMA,
-      messages: [
-        { role: "system", content: SYSTEM },
-        { role: "user", content: factsPrompt(label, text) },
-      ],
+  // An incomplete reply is kept in case no later try does better. Verify then
+  // says plainly that the figures are missing.
+  let partial: { value: ChatResult<RawFacts>; attempts: number } | undefined;
+  let answer: { value: ChatResult<RawFacts>; attempts: number };
+  try {
+    answer = await withLadder(async (model, attempt) => {
+      const r = await llm.chat<RawFacts>({
+        model,
+        think: false,
+        maxTokens: 1500,
+        // A second try at the same model needs a different request, or the
+        // saved reply would come straight back.
+        temperature: attempt === 1 ? 0.3 : 0.1,
+        schema: FACTS_SCHEMA,
+        messages: [
+          { role: "system", content: SYSTEM },
+          { role: "user", content: factsPrompt(label, text) },
+        ],
+      });
+      if (kind === "doc" && missingReadings(r.json, text)) {
+        partial = { value: r, attempts: attempt + 1 };
+        throw new LlmError("empty", "The bill's meter readings were missing.");
+      }
+      return r;
     });
-    return r;
-  });
+  } catch (error) {
+    if (!partial) throw error;
+    answer = partial;
+  }
+  const { value, attempts } = answer;
   return {
     key: `${kind}:${id}`,
     kind,

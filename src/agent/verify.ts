@@ -11,7 +11,7 @@ import { addDays, addMonths, daysBetween, formatDate, localDate } from "../lib/d
 import { formatAUD } from "../lib/money.ts";
 import type { Corpus } from "./corpus.ts";
 import type { Candidate, Signal } from "./detectors.ts";
-import type { ExtractionResult, SourceFacts } from "./extract.ts";
+import { billReadings, type ExtractionResult, type SourceFacts } from "./extract.ts";
 import { amountIn, numberIn } from "./grounding.ts";
 import { distinctiveTokens, merchantKey } from "./merchants.ts";
 import type { CaseEvidence } from "./retrieval.ts";
@@ -387,16 +387,40 @@ function references(text: string): string[] {
   return [...new Set(text.match(/\b[A-Z]{1,4}-\d{3,}\b/g) ?? [])];
 }
 
+/** The first time this date's day and month falls after today. */
+function nextAnniversary(date: string, today: string): string {
+  for (let years = 0; ; years++) {
+    const next = addMonths(date, years * 12);
+    if (next > today) return next;
+  }
+}
+
 /** A renewal or annual fee coming, possibly with a notice period. */
 function renewal(b: Builder, facts: CaseFacts, candidate: Candidate, today: string) {
   const own = facts.sources.filter((s) => !facts.isOther(s));
-  const renewals = facts
+  let renewals = facts
     .dates(/renew|charged on|anniversary|annual fee|fee date|start date|renewal period start/i, own)
     .filter((d) => d.date > today);
+  // An agreement may print a yearly date in the year it began. If nothing
+  // gives a future date, code works out the next one.
+  const rolledForward = renewals.length === 0;
+  if (rolledForward) {
+    renewals = facts
+      .dates(/annual|anniversary|yearly/i, own)
+      .filter((d) => /each year|every year|annually|anniversary/i.test(facts.text(d.source)))
+      .map((d) => ({ ...d, date: nextAnniversary(d.date, today) }));
+  }
   const renewsOn = mostCommon(renewals.map((d) => d.date).sort());
   if (!renewsOn) return;
   const sources = [...new Set(renewals.filter((d) => d.date === renewsOn).map((d) => d.source))];
-  b.figure({ id: "renews_on", label: "Renews", value: renewsOn, unit: "date", sources });
+  b.figure({
+    id: "renews_on",
+    label: "Renews",
+    value: renewsOn,
+    unit: "date",
+    sources,
+    how: rolledForward ? "the next yearly date after today" : undefined,
+  });
   const daysLeft = daysBetween(today, renewsOn);
 
   // A fee due at renewal (annual fee or new premium).
@@ -525,20 +549,28 @@ function trial(b: Builder, facts: CaseFacts, candidate: Candidate, today: string
   }
 }
 
+/** Does a per-unit rate printed on the bill multiply out to this charge? */
+function lineAddsUp(cents: number, units: number, text: string): boolean {
+  const rates = (text.match(/\$\d+\.\d{3,4}\b/g) ?? []).map((r) => Number(r.slice(1)));
+  return rates.length === 0 || rates.some((r) => Math.round(r * units * 100) === cents);
+}
+
 /** A bill on an estimated reading, checked against an actual reading. */
-function estimatedBill(b: Builder, facts: CaseFacts, corpus: Corpus) {
-  const kwh = /kwh/i;
-  // The bill: the source with an estimated (or current) reading and a previous one.
-  const bills = facts.sources.filter(
-    (s) =>
-      facts.quantities(kwh, /estimat|current.*reading/i, [s]).length > 0 &&
-      facts.quantities(kwh, /previous.*reading/i, [s]).length > 0,
-  );
-  const bill = bills.sort((x, y) => (facts.dateOf(y.key) ?? "").localeCompare(facts.dateOf(x.key) ?? ""))[0];
-  if (!bill) return;
-  const estimate = facts.quantities(kwh, /estimat|current.*reading/i, [bill])[0].value;
-  const previous = facts.quantities(kwh, /previous.*reading/i, [bill])[0].value;
-  const billed = facts.quantities(kwh, /^usage$|usage$|consumption/i, [bill])[0]?.value ?? estimate - previous;
+function estimatedBill(b: Builder, signals: Signal[], facts: CaseFacts, corpus: Corpus) {
+  // Only a source flagged as estimated counts. Falling back to an older bill
+  // once turned a $174.14 overcharge into a confident $2.00.
+  const flagged = new Set(signals.flatMap((s) => s.evidence).map((e) => `${e.kind}:${e.id}`));
+  const flaggedSources = facts.sources.filter((s) => flagged.has(s.key));
+  const flaggedDocs = flaggedSources.filter((s) => s.kind === "doc");
+  const bill = (flaggedDocs.length ? flaggedDocs : flaggedSources).sort((x, y) =>
+    (facts.dateOf(y.key) ?? "").localeCompare(facts.dateOf(x.key) ?? ""),
+  )[0];
+  const readings = bill && billReadings(bill.quantities.filter((q) => q.grounded));
+  if (!bill || !readings) {
+    b.warn("The latest bill's meter readings couldn't be read, so no overcharge was worked out. Check the bill.");
+    return;
+  }
+  const { estimate, previous, usage: billed } = readings;
   const periodStart = facts.dates(/period start|from/i, [bill])[0]?.date;
   const periodEnd = facts.dates(/period end|current read|to$/i, [bill])[0]?.date ?? facts.dates(/end/i, [bill])[0]?.date;
   const usageCharge = facts.amounts(/usage/i, [bill])[0]?.cents;
@@ -560,6 +592,13 @@ function estimatedBill(b: Builder, facts: CaseFacts, corpus: Corpus) {
   const photo = facts.sources.find((s) => s.reading?.value != null);
   if (!photo || !periodEnd || !periodStart) {
     b.note(`The bill uses an estimated reading of ${estimate.toLocaleString("en-AU")} kWh (${billed.toLocaleString("en-AU")} kWh billed).`);
+    b.warn("No actual meter reading or billing period was found, so no overcharge was worked out.");
+    return;
+  }
+  // The bill's own day count must match its period dates.
+  const printedDays = facts.quantities(/day/i, /billing|period/i, [bill]).map((q) => q.value);
+  if (printedDays.length > 0 && !printedDays.includes(daysBetween(periodStart, periodEnd) + 1)) {
+    b.warn("The bill's period dates don't match its day count, so no overcharge was worked out. Check the bill.");
     return;
   }
   let reading = photo.reading!.value!;
@@ -585,6 +624,10 @@ function estimatedBill(b: Builder, facts: CaseFacts, corpus: Corpus) {
   const daysAfterEnd = daysBetween(periodEnd, photoDate);
   const actualToEnd = Math.round(used - perDay * daysAfterEnd);
   const overKwh = billed - actualToEnd;
+  if (!(daysToPhoto > 0 && overKwh > 0)) {
+    b.warn("The meter photo doesn't show this bill was too high. Check the photo.");
+    return;
+  }
   const sources = [...billSources, photo.key];
 
   b.figure({ id: "actual_reading", label: "Actual reading (photo)", value: reading, unit: "kwh", sources: [photo.key] });
@@ -603,7 +646,9 @@ function estimatedBill(b: Builder, facts: CaseFacts, corpus: Corpus) {
   b.note(`The bill estimated ${estimate.toLocaleString("en-AU")} kWh on ${day(periodEnd)}. A meter photo on ${day(photoDate)} reads ${reading.toLocaleString("en-AU")} kWh${confirmed ? " (the same number appears in the household's email)" : ""}, ${(estimate - reading).toLocaleString("en-AU")} kWh lower, ${daysAfterEnd} day${daysAfterEnd === 1 ? "" : "s"} later.`);
   b.note(`From the last actual reading (${previous.toLocaleString("en-AU")} kWh, ${day(previousReadDate)}) the household used about ${perDay.toFixed(1)} kWh a day, so roughly ${actualToEnd.toLocaleString("en-AU")} kWh in the bill period against ${billed.toLocaleString("en-AU")} kWh billed: about ${overKwh.toLocaleString("en-AU")} kWh too many.`);
 
-  if (usageCharge && billed > 0) {
+  if (!usageCharge || !lineAddsUp(usageCharge, billed, facts.text(bill.key))) {
+    b.warn("The bill's usage charge couldn't be checked, so no overcharge in dollars was worked out.");
+  } else {
     const rate = usageCharge / billed; // cents per kWh, as charged (incl. GST)
     const over = Math.round(overKwh * rate);
     b.figure({ id: "rate_per_kwh", label: "Usage rate charged", value: Math.round(rate * 10) / 10, unit: "cents_per_kwh", sources: billSources, how: `${money(usageCharge)} / ${billed} kWh` });
@@ -637,12 +682,12 @@ export function verifyCase(
   else if (kinds.has("renewal_notice") || kinds.has("deadline_event")) {
     if (!dup) renewal(b, facts, candidate, today);
   }
-  if (kinds.has("estimated_bill")) estimatedBill(b, facts, corpus);
+  if (kinds.has("estimated_bill")) estimatedBill(b, candidate.signals.filter((s) => s.kind === "estimated_bill"), facts, corpus);
 
   // Calendar reminders that already passed.
   for (const s of candidate.signals.filter((x) => x.kind === "deadline_event" && x.facts.passed)) {
     b.note(`A calendar reminder "${s.facts.title}" was set for ${day(s.facts.date as string)} and has passed.`);
   }
-  if (b.out.figures.length === 0) b.warn("No figures could be checked for this case.");
+  if (b.out.figures.length === 0 && b.out.warnings.length === 0) b.warn("No figures could be checked for this case.");
   return b.out;
 }

@@ -55,6 +55,17 @@ const KINDS: FindingKind[] = [
 ];
 const ACTIONS: ActionKind[] = ["cancel", "request_refund", "dispute_price", "negotiate", "correct_bill", "none"];
 
+/** The usual fix for each kind, for when the judge names a problem but no action. */
+const ACTION_FOR_KIND: Record<FindingKind, ActionKind> = {
+  price_increase: "dispute_price",
+  duplicate_subscription: "cancel",
+  duplicate_payment: "request_refund",
+  trial_converted: "cancel",
+  renewal_trap: "cancel",
+  renewal_price_creep: "negotiate",
+  billing_error: "correct_bill",
+};
+
 const VERDICT_SCHEMA: ReplySchema = {
   name: "verdict",
   schema: {
@@ -229,7 +240,7 @@ export async function judgeCase(
         kind: raw.is_problem ? raw.kind : "none",
         title: stripIds(raw.title),
         why: firstSentence(stripIds(raw.why)),
-        action: raw.action,
+        action: raw.is_problem && raw.action === "none" && raw.kind !== "none" ? ACTION_FOR_KIND[raw.kind] : raw.action,
         actionSummary: stripIds(raw.action_summary),
         confidence,
         citedIds: cited,
