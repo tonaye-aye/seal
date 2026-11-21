@@ -1,4 +1,4 @@
-# Life
+# Seal
 
 A desktop agent for one household's monthly money check. It reads the household's bank statements, email,
 documents and calendar, and finds charges that are wrong or unwanted: price rises that break a contract,
@@ -42,8 +42,8 @@ pnpm tauri dev
 
 The first build compiles the Rust side and takes a few minutes. Later starts are quick.
 
-The first launch opens a short setup: a welcome screen, then you connect the household's four sources and the
-first check runs. After that, the app sits in the menu bar.
+The first launch opens a short three-step setup: press the summon key once, connect the household's four sources,
+then run the first check. After that, the app sits in the menu bar.
 Press **⌥Space** to bring it up (or **⌘⇧Space** if ⌥Space is taken). The app's clock is fixed at
 **Thu 19 Nov 2026, 9:30am Melbourne**, so the dates line up with the seed data.
 
@@ -56,9 +56,12 @@ Press **⌥Space** to bring it up (or **⌘⇧Space** if ⌥Space is taken). The
 | `E` / `D` / `L` | Edit the draft (takes an approval back) / Not a leak / Remind me (a calendar reminder) |
 | `⌘Z` | Undo |
 | `⌘↵` | Timeline: what's coming |
+| `V` | Switch between findings and the timeline |
 | `/` | Search |
 | `T` | Show what the agent did (the trace) |
-| `R` | Check again |
+| `R` | Sync everything and check again |
+| `N` / `M` | Settings: Connectors / Models |
+| `⌘,` | Settings |
 | `?` | All shortcuts |
 | `Esc` | Back, then close |
 
@@ -207,6 +210,10 @@ error, replay, undo and more.
 - [Lucide](https://lucide.dev) icons (`lucide-react`): ISC.
 - The seal on Seal the leak is from Microsoft's [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) (High Contrast
   set, via [shadcn.io](https://www.shadcn.io/icon/fluent-emoji-high-contrast-seal)): MIT.
+- [Rive](https://rive.app) runtime (`@rive-app/canvas`) for the animated seal in onboarding: MIT. Its engine is bundled, so it
+  works offline.
+- [Sappy Seal](https://rive.app/community/files/19467-36588-sappy-seal/) by dob, the animated seal in onboarding:
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Changed: its dark background is made transparent.
 - [Radix Primitives](https://www.radix-ui.com/primitives) (`@radix-ui/react-tooltip`, `react-dropdown-menu`,
   `react-dialog`, `react-popover`, `react-switch`, `react-accordion`) for tooltips, menus, sheets, evidence previews,
   switches and the folding groups, restyled from the app's own tokens: MIT.
