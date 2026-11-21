@@ -149,7 +149,8 @@ To run the eval and checks:
 node --env-file=.env scripts/eval.ts --verbose
 ```
 
-The eval reuses saved model answers when it has them. Add `--live` to call every model fresh.
+The eval reuses saved model answers when it has them. A fresh clone has none, so the first run calls every
+model and takes a few minutes. Add `--live` to call every model fresh.
 
 Quicker checks, one per stage:
 
@@ -165,8 +166,9 @@ node scripts/detectors-check.ts
 node scripts/replay-check.ts
 ```
 
-There are also `retrieval-check.ts`, `extract-check.ts`, `verify-check.ts` and `llm-check.ts` in
-[`scripts/`](scripts/).
+`retrieval-check.ts` also runs offline. `extract-check.ts`, `verify-check.ts` and `llm-check.ts` need the
+endpoint, so run them with `node --env-file=.env`. `saved-answers-check.ts`, `rewrites-check.ts` and
+`rules-check.ts` need saved answers that aren't in the repo, so they fail on a fresh clone.
 
 ## Demo controls
 
@@ -192,7 +194,8 @@ LIFE_REPLAY=1 pnpm tauri dev
 LIFE_ONBOARDING=1 pnpm tauri dev
 ```
 
-The first uses saved answers for the whole session. The second starts onboarding again.
+The first uses saved answers for the whole session, so it needs one live check first (a fresh clone has none).
+The second starts onboarding again.
 
 In development, `http://localhost:1420/#/gallery` shows every component in every state: empty, scanning,
 error, replay, undo and more.
