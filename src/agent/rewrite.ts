@@ -283,7 +283,7 @@ export function checkRewrite({ verb, written, original, c, allowed, signOff }: R
     if (!clocks.includes(minutes(m[1], m[2], m[3]))) bad.push(`new time not in the original: ${m[0]}`);
   }
 
-  // The claim check ignores the year when the day and month match, so a wrong year is caught here.
+  // The claim check already rejects a year the evidence doesn't have. This names the problem as a wrong year.
   const knownDates = dateMentions(known);
   for (const x of dateMentions(text)) {
     if (x.year === undefined) continue;
