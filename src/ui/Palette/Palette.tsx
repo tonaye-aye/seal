@@ -10,10 +10,12 @@ import {
   resetOnboarding,
   useOnboarding,
 } from "../../lib/onboarding";
-import { ListHint, TimelineHint } from "./FooterHint";
+import { DetailHint, ListHint, TimelineHint } from "./FooterHint";
 import { PrimaryButton, SetupScreen } from "../Onboarding/SetupScreen";
-import { approve, dismiss, rankedFindings, remind, snooze, startScan, undoLast, useScan } from "../../lib/scan-store";
-import { ActionBar, FindingDetail, sidebarStops, type Command, type Pane } from "./FindingDetail";
+import { approve, cancelReminder, dismiss, isEdited, rankedFindings, remind, reopen, resetEdit, startScan, undoLast, useScan } from "../../lib/scan-store";
+import { seal, sealTarget } from "../seal";
+import { findingTrace } from "../finding-trace";
+import { DEFAULT_PANELS, FindingDetail, hasDraftPanel as findingHasDraftPanel, firstStop, sidebarStops, type Command, type Pane, type PanelId } from "./FindingDetail";
 import {
   AllClear,
   CLEARED_GROUP,
@@ -51,7 +53,7 @@ import { changeView, nativeViewTransitions } from "../motion";
 // transparent with a macOS blur behind, so this panel adds the warm tint.
 //
 // It owns every key, in one handler, so nothing else can fight over them:
-//   list    J/K move, Enter opens, A approve, E edit, S snooze, D not a leak, L remind me,
+//   list    J/K move, Enter opens, A approve, S seal the leak (once approved), E edit, D not a leak, L remind me,
 //           Enter or Space on "Checked and left alone" opens or closes it
 //   detail  J/K move through the sidebar (or scroll the draft), Enter or Space
 //           opens or closes the selected line, C "Checked by code", Tab draft/sidebar
@@ -103,13 +105,27 @@ export function Palette() {
   const [detailFrom, setDetailFrom] = useState<"list" | "timeline">("list");
   const [timelineKey, setTimelineKey] = useState<string>();
   const [pane, setPane] = useState<Pane>("evidence");
-  const [evidenceIndex, setEvidenceIndex] = useState(0);
-  // In an open finding's sidebar: which evidence is open (-1: all folded; the
-  // first, a cited one, starts open) and whether "Checked by code" is.
-  const [openEvidence, setOpenEvidence] = useState(0);
-  const [figuresOpen, setFiguresOpen] = useState(false);
+  // In an open finding's sidebar: the selected stop (-1: the first piece of
+  // evidence), which panels are open (the evidence it relied on, to start),
+  // and which evidence has its card open, or its whole source in the sheet (-1: none).
+  const [sideStop, setSideStop] = useState(-1);
+  const [panels, setPanels] = useState<PanelId[]>(DEFAULT_PANELS);
+  const [peek, setPeek] = useState(-1);
+  // The finding's sidebar, unfolded or folded to a strip (] or its button). For
+  // findings that still need Maya it stays as she left it from one to the next.
+  // An approved finding is past its evidence, so its sidebar folds on its own
+  // (approvedSidebarOpen, false each time one is opened or approved); ⌘Z or Edit
+  // takes the approval back and the evidence returns.
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [approvedSidebarOpen, setApprovedSidebarOpen] = useState(false);
+  const [source, setSource] = useState(-1);
   const [editing, setEditing] = useState(false);
+  // The draft's "Drafted email" fold (To, Subject, Attach): open to start, and
+  // left as Maya sets it from one finding to the next.
+  const [detailsOpen, setDetailsOpen] = useState(true);
   const [traceOpen, setTraceOpen] = useState(false);
+  // Which trace the drawer shows: the open finding's own, or the whole check's.
+  const [traceScope, setTraceScope] = useState<"finding" | "check">("check");
   const [sheetOpen, setSheetOpen] = useState(false);
   // The settings menu (the cog, or ⌘,).
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -129,6 +145,12 @@ export function Palette() {
   const [groupClosedInSearch, setGroupClosedInSearch] = useState(false);
   const filterKey = filters.join();
   useEffect(() => setGroupClosedInSearch(false), [query, filterKey]);
+  // Editing belongs to an open finding: leaving it (Esc, the rail, the
+  // breadcrumb, the search) ends editing, so the list's keys never get stuck
+  // waiting for a draft that isn't on screen.
+  useEffect(() => {
+    if (view !== "detail") setEditing(false);
+  }, [view]);
 
   const findings = rankedFindings(scan);
   // Every row that matches the search and the filters, then the stops J/K move
@@ -144,9 +166,19 @@ export function Palette() {
   const selected: ListItem | undefined = hiddenOpen ?? pickSelected(rows, items, selectedKey, view === "list");
   const selectedItem: Finding | Cleared | undefined =
     selected?.type === "finding" ? selected.finding : selected?.type === "cleared" ? selected.cleared : undefined;
-  const stops = selectedItem ? sidebarStops(selectedItem, scan.corpus) : { evidence: 0, figures: false };
-  const stopCount = stops.evidence + (stops.figures ? 1 : 0);
-  const onFiguresStop = stops.figures && evidenceIndex === stops.evidence;
+  const stops = selectedItem ? sidebarStops(selectedItem, scan.corpus, panels) : [];
+  const stopAt = sideStop < 0 ? firstStop(stops) : Math.min(sideStop, stops.length - 1);
+  const selectedStop = stops[stopAt];
+  const selectedFinding = selectedItem && "evidence" in selectedItem ? selectedItem : undefined;
+  const sidebarShown = selectedFinding?.status === "approved" ? approvedSidebarOpen : sidebarOpen;
+  // With the sidebar folded (by hand, or on approving), the keys go to the draft side.
+  useEffect(() => {
+    if (!sidebarShown && pane === "evidence") setPane("draft");
+  }, [sidebarShown, pane]);
+  // An approved finding has no draft panel (the Next timeline says what was saved, or the step).
+  const hasDraftPanel = !!selectedFinding && findingHasDraftPanel(selectedFinding);
+  // Details only exist on a draft that's still shown (not once approved).
+  const hasDetails = hasDraftPanel && !!selectedFinding?.draft;
   const entries = filterTimeline(buildTimeline(scan), query);
   const selectedEntry = entries.find((e) => e.key === timelineKey) ?? entries[nowIndex(entries)] ?? entries[entries.length - 1];
 
@@ -206,24 +238,60 @@ export function Palette() {
 
   function select(key: string | undefined) {
     setSelectedKey(key);
-    setEvidenceIndex(0);
-    setOpenEvidence(0);
-    setFiguresOpen(false);
+    setSideStop(-1);
+    setPanels(DEFAULT_PANELS);
+    setPeek(-1);
+    setSource(-1);
+    setApprovedSidebarOpen(false);
+    // Editing belongs to one open finding: moving to another ends it.
+    setEditing(false);
   }
 
-  /** Opens or closes one piece of evidence in the sidebar, and selects it. */
-  function toggleEvidence(index: number) {
+  /**
+   * Opens or closes one of the sidebar's panels (Enter on its header, a click,
+   * or C for "Checked by code"), and selects its header. A header keeps its
+   * place when its own panel opens or closes, as only the lines after it move.
+   */
+  function togglePanel(id: PanelId) {
+    const at = stops.findIndex((s) => "panel" in s && s.panel === id);
+    if (at < 0) return;
     setPane("evidence");
-    setEvidenceIndex(index);
-    setOpenEvidence((open) => (open === index ? -1 : index));
+    setSideStop(at);
+    setPanels((open) => (open.includes(id) ? open.filter((p) => p !== id) : [...open, id]));
   }
 
-  /** Opens or closes "Checked by code" (C, or Enter on its header), and selects its header. */
-  function toggleFigures() {
-    if (!stops.figures) return;
-    setPane("evidence");
-    setEvidenceIndex(stops.evidence);
-    setFiguresOpen((o) => !o);
+  /** Opens a piece of evidence's card (Enter, Space or a click on its line) and selects it; -1 closes it. */
+  function peekAt(index: number) {
+    if (index >= 0) {
+      setPane("evidence");
+      const at = stops.findIndex((s) => "evidence" in s && s.evidence === index);
+      if (at >= 0) setSideStop(at);
+    }
+    setPeek(index);
+  }
+
+  /** T outside a finding, and the rail's Trace: the whole check's trace, open or closed. */
+  function toggleCheckTrace() {
+    // Open on a finding's trace: switch to the whole check rather than close.
+    if (traceOpen && traceScope === "finding" && view === "detail") return setTraceScope("check");
+    setTraceScope("check");
+    setTraceOpen((o) => !o);
+  }
+
+  /** Folds the sidebar to a strip (keys go to the draft) or brings it back (keys go to the evidence). */
+  function toggleSidebar() {
+    const open = !sidebarShown;
+    if (selectedFinding?.status === "approved") setApprovedSidebarOpen(open);
+    else setSidebarOpen(open);
+    setPeek(-1);
+    setSource(-1);
+    setPane(open ? "evidence" : "draft");
+  }
+
+  /** Opens the whole source in a sheet (Open source on the card); -1 closes it. */
+  function openSource(index: number) {
+    setPeek(-1);
+    setSource(index);
   }
 
   function move(by: number) {
@@ -330,14 +398,32 @@ export function Palette() {
   }
 
   /**
-   * Approve, snooze or "not a leak" on one finding: the selected one, or the
+   * Approve, seal the leak or "not a leak" on one finding: the selected one, or the
    * row a hover button was clicked on. When it is the selected one, the
    * selection steps on to the next finding that still needs Maya.
    */
   function act(kind: RowAction, key = selected?.key) {
     const item = rows.find((i) => i.key === key);
     // Remind me works on approved findings too, and leaves the selection where it is.
-    if (item?.type === "finding" && kind === "remind") return void remind(item.finding.id);
+    // Approving or "Not a leak" (by a click, mid-edit) ends editing: the draft is now saved or set aside.
+    if (kind === "approve" || kind === "dismiss") setEditing(false);
+    // Approving folds the sidebar: the evidence has done its job, and the Next timeline is what matters now.
+    if (kind === "approve") {
+      setApprovedSidebarOpen(false);
+      setPeek(-1);
+      setSource(-1);
+    }
+    if (item?.type === "finding" && kind === "remind") {
+      // Inside a finding, L (or the notice's Remove reminder) takes a set reminder back off; elsewhere it adds one.
+      const id = item.finding.id;
+      return void (view === "detail" && scan.reminders[id] ? cancelReminder(id) : remind(id));
+    }
+    // Seal the leak, once approved: opens Mail (or a call, Calendar), and leaves the selection where it is.
+    if (item?.type === "finding" && kind === "seal") {
+      const target = item.finding.status === "approved" ? sealTarget(item.finding, scan.corpus) : undefined;
+      if (target) void seal(target);
+      return;
+    }
     if (item?.type !== "finding" || item.finding.status !== "new") return;
     const id = item.finding.id;
     if (kind === "approve" && (item.finding.draft || item.finding.action.kind === "none")) dismissHint();
@@ -348,7 +434,6 @@ export function Palette() {
       if (!mouse) setScrollKey((n) => n + 1);
     }
     if (kind === "approve") void approve(id);
-    if (kind === "snooze") snooze(id);
     if (kind === "dismiss") dismiss(id);
   }
 
@@ -358,38 +443,66 @@ export function Palette() {
     switch (command) {
       case "approve":
         return act("approve");
-      case "snooze":
-        return act("snooze");
+      case "seal":
+        return act("seal");
       case "dismiss":
         return act("dismiss");
       case "remind":
         return act("remind");
       case "undo":
         return void undoLast();
+      case "done":
+        // Done in the heading (while editing): the same as Esc or the Done under the editor.
+        if (editing) {
+          setEditing(false);
+          panelRef.current?.focus();
+        }
+        return;
+      case "trace":
+        // The trace icon in a finding's sidebar (or T inside it). Closed, or showing the whole
+        // check: show this finding's trace. Already showing it: close the drawer.
+        if (traceOpen && traceScope === "finding") setTraceOpen(false);
+        else {
+          setTraceScope("finding");
+          setTraceOpen(true);
+        }
+        return;
+      case "details":
+        // Enter or Space on the draft side, or a click on "Drafted email" (also while editing): open or fold To, Subject and Attach.
+        if (inDetail && hasDetails) setDetailsOpen((o) => !o);
+        return;
       case "open":
         if (selected) open(selected.key);
         return;
       case "pane":
-        if (inDetail && selectedItem && "evidence" in selectedItem) {
+        // With the sidebar folded there's only the draft side.
+        if (inDetail && sidebarShown && selectedItem && "evidence" in selectedItem) {
           setPane((p) => (p === "evidence" ? "draft" : "evidence"));
         }
         return;
       case "toggle":
         // Enter or Space on the selected sidebar line.
         if (!inDetail) return;
-        if (onFiguresStop) toggleFigures();
-        else if (evidenceIndex < stops.evidence) toggleEvidence(evidenceIndex);
+        if (!selectedStop) return;
+        if ("panel" in selectedStop) togglePanel(selectedStop.panel);
+        else peekAt(selectedStop.evidence);
         return;
       case "figures":
-        if (inDetail) toggleFigures();
+        if (inDetail) togglePanel("figures");
         return;
-      case "edit":
-        if (selected?.type === "finding" && selected.finding.draft && selected.finding.status === "new") {
+      case "edit": {
+        if (selected?.type !== "finding" || !selected.finding.draft) return;
+        const { finding } = selected;
+        const startEditing = () => {
           if (!inDetail) open(selected.key);
           setPane("draft");
           setEditing(true);
-        }
+        };
+        if (finding.status === "new") startEditing();
+        // Approved: take the approval back first, then edit (Approve again when done).
+        else if (finding.status === "approved") void reopen(finding.id).then((done) => done && startEditing());
         return;
+      }
       case "rescan":
         // Not on the setup screens: the first check is their own button.
         if (setup) return;
@@ -453,10 +566,11 @@ export function Palette() {
           panelRef.current?.focus();
         } else if (typing && query) setQuery("");
         else if (typing) panelRef.current?.focus();
+        // An open trace drawer is the nearest level, in every view: it closes first.
+        else if (traceOpen) setTraceOpen(false);
         else if (view === "detail") back();
         else if (view === "timeline" && query) setQuery("");
         else if (view === "timeline") back();
-        else if (traceOpen) setTraceOpen(false);
         else if (query) setQuery("");
         else if (filters.length) setFilters([]);
         else hidePalette();
@@ -464,12 +578,28 @@ export function Palette() {
       }
 
       if (editing) {
+        // While a draft is being edited, the keys belong to the editor: letters
+        // type, ⌘Z undoes typing. Only these do something else.
         if (key === "Enter" && event.metaKey) {
+          // ⌘↵: Done, like Esc.
           event.preventDefault();
           setEditing(false);
           panelRef.current?.focus();
+        } else if (key === "Backspace" && event.metaKey && event.shiftKey) {
+          // ⌘⇧⌫: Revert (the button's key): the agent's draft back, and editing done, in one step.
+          event.preventDefault();
+          if (selectedFinding) resetEdit(selectedFinding.id);
+          setEditing(false);
+          panelRef.current?.focus();
+        } else if (key === "Tab") {
+          // Tab would move focus out of the editor and strand the keys: it stays put.
+          event.preventDefault();
+        } else if (!typing) {
+          // Focus wandered off the editor (a menu or sheet opened and closed, or a
+          // click elsewhere): put it back, so this key and the next land in the draft.
+          panelRef.current?.querySelector<HTMLTextAreaElement>("textarea")?.focus();
         }
-        return; // Everything else is typing in the draft.
+        return;
       }
 
       // Cmd+Enter opens the timeline from anywhere, and closes it again.
@@ -524,7 +654,7 @@ export function Palette() {
           run("rescan");
         } else if (lower === "t") {
           event.preventDefault();
-          setTraceOpen((o) => !o);
+          toggleCheckTrace();
         } else if (lower === "v") {
           event.preventDefault();
           setViewMenuOpen(true);
@@ -539,7 +669,7 @@ export function Palette() {
         event.preventDefault();
         if (!inDetail) move(down ? 1 : -1);
         else if (pane === "evidence") {
-          setEvidenceIndex((i) => Math.min(stopCount - 1, Math.max(0, i + (down ? 1 : -1))));
+          setSideStop(Math.min(stops.length - 1, Math.max(0, stopAt + (down ? 1 : -1))));
         }
         else draftRef.current?.scrollBy({ top: down ? 64 : -64 });
         return;
@@ -559,15 +689,16 @@ export function Palette() {
           event.preventDefault();
           if (!inDetail) run("open");
           else if (pane === "evidence") run("toggle");
+          else run("details");
           return;
         case " ":
           // Space opens and closes "Checked and left alone" and the sidebar's lines, like Enter.
           if (!inDetail && selected?.type === "group") {
             event.preventDefault();
             toggleGroup();
-          } else if (inDetail && pane === "evidence") {
+          } else if (inDetail) {
             event.preventDefault();
-            run("toggle");
+            run(pane === "evidence" ? "toggle" : "details");
           }
           return;
         case "Tab":
@@ -585,16 +716,23 @@ export function Palette() {
           return;
       }
 
-      const byLetter: Record<string, Command> = { a: "approve", s: "snooze", d: "dismiss", e: "edit", l: "remind", r: "rescan" };
+      const byLetter: Record<string, Command> = { a: "approve", s: "seal", d: "dismiss", e: "edit", l: "remind", r: "rescan" };
       if (byLetter[lower]) {
         event.preventDefault();
         run(byLetter[lower]);
       } else if (lower === "c" && inDetail) {
         event.preventDefault();
+        if (!sidebarShown) toggleSidebar();
         run("figures");
+      } else if (key === "]" && inDetail) {
+        event.preventDefault();
+        toggleSidebar();
       } else if (lower === "t") {
         event.preventDefault();
-        setTraceOpen((o) => !o);
+        // Inside a finding, T is the trace icon: this finding's trace, a second press closes it.
+        // Elsewhere (and on a case left alone) it opens or closes the whole check's.
+        if (inDetail && selectedFinding) run("trace");
+        else toggleCheckTrace();
       } else if (lower === "v") {
         event.preventDefault();
         setViewMenuOpen(true);
@@ -617,20 +755,30 @@ export function Palette() {
       <FindingDetail
         item={selectedItem}
         corpus={scan.corpus}
-        edited={"evidence" in selectedItem && scan.edits[selectedItem.id] !== undefined}
+        edited={"evidence" in selectedItem && isEdited(selectedItem.id, scan)}
         pane={pane}
-        evidenceIndex={evidenceIndex}
-        openEvidence={openEvidence}
-        figuresOpen={figuresOpen}
+        stops={stops}
+        stop={stopAt}
+        panels={panels}
+        peek={peek}
+        source={source}
         editing={editing}
+        detailsOpen={detailsOpen}
+        onToggleDetails={() => run("details")}
         mouse={mouse}
         onStopEditing={() => {
           setEditing(false);
           panelRef.current?.focus();
         }}
         onFocusDraft={() => setPane("draft")}
-        onToggleEvidence={toggleEvidence}
-        onToggleFigures={toggleFigures}
+        onCommand={run}
+        sidebarOpen={sidebarShown}
+        onToggleSidebar={toggleSidebar}
+        traceOpen={traceOpen}
+        tracePressed={traceOpen && traceScope === "finding"}
+        onTogglePanel={togglePanel}
+        onPeek={peekAt}
+        onOpenSource={openSource}
         draftRef={draftRef}
         scanning={scan.phase === "scanning"}
       />
@@ -735,7 +883,8 @@ export function Palette() {
             traceOpen={traceOpen}
             onList={goList}
             onTimeline={goTimeline}
-            onTrace={() => setTraceOpen((o) => !o)}
+            // The rail's Trace is about the whole check (on a finding's trace, it switches to it).
+            onTrace={toggleCheckTrace}
             viewOpen={viewMenuOpen}
             onViewOpenChange={setViewMenuOpen}
             mouse={mouse}
@@ -765,15 +914,27 @@ export function Palette() {
       }
       replay={replayNote(scan)}
       banner={banner}
-      // Only an open finding has a bar of its own (its actions). The list and
-      // timeline put their hint in the footer, and setup steps their action.
-      bar={!setup && inDetail ? <ActionBar item={actionItem} detail pane={pane} stopOpen={onFiguresStop ? figuresOpen : evidenceIndex === openEvidence} mouse={mouse} onCommand={run} /> : undefined}
+      // An open finding's actions sit above its draft; how to move around goes in
+      // the footer, like the list's and the timeline's, and setup steps put their action there.
+
       footer={
         <Footer
           onScenarios={() => setScenariosOpen(true)}
           right={
             setup ? (
               <PrimaryButton onboarding={onboarding} mouse={mouse} />
+            ) : inDetail && editing ? undefined : inDetail ? (
+              // While editing there are no move hints: those keys type into the draft (Revert and Done carry theirs).
+              <DetailHint
+                pane={pane}
+                stop={selectedStop}
+                panelOpen={!!selectedStop && "panel" in selectedStop && panels.includes(selectedStop.panel)}
+                twoPanes={!!selectedItem && "evidence" in selectedItem && sidebarShown}
+                detailsOpen={hasDetails ? detailsOpen : undefined}
+                mouse={mouse}
+                onToggle={() => run(pane === "evidence" ? "toggle" : "details")}
+                onPane={() => run("pane")}
+              />
             ) : view === "timeline" ? (
               <TimelineHint entry={selectedEntry} mouse={mouse} onOpen={() => openEntry()} />
             ) : view === "list" && !nothingYet ? (
@@ -808,7 +969,18 @@ export function Palette() {
       <div key={setup ? "setup" : view} className={`view-area flex min-h-0 flex-1 flex-col ${nativeViewTransitions() ? "" : "view-in"}`}>
         {main}
       </div>
-      {traceOpen && <TraceDrawer lines={scan.trace} onClose={() => setTraceOpen(false)} />}
+      {traceOpen && (
+        <TraceDrawer
+          lines={scan.trace}
+          // Only inside an open finding; on the list or the timeline it is the whole check's.
+          finding={view === "detail" && selectedFinding ? { merchant: selectedFinding.merchant, lines: findingTrace(selectedFinding) } : undefined}
+          scope={traceScope}
+          onScope={setTraceScope}
+          mouse={mouse}
+          editing={editing}
+          onClose={() => setTraceOpen(false)}
+        />
+      )}
     </PaletteShell>
   );
 }

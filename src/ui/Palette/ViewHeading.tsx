@@ -9,6 +9,7 @@ export function ViewHeading({
   eyebrow,
   children,
   action,
+  actions,
   below,
 }: {
   title: string;
@@ -20,6 +21,8 @@ export function ViewHeading({
   action?: React.ReactNode;
   /** Under the title and its line (the findings list's filter chips). */
   below?: React.ReactNode;
+  /** A row of buttons under everything else (an open finding's Approve, Remind me, Not a leak). */
+  actions?: React.ReactNode;
 }) {
   return (
     // The hairline marks the pinned edge the rows scroll under.
@@ -34,6 +37,8 @@ export function ViewHeading({
         </div>
         {action && <div className="mt-1 shrink-0">{action}</div>}
       </div>
+      {/* The whole width, under the amounts too, so a button can sit at the right end. */}
+      {actions && <div className="-mt-0.5 px-4 pb-2.5">{actions}</div>}
     </div>
   );
 }

@@ -102,6 +102,10 @@
   --radius-md: 8px;
   --radius-lg: 12px;
 
+  /* The trace drawer's height (Trace.tsx). An open finding leaves this much
+     room under its draft and sidebar, so nothing is stuck behind the drawer. */
+  --trace-height: 230px;
+
   /* Motion: quick and purposeful. */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --duration-fast: 120ms;
@@ -268,9 +272,13 @@ input:focus-visible {
 
 /* Menu rows show where the keys are with a filled row (data-highlighted), so
    they never draw the ring too. Without this, a menu opened by a key ringed
-   its first row: the rule above beats Tailwind's outline-none on the rows. */
+   its first row: the rule above beats Tailwind's outline-none on the rows.
+   The button in an evidence card (peek-action) is drawn the same way, and the
+   draft editor (draft-editor) shows it's in use by its soft wash and outline. */
 [role="menuitem"]:focus-visible,
-[role="menuitemcheckbox"]:focus-visible {
+[role="menuitemcheckbox"]:focus-visible,
+.peek-action:focus-visible,
+.draft-editor:focus-visible {
   outline: none;
 }
 

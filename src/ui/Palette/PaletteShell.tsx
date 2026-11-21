@@ -2,7 +2,7 @@ import { forwardRef, useCallback, useLayoutEffect, useState } from "react";
 import { LayerContainer, Tip } from "../layers";
 
 // The palette's frame: top bar, replay banner, the icon rail beside the middle
-// area and its bottom bar, the footer, plus anything floating on top (toast, sheets). The real
+// area, the footer, plus anything floating on top (toast, sheets). The real
 // palette and the dev gallery both draw through this, so they can't drift apart.
 
 type Props = Omit<React.HTMLAttributes<HTMLDivElement>, "children"> & {
@@ -15,8 +15,6 @@ type Props = Omit<React.HTMLAttributes<HTMLDivElement>, "children"> & {
   rail?: React.ReactNode;
   /** What fills the middle (a view, plus the trace drawer when open). */
   children: React.ReactNode;
-  /** An open finding's action bar, under the middle and beside the rail. */
-  bar?: React.ReactNode;
   footer: React.ReactNode;
   /** Things that float above everything: the toast and the sheets. */
   overlay?: React.ReactNode;
@@ -54,7 +52,7 @@ function Notice({ children }: { children: React.ReactNode }) {
 }
 
 export const PaletteShell = forwardRef<HTMLDivElement, Props>(function PaletteShell(
-  { header, replay, banner, rail, children, bar, footer, overlay, className = "", ...rest },
+  { header, replay, banner, rail, children, footer, overlay, className = "", ...rest },
   ref,
 ) {
   // Menus, tooltips and sheets draw inside this panel (src/ui/layers.tsx).
@@ -78,13 +76,12 @@ export const PaletteShell = forwardRef<HTMLDivElement, Props>(function PaletteSh
         {replay && <Notice>{replay}</Notice>}
         {banner && <Notice>{banner}</Notice>}
         <div className="h-px shrink-0 bg-hairline" />
-        {/* The rail runs from the top bar to the footer; the trace drawer and the
-            action bar stay beside it, so Trace and Settings are never covered. */}
+        {/* The rail runs from the top bar to the footer; the trace drawer stays
+            beside it, so Trace and Settings are never covered. */}
         <div className="flex min-h-0 flex-1">
           {rail}
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="relative flex min-h-0 flex-1 flex-col">{children}</div>
-            {bar}
           </div>
         </div>
         {footer}

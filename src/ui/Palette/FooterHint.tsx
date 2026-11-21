@@ -1,12 +1,13 @@
 import type { Cleared, Finding } from "../../agent/pipeline";
 import type { TimelineEntry } from "../timeline";
 import { KeyButton, KeyHint } from "../Kbd";
-import { CheckNowIcon, OpenIcon } from "../icons";
-import { MouseIcon } from "./FindingDetail";
+import { CheckNowIcon, OpenIcon, PaneIcon } from "../icons";
+import { MouseIcon, type Pane, type SideStop } from "./FindingDetail";
 import { copy } from "../../copy";
 
 // What the selected row's keys or clicks do, shown at the right of the
-// footer in the list and the timeline (there is no separate bar for it).
+// footer in the list, the timeline and an open finding (whose bar above holds
+// only its actions).
 // With the keyboard: Enter opens, J/K move. With the mouse: what a click does.
 
 type Item = Finding | Cleared | { undecided: string } | { group: boolean } | undefined;
@@ -43,6 +44,48 @@ export function TimelineHint({ entry, mouse, onOpen }: { entry?: TimelineEntry; 
     <>
       {opens && <KeyButton keys={["↵"]} label={copy.actions.open} icon={<OpenIcon />} tone="faint" onClick={onOpen} />}
       <KeyHint keys={["J", "K"]} label={copy.actions.move} />
+    </>
+  );
+}
+
+/**
+ * In an open finding. On the sidebar: J/K move, Enter opens or closes a
+ * panel or previews a piece of evidence, Tab goes to the draft. On the
+ * draft: J/K scroll, Enter opens or folds its Details. With the mouse: click any evidence.
+ */
+export function DetailHint({
+  pane,
+  stop,
+  panelOpen,
+  twoPanes,
+  detailsOpen,
+  mouse,
+  onToggle,
+  onPane,
+}: {
+  pane: Pane;
+  /** The selected sidebar stop. */
+  stop?: SideStop;
+  /** That stop is a panel, and it is open (so Enter closes it). */
+  panelOpen: boolean;
+  /** A finding (with a draft side), not a case left alone. */
+  twoPanes: boolean;
+  /** The draft's Details are open (undefined: there are none). On the draft side, Enter opens or folds them. */
+  detailsOpen?: boolean;
+  mouse: boolean;
+  onToggle: () => void;
+  onPane: () => void;
+}) {
+  if (mouse) return <ClickHint text={copy.actions.clickEvidence} />;
+  const enter = stop && "evidence" in stop ? copy.actions.preview : panelOpen ? copy.actions.close : copy.actions.open;
+  return (
+    <>
+      <KeyHint keys={["J", "K"]} label={pane === "draft" ? copy.actions.scroll : copy.actions.evidence} />
+      {pane !== "draft" && stop && <KeyButton keys={["↵"]} label={enter} icon={<OpenIcon />} tone="faint" onClick={onToggle} />}
+      {pane === "draft" && detailsOpen !== undefined && (
+        <KeyButton keys={["↵"]} label={detailsOpen ? copy.actions.hideDetails : copy.actions.showDetails} icon={<OpenIcon />} tone="faint" onClick={onToggle} />
+      )}
+      {twoPanes && <KeyButton keys={["Tab"]} label={pane === "draft" ? copy.actions.toEvidence : copy.actions.toDraft} icon={<PaneIcon />} tone="faint" onClick={onPane} />}
     </>
   );
 }
