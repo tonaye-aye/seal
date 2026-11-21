@@ -939,6 +939,8 @@ export const copy = {
     keyed: (key: string, error: string) => `${key}: ${error}`,
     draftNeedsChecking: (merchant: string, problems: string[]) => `${merchant}: draft needs checking (${problems.join("; ")})`,
     couldntDraft: (merchant: string, error: string) => `${merchant}: couldn't draft (${error})`,
+    routed: (merchant: string, route: string) => `${merchant}: best way is ${route}`,
+    routedUnchecked: (merchant: string, route: string) => `${merchant}: best way is ${route}, script needs checking`,
     /** Connectors during a check. */
     slowDown: (name: string, seconds: number) => `${name} asked us to slow down, trying again in ${seconds} s`,
     answeredAgain: (name: string) => `${name} answered again, carrying on`,
@@ -977,5 +979,7 @@ export const copy = {
     checkAction: "Look at the evidence and decide: the checks and the model disagree.",
     modelSaidFine: (why: string, problems: string[]) => `The model judged this fine ("${why}"), but code found: ${problems.join(" ")}`,
     codeSaysFine: (fine: string[]) => `Code found reasons this may be fine: ${fine.join(" ")}`,
+    routeEmail: "Send the email",
+    routeFallback: (route: string) => `${route} can handle this.`,
   },
 };
