@@ -278,6 +278,44 @@
       "deadlines": [],
       "expected_action": "Draft a bill-correction request attaching the meter photo and asking for a credit or refund of roughly $175 (already paid on 10 Nov).",
       "difficulty_notes": "Needs the image model to read the odometer, then arithmetic done in code. The red digit is the tenths: the reading is 47,006 kWh, not 470,060 (a realistic misread to guard against)."
+    },
+    {
+      "id": "L8",
+      "slug": "norvik-warranty-repair",
+      "title": "Paying for a repair the warranty should handle",
+      "kind": "warranty_claim",
+      "merchant": "Norvik",
+      "severity": "high",
+      "evidence": {
+        "transactions": [],
+        "emails": [
+          "msg_0076",
+          "msg_0077",
+          "msg_0078"
+        ],
+        "documents": [
+          "doc_011",
+          "doc_012"
+        ],
+        "calendar": [
+          "evt_015"
+        ]
+      },
+      "amounts": {
+        "repair_booked": 264.0
+      },
+      "deadlines": [
+        {
+          "date": "2026-11-25",
+          "what": "Last day to cancel Spinwell free (by 10:00 am)"
+        },
+        {
+          "date": "2026-12-06",
+          "what": "Norvik warranty ends"
+        }
+      ],
+      "expected_action": "Lodge a warranty claim with Norvik (serial NVK-204417, fault E18, before 6 Dec) and cancel Spinwell booking SR-5521 by 10:00 am on 25 Nov.",
+      "difficulty_notes": "No bank rows: the charge hasn't happened. The link between Norvik and Spinwell is the serial number. Spinwell isn't a Norvik service agent, so its repair wouldn't be included."
     }
   ],
   "decoys": [
@@ -327,6 +365,11 @@
       "leak": "L2"
     },
     {
+      "date": "2026-11-26",
+      "what": "Spinwell repair visit ($264.00)",
+      "leak": "L8"
+    },
+    {
       "date": "2026-11-28",
       "what": "IronWorks annual fee ($89.00)",
       "leak": "L3"
@@ -363,7 +406,7 @@
     }
   ],
   "scoring": {
-    "recall": "found leaks / 7",
+    "recall": "found leaks / 8",
     "precision": "true leaks / flagged items (D1 and D2 must not be flagged)",
     "amounts": "correct to the cent unless a tolerance is given",
     "drafts": "must cite real evidence (ids/amounts/dates) and not invent facts"

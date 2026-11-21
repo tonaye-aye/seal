@@ -1,0 +1,15 @@
+LARKSPUR APPLIANCES
+===================
+Tax invoice LA-60418: Norvik WM-8
+
+Invoice number : LA-60418
+Purchase date  : 6 December 2024
+Customer       : Maya Whitlock
+Delivered to   : 14 Albion Lane, Brunswick VIC 3056
+
+Item                                            Amount
+----------------------------------------------  ---------
+Norvik WM-8 washing machine, serial NVK-204417  $1,049.00
+Total (incl. GST)                               $1,049.00
+
+Keep this invoice as your proof of purchase.

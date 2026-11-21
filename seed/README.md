@@ -8,7 +8,7 @@ email, a synced documents folder and a family calendar. Everything is fictional;
 | Folder | What the fake connector serves |
 | --- | --- |
 | `bank/` | `joint-everyday.csv`, `maya-visa.csv`, `accounts.json` (history from 2026-08-20) |
-| `email/inbox.json` | Maya's mailbox plus the shared household address (~75 messages) |
+| `email/inbox.json` | Maya's mailbox plus the shared household address (~78 messages) |
 | `documents/` | PDFs, a meter photo, `index.json`, and `_text/` pre-extracted text |
 | `calendar/events.json` | Family, Maya and Ben calendars (some recurring) |
 | `connectors/manifest.json` | Connection state, paging, latency, opt-in failure scenarios |

@@ -509,6 +509,34 @@ def build_docs():
                   "We will tell you the new price in writing before it applies."),
         ], D(2025, 11, 1), "Attachment to email 'Welcome to Kookaburra Mobile'")
 
+    # --- Washing machine (L8). Bought before the statements start, so it has no bank rows.
+    # Its own folder, because files in one folder are read as evidence for each other. ---
+    doc("larkspur_receipt", f"{util}/Appliances", "Larkspur-Receipt-Norvik-WM-8-2024-12-06.pdf",
+        "Tax invoice LA-60418: Norvik WM-8", "Larkspur Appliances", "#0F766E", [
+            ("kv", [("Invoice number", "LA-60418"), ("Purchase date", "6 December 2024"),
+                    ("Customer", "Maya Whitlock"), ("Delivered to", ADDRESS)]),
+            ("table", [["Item", "Amount"],
+                       ["Norvik WM-8 washing machine, serial NVK-204417", "$1,049.00"],
+                       ["Total (incl. GST)", "$1,049.00"]]),
+            ("p", "Keep this invoice as your proof of purchase."),
+        ], D(2024, 12, 6), "Saved from Larkspur Appliances online order")
+    doc("norvik_terms", f"{util}/Appliances", "Norvik-Warranty-Terms-WM-8.pdf",
+        "Warranty terms: WM-8 washing machine", "Norvik", "#1D4ED8", [
+            ("kv", [("Product", "Norvik WM-8 washing machine"), ("Serial number", "NVK-204417"),
+                    ("Purchase date", "6 December 2024"), ("Warranty period", "24 months from the purchase date"),
+                    ("Warranty ends", "6 December 2026")]),
+            ("h", "What's included"),
+            ("p", "During the warranty period a Norvik service agent will repair or replace a faulty part, including "
+                  "labour, at no charge. A claim must be lodged on or before the day the warranty ends."),
+            ("h", "What isn't included"),
+            ("p", "Work by anyone other than a Norvik service agent is not included, and damage caused by that work "
+                  "will not be repaired under this warranty."),
+            ("h", "How to claim"),
+            ("p", "Lodge a claim at norvik.example/warranty, or email warranty@norvik.example with the serial number, "
+                  "your proof of purchase and a description of the fault."),
+            ("note", "These benefits are in addition to your rights under the Australian Consumer Law."),
+        ], D(2024, 12, 6), "Saved from Norvik product registration")
+
 
 def render_docs():
     out = ROOT / "documents"
@@ -516,12 +544,19 @@ def render_docs():
     for i, d in enumerate(DOCS, 1):
         path = out / d["folder"] / d["filename"]
         path.parent.mkdir(parents=True, exist_ok=True)
+        # A file that's already here is kept. Other library versions draw different bytes, and
+        # the saved model answers depend on them. Delete a file to draw it again.
         if d.get("image"):
-            make_meter_photo(path)
+            # Always drawn, because drawing it moves the random numbers the emails use after it.
+            drawn = path if not path.exists() else path.with_name(f".redraw-{path.name}")
+            make_meter_photo(drawn)
+            if drawn != path:
+                drawn.unlink()
             text = d["text"] + "\n"
             mime = "image/jpeg"
         else:
-            render_pdf(path, d["brand"], d["title"], d["accent"], d["blocks"])
+            if not path.exists():
+                render_pdf(path, d["brand"], d["title"], d["accent"], d["blocks"])
             text = blocks_to_text(d["brand"], d["title"], d["blocks"])
             mime = "application/pdf"
         tpath = out / "_text" / (Path(d["filename"]).stem + ".txt")
@@ -874,11 +909,54 @@ def build_emails():
     email("parcel", AT(2026, 10, 22, 13, 5), ("Courier Hub", "tracking@courierhub.example"), [MAYA],
           "Your parcel is on its way", "Your parcel arrives today between 1pm and 5pm.")
 
+    # ---- the washing machine (L8) ----
+    email("ben_washer", AT(2026, 11, 9, 19, 5), BEN, [MAYA], "Washing machine's dead", """
+        The washing machine stopped mid-cycle tonight and is showing error E18. It's the Norvik we got from Larkspur.
+
+        I rang Spinwell Repairs and they can come on Thursday 26 November, the earliest they had.
+
+        Ben
+    """)
+    email("spinwell_booking", AT(2026, 11, 10, 11, 20), ("Spinwell Repairs", "bookings@spinwell.example"), [BEN, HOME],
+          "Booking SR-5521: washing machine repair", """
+        Hi Ben,
+
+        Thanks for booking with Spinwell Repairs.
+
+        Booking: SR-5521
+        Appliance: Norvik WM-8 washing machine, serial NVK-204417
+        Fault: error E18, stops mid-cycle
+        Visit: Thursday 26 November 2026 at 10:00 am
+        Price: $264.00, payable on the day
+
+        You can cancel free of charge up to 24 hours before the visit. Just reply to this email or give us a ring.
+
+        We're an independent repairer and aren't a Norvik service agent.
+
+        Spinwell Repairs
+    """)
+    email("norvik_warranty_notice", AT(2026, 11, 12, 8, 0), ("Norvik", "warranty@norvik.example"), [MAYA],
+          "Your Norvik warranty ends on 6 December", """
+        Hi Maya,
+
+        The 24-month parts and labour warranty on your Norvik WM-8 washing machine (serial NVK-204417) ends on 6 December 2026.
+
+        If something's wrong with it, lodge a claim by then and a Norvik service agent will repair it at no charge. Claim online at norvik.example/warranty, or reply to this email with the serial number, your proof of purchase and a description of the fault.
+
+        Work by anyone other than a Norvik service agent isn't included in this warranty.
+
+        The Norvik warranty team
+    """, unread=True)
+
     # ---- finalise ----
-    EM.sort(key=lambda e: (e["when"], e["tag"]))
+    # Messages added after the first 75 are numbered after them, so no existing id moves.
+    added_later = {"ben_washer", "spinwell_booking", "norvik_warranty_notice"}
+    EM.sort(key=lambda e: (e["tag"] in added_later, e["when"], e["tag"]))
     inbox = []
     for i, e in enumerate(EM, 1):
         e["id"] = f"msg_{i:04d}"
+    # The mailbox itself still reads in date order.
+    EM.sort(key=lambda e: (e["when"], e["tag"]))
     for e in EM:
         atts = []
         for k, tg in enumerate(e["att"], 1):
@@ -948,6 +1026,8 @@ def build_calendar():
        created=iso(AT(2026, 8, 1, 10)), recurrence="RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=SU")
     ev("holiday", "Family holiday (Lorne)", "2026-12-26", all_day=True, creator="Maya", created=iso(AT(2026, 9, 14, 20)),
        notes="Through 2 Jan.")
+    ev("washer_repair", "Spinwell repair visit (Norvik washer)", iso(AT(2026, 11, 26, 10)), iso(AT(2026, 11, 26, 11)),
+       creator="Ben", created=iso(AT(2026, 11, 10, 11, 30)), notes="Booking SR-5521, payable on the day.")
     for i, c in enumerate(CAL, 1):
         c["id"] = f"evt_{i:03d}"
     write_json(ROOT / "calendar" / "events.json", {
@@ -1095,6 +1175,18 @@ def build_ground_truth():
                             "roughly $175 (already paid on 10 Nov).",
          "difficulty_notes": "Needs the image model to read the odometer, then arithmetic done in code. The red digit is the "
                              "tenths: the reading is 47,006 kWh, not 470,060 (a realistic misread to guard against)."},
+        {"id": "L8", "slug": "norvik-warranty-repair", "title": "Paying for a repair the warranty should handle",
+         "kind": "warranty_claim", "merchant": "Norvik", "severity": "high",
+         "evidence": {"transactions": [],
+                      "emails": [E("ben_washer"), E("spinwell_booking"), E("norvik_warranty_notice")],
+                      "documents": [Dc("larkspur_receipt"), Dc("norvik_terms")], "calendar": [C("washer_repair")]},
+         "amounts": {"repair_booked": 264.00},
+         "deadlines": [{"date": "2026-11-25", "what": "Last day to cancel Spinwell free (by 10:00 am)"},
+                       {"date": "2026-12-06", "what": "Norvik warranty ends"}],
+         "expected_action": "Lodge a warranty claim with Norvik (serial NVK-204417, fault E18, before 6 Dec) and cancel "
+                            "Spinwell booking SR-5521 by 10:00 am on 25 Nov.",
+         "difficulty_notes": "No bank rows: the charge hasn't happened. The link between Norvik and Spinwell is the serial "
+                             "number. Spinwell isn't a Norvik service agent, so its repair wouldn't be included."},
     ]
     decoys = [
         {"id": "D1", "slug": "kookaburra-cpi", "title": "Mobile plan rose $55.00 to $57.20 (4.0%)",
@@ -1110,6 +1202,7 @@ def build_ground_truth():
     ]
     upcoming = [
         {"date": "2026-11-21", "what": "StreamBox renewal via Apple ($17.99)", "leak": "L2"},
+        {"date": "2026-11-26", "what": "Spinwell repair visit ($264.00)", "leak": "L8"},
         {"date": "2026-11-28", "what": "IronWorks annual fee ($89.00)", "leak": "L3"},
         {"date": "2026-11-30", "what": "Council rates instalment 2 of 4 ($412.30)", "leak": None},
         {"date": "2026-12-03", "what": "StreamBox direct debit ($17.99)", "leak": "L2"},
@@ -1122,7 +1215,7 @@ def build_ground_truth():
         "WARNING": "Evaluation only. The running app must not read this folder.",
         "asOf": iso(NOW), "leaks": leaks, "decoys": decoys, "upcoming_charges": upcoming,
         "scoring": {
-            "recall": "found leaks / 7", "precision": "true leaks / flagged items (D1 and D2 must not be flagged)",
+            "recall": "found leaks / 8", "precision": "true leaks / flagged items (D1 and D2 must not be flagged)",
             "amounts": "correct to the cent unless a tolerance is given",
             "drafts": "must cite real evidence (ids/amounts/dates) and not invent facts",
         },
@@ -1139,7 +1232,7 @@ email, a synced documents folder and a family calendar. Everything is fictional;
 | Folder | What the fake connector serves |
 | --- | --- |
 | `bank/` | `joint-everyday.csv`, `maya-visa.csv`, `accounts.json` (history from 2026-08-20) |
-| `email/inbox.json` | Maya's mailbox plus the shared household address (~75 messages) |
+| `email/inbox.json` | Maya's mailbox plus the shared household address (~78 messages) |
 | `documents/` | PDFs, a meter photo, `index.json`, and `_text/` pre-extracted text |
 | `calendar/events.json` | Family, Maya and Ben calendars (some recurring) |
 | `connectors/manifest.json` | Connection state, paging, latency, opt-in failure scenarios |

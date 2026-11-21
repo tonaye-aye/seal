@@ -1,7 +1,7 @@
 {
   "account": "maya.whitlock@mailbox.example",
   "alsoReads": "home@whitlock.example",
-  "count": 75,
+  "count": 78,
   "messages": [
     {
       "id": "msg_0001",
@@ -1681,6 +1681,29 @@
       "attachments": []
     },
     {
+      "id": "msg_0076",
+      "threadId": "thr_msg_0076",
+      "date": "2026-11-09T19:05+11:00",
+      "from": {
+        "name": "Ben Whitlock",
+        "address": "ben.whitlock@mailbox.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Washing machine's dead",
+      "snippet": "The washing machine stopped mid-cycle tonight and is showing error E18. It's the Norvik we got from Larkspur. I rang Spinwell Repairs and th",
+      "body": "The washing machine stopped mid-cycle tonight and is showing error E18. It's the Norvik we got from Larkspur.\n\nI rang Spinwell Repairs and they can come on Thursday 26 November, the earliest they had.\n\nBen\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
       "id": "msg_0069",
       "threadId": "thr_msg_0069",
       "date": "2026-11-10T07:00+11:00",
@@ -1697,6 +1720,33 @@
       "subject": "Payment received",
       "snippet": "Hi Maya, We've received your payment of $577.20. Thanks! Redgum Energy",
       "body": "Hi Maya,\n\nWe've received your payment of $577.20. Thanks!\n\nRedgum Energy\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0077",
+      "threadId": "thr_msg_0077",
+      "date": "2026-11-10T11:20+11:00",
+      "from": {
+        "name": "Spinwell Repairs",
+        "address": "bookings@spinwell.example"
+      },
+      "to": [
+        {
+          "name": "Ben Whitlock",
+          "address": "ben.whitlock@mailbox.example"
+        },
+        {
+          "name": "Whitlock household",
+          "address": "home@whitlock.example"
+        }
+      ],
+      "subject": "Booking SR-5521: washing machine repair",
+      "snippet": "Hi Ben, Thanks for booking with Spinwell Repairs. Booking: SR-5521 Appliance: Norvik WM-8 washing machine, serial NVK-204417 Fault: error E1",
+      "body": "Hi Ben,\n\nThanks for booking with Spinwell Repairs.\n\nBooking: SR-5521\nAppliance: Norvik WM-8 washing machine, serial NVK-204417\nFault: error E18, stops mid-cycle\nVisit: Thursday 26 November 2026 at 10:00 am\nPrice: $264.00, payable on the day\n\nYou can cancel free of charge up to 24 hours before the visit. Just reply to this email or give us a ring.\n\nWe're an independent repairer and aren't a Norvik service agent.\n\nSpinwell Repairs\n",
       "labels": [
         "INBOX"
       ],
@@ -1725,6 +1775,29 @@
         "PROMOTIONS"
       ],
       "unread": false,
+      "attachments": []
+    },
+    {
+      "id": "msg_0078",
+      "threadId": "thr_msg_0078",
+      "date": "2026-11-12T08:00+11:00",
+      "from": {
+        "name": "Norvik",
+        "address": "warranty@norvik.example"
+      },
+      "to": [
+        {
+          "name": "Maya Whitlock",
+          "address": "maya.whitlock@mailbox.example"
+        }
+      ],
+      "subject": "Your Norvik warranty ends on 6 December",
+      "snippet": "Hi Maya, The 24-month parts and labour warranty on your Norvik WM-8 washing machine (serial NVK-204417) ends on 6 December 2026. If somethin",
+      "body": "Hi Maya,\n\nThe 24-month parts and labour warranty on your Norvik WM-8 washing machine (serial NVK-204417) ends on 6 December 2026.\n\nIf something's wrong with it, lodge a claim by then and a Norvik service agent will repair it at no charge. Claim online at norvik.example/warranty, or reply to this email with the serial number, your proof of purchase and a description of the fault.\n\nWork by anyone other than a Norvik service agent isn't included in this warranty.\n\nThe Norvik warranty team\n",
+      "labels": [
+        "INBOX"
+      ],
+      "unread": true,
       "attachments": []
     },
     {
