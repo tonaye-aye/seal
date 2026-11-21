@@ -217,6 +217,7 @@ export const copy = {
     seal: "Seal the leak",
     sealTip: {
       email: (to: string) => `Opens Mail with the draft to ${to}, ready to send`,
+      emailWithFiles: (to: string) => `Opens Mail with the draft to ${to} and a note of what to add`,
       /** Made-up contact details: a labelled stand-in, never a real number or link. */
       sample: (provider: string) => `Shows ${provider}'s sample page. Nothing is dialled or opened`,
       calendar: "Opens Calendar",
@@ -376,9 +377,27 @@ export const copy = {
     /** What Seal the leak does, under "Saved in Drafts" or "Marked as handled". */
     seal: {
       email: "Seal the leak opens it in Mail, ready to send. Nothing goes until you do.",
+      emailWithFiles: "Seal the leak opens it in Mail with a note of what to add. Nothing goes until you do.",
       sample: { call: "Seal the leak shows the sample number. Nothing is dialled.", chat: "Seal the leak shows a sample of their chat page.", online: "Seal the leak shows a sample of their page.", email: "" },
       calendar: (date?: string) => (date ? `Seal the leak opens Calendar: look at ${date}.` : "Seal the leak opens Calendar."),
       bank: (account: string) => `Do it in your bank's app, on the ${account} account.`,
+    },
+    /** Mail links can't carry files, so Maya adds them herself. */
+    attachments: {
+      add: "Add before sending:",
+      /** A chosen file the check can no longer find by name. */
+      unnamed: "a file from the evidence",
+      /** Used when a draft says something is attached without saying what. */
+      genericFiles: "files",
+      notAttached: (what: string, refs: string[], alsoHasFiles: boolean) => {
+        const many = what.endsWith("s");
+        const says = `The draft ${alsoHasFiles ? "also " : ""}says the ${what} ${many ? "are" : "is"} attached.`;
+        if (refs.length === 0) return `${says} Seal has no file for ${many ? "them" : "it"}, so add ${many ? "them" : "it"} yourself or edit that line.`;
+        return `${says} ${andList(refs)} ${pick(refs.length, "is an email, not a file", "are emails, not files")}, so forward ${pick(refs.length, "it", "them")} too or edit that line.`;
+      },
+      /** The note above the draft in Mail. Maya deletes it before sending. */
+      mailNote: (files: string[], notFiles: string[]) =>
+        `[${[files.length ? `Before sending: attach ${andList(files)}.` : "Before sending:", ...notFiles, "Then delete this note."].join("\n")}]`,
     },
     handled: "Marked as handled",
     thenExpect: (expect: string) => `Then expect ${expect}.`,

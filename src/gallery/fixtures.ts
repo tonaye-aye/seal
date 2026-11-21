@@ -246,6 +246,32 @@ const norvik: Finding = {
   ),
 };
 
+// Only in the attachment sample: its draft says two receipts are attached, but they are emails.
+const kestrel: Finding = {
+  id: "f-kestrel",
+  kind: "duplicate_payment",
+  merchant: "Kestrel Plumbing",
+  keys: [merchantKey("KESTREL PLUMBING")],
+  title: "Kestrel invoice paid twice",
+  why: "Invoice KP-20418 was paid by card on 30 September and again by bank transfer on 2 October.",
+  action: { kind: "request_refund", summary: "Ask Kestrel to refund the second payment" },
+  amounts: { recoverable: 38500 },
+  confidence: "high",
+  evidence: [ev("doc", "doc_009"), ev("email", "msg_0035"), ev("email", "msg_0042")],
+  figures: [fig("overpaid", "Paid twice", 38500, "cents", ["doc:doc_009"])],
+  notes: [],
+  doubts: [],
+  status: "new",
+  verified: true,
+  judgedBy: judged,
+  draft: draft(
+    { name: "Kestrel Plumbing", address: "accounts@kestrel.example" },
+    "Refund for double payment of invoice KP-20418",
+    "Hi Kestrel Plumbing,\n\nWe paid invoice KP-20418 twice, so could you please refund the second payment of $385.00? I have attached the tax invoice and both payment receipts for your reference.\n\nThanks, Maya",
+    { attachDocumentIds: ["doc_009"] },
+  ),
+};
+
 /** A Firmer rewrite of the Skylink draft, as the store keeps it. */
 function firmerVersion(source: "live" | "cache"): DraftVersions {
   const draft = skylink.draft!;
@@ -530,6 +556,16 @@ export function routeSamples(done: ScanState) {
     const f: Finding = { ...norvik, fix: norvikPlan };
     return { ...planned, findings: [...planned.findings, f], result: planned.result && { ...planned.result, findings: [...planned.result.findings, f] }, ...change };
   };
+  const withKestrel = (): ScanState => {
+    const planned = withPlans(plans);
+    return {
+      ...planned,
+      findings: [...planned.findings, kestrel],
+      result: planned.result && { ...planned.result, findings: [...planned.result.findings, kestrel] },
+      decisions: { [kestrel.id]: "approved" },
+      decidedAt: { [kestrel.id]: Date.now() - 60_000 },
+    };
+  };
   return {
     warranty: withWarranty(),
     warrantyCall: withWarranty({ routes: { "f-norvik": "spinwell_call" } }),
@@ -543,6 +579,10 @@ export function routeSamples(done: ScanState) {
       { routes: { "f-skylink": "skylink_call" } },
     ),
     approvedEmail: withPlans(plans, approved("f-skylink", "skylink_email")),
+    // Mail can't carry files: a draft whose two files cover what it says, and one
+    // that also claims two receipts, which are emails rather than files.
+    approvedFiles: withWarranty(approved("f-norvik", "norvik_email")),
+    approvedFilesMissing: withKestrel(),
     approvedCall: withPlans(plans, approved("f-skylink", "skylink_call")),
     approvedOnline: withPlans(plans, approved("f-redgum", "redgum_read")),
     approvedSampleBody: withPlans(

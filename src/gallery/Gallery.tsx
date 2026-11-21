@@ -1113,6 +1113,12 @@ export function Gallery() {
               <Shot title="Approved: Email, with where to go next" note="A dated If they say no line, 14 days on. O opens the real complaint form in the browser">
                 <PaletteFrame scan={r.approvedEmail} view="detail" selected="f-skylink" pane="draft" />
               </Shot>
+              <Shot title="Approved: Email with files" note="A mail link can't carry files, so the Send it line names each one, and Mail opens with a note above the draft">
+                <PaletteFrame scan={r.approvedFiles} view="detail" selected="f-norvik" pane="draft" />
+              </Shot>
+              <Shot title="Approved: Email claiming more than its files" note="The draft says the receipts are attached, but they are emails, so it says which ones and how to fix it">
+                <PaletteFrame scan={r.approvedFilesMissing} view="detail" selected="f-kestrel" pane="draft" />
+              </Shot>
               <Shot title="Approved: Call" note="No draft saved. The route is fixed (⌘Z to change it), the script stays under the timeline, and S shows the sample page rather than dialling">
                 <PaletteFrame scan={r.approvedCall} view="detail" selected="f-skylink" pane="draft" />
               </Shot>
