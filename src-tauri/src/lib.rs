@@ -93,6 +93,27 @@ fn palette_visible(app: AppHandle) -> bool {
         .unwrap_or(false)
 }
 
+/// "Seal the leak": opens the Mac's own app for the fix. An email link
+/// ("mailto:...") opens Mail with the draft filled in, a phone link ("tel:...")
+/// offers to call, and "calendar" opens the Calendar app. Nothing else is
+/// allowed, so the page can't ask the app to open a web page, a file or a
+/// program. Nothing is sent: Maya does that in Mail herself.
+#[tauri::command]
+fn open_external(target: String) -> Result<(), String> {
+    // `open` is the Mac's "open this like a double-click" tool. The link is passed
+    // as one argument (no shell in between), so its text can't run anything.
+    let mut open = std::process::Command::new("open");
+    if target == "calendar" {
+        // -b picks the app by its bundle id: Apple's Calendar.
+        open.args(["-b", "com.apple.iCal"]);
+    } else if target.starts_with("mailto:") || target.starts_with("tel:") {
+        open.arg(&target);
+    } else {
+        return Err("Only email, phone and Calendar links can be opened".into());
+    }
+    open.spawn().map(|_| ()).map_err(|e| e.to_string())
+}
+
 /// Onboarding's "Use Cmd+Shift+Space instead": drops Option+Space (another app
 /// probably has it), registers the fallback and remembers the choice for next
 /// launch. Returns the new key labels for the UI.
@@ -196,6 +217,7 @@ pub fn run() {
             use_fallback_hotkey,
             set_hide_on_blur,
             palette_visible,
+            open_external,
             llm::llm_request,
             llm::llm_configured,
             llm::llm_check

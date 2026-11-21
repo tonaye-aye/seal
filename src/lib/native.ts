@@ -126,3 +126,18 @@ export function onWindowFocus(handler: (focused: boolean) => void): () => void {
   return () => void unlisten.then((stop) => stop());
 }
 
+
+/**
+ * Opens Mail ("mailto:..."), a call ("tel:...") or the Calendar app
+ * ("calendar") for Seal the leak. False when it couldn't: in a plain browser
+ * there is no native shell, so nothing opens (the preview says so).
+ */
+export async function openExternal(target: string): Promise<boolean> {
+  if (!isTauri()) return false;
+  try {
+    await invoke("open_external", { target });
+    return true;
+  } catch {
+    return false;
+  }
+}
