@@ -16,7 +16,8 @@ import { getPreferences } from "../../lib/preferences";
 import { DetailHint, ListHint, TimelineHint } from "./FooterHint";
 import { VERB_BY_CODE } from "./DraftVerbs";
 import { SetupScreen, welcomeLocked } from "../Onboarding/SetupScreen";
-import { approve, cancelReminder, cancelRewrite, chooseRoute, pressVerb, dismiss, isEdited, notify, rankedFindings, remind, reopen, resetEdit, syncEverything, undoLast, useScan } from "../../lib/scan-store";
+import { approve, cancelReminder, cancelRewrite, chooseRoute, pressVerb, dismiss, isEdited, notify, rankedFindings, rememberWhy, remind, reopen, resetEdit, syncEverything, undoLast, useScan } from "../../lib/scan-store";
+import { RULE_REASONS } from "../../lib/rules";
 import { openComplaintBody, seal, sealTarget } from "../seal";
 import { chosenRoute, escalationPage, routePage, routeText, usesEmail, type SamplePage } from "../fix-route";
 import { SamplePageSheet } from "./RoutePanel";
@@ -766,6 +767,13 @@ export function Palette() {
       }
       if (event.metaKey || event.ctrlKey || event.altKey) return;
 
+      // 1, 2 and 3 answer "why isn't it a leak?" while the toast is asking, ahead of the route switcher.
+      if (scan.toast?.ask && /^[123]$/.test(key)) {
+        event.preventDefault();
+        rememberWhy(scan.toast.ask, RULE_REASONS[Number(key) - 1]);
+        return;
+      }
+
       // Settings on its Connectors or Models tab, from any view.
       if (lower === "n" || lower === "m") {
         event.preventDefault();
@@ -826,6 +834,12 @@ export function Palette() {
       if (inDetail && event.shiftKey && VERB_BY_CODE[event.code]) {
         event.preventDefault();
         if (selectedFinding) pressVerb(selectedFinding.id, VERB_BY_CODE[event.code]);
+        return;
+      }
+      // On a finding marked "Not a leak", the numbers say why (or change the answer).
+      if (inDetail && selectedFinding?.status === "dismissed" && /^[123]$/.test(key)) {
+        event.preventDefault();
+        rememberWhy(selectedFinding.id, RULE_REASONS[Number(key) - 1]);
         return;
       }
       if (inDetail && !event.shiftKey && /^[1-4]$/.test(key)) {
@@ -1099,6 +1113,7 @@ export function Palette() {
                 panelOpen={!!selectedStop && "panel" in selectedStop && panels.includes(selectedStop.panel)}
                 twoPanes={!!selectedItem && "evidence" in selectedItem && sidebarShown}
                 detailsOpen={hasDetails ? detailsOpen : undefined}
+                canSayWhy={selectedFinding?.status === "dismissed"}
                 mouse={mouse}
                 onToggle={() => run(pane === "evidence" ? "toggle" : "details")}
                 onPane={() => run("pane")}

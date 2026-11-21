@@ -7,6 +7,7 @@ import { CountUp } from "../CountUp";
 import { daysUntil, headlineAmount, isUnsure, shortDate, urgency } from "../format";
 import { Tip } from "../layers";
 import { SavedTag } from "../replay";
+import { cameBackLine } from "../rule-words";
 
 // One row of the findings list. Every kind of row draws through RowCells, so
 // the date and amount columns always line up. The cells are a plain fragment:
@@ -105,15 +106,23 @@ export function FindingCells({ finding, saved = false }: { finding: Finding; sav
         ? (readyLabel(finding, scan) ?? (finding.draft ? copy.shared.decided.approved : copy.shared.decided.handled))
         : copy.shared.decided[finding.status];
   const unsure = !done && isUnsure(finding);
+  // Set aside with a reason: what Maya said. Back in the list: why, with the detail in a tooltip.
+  const said = finding.status === "dismissed" ? scan.rules[finding.id]?.reason : undefined;
+  const back = finding.status === "new" ? scan.returned[finding.id] : undefined;
   return (
     <RowCells
       mark={approved ? <Check size={15} strokeWidth={2.25} aria-hidden="true" className="text-positive" /> : <Tile name={finding.merchant} />}
       name={finding.merchant}
       quiet={done}
-      note={status ?? copy.shared.kind[finding.kind]}
+      note={said ? copy.rules.youSaid[said] : (status ?? copy.shared.kind[finding.kind])}
       flags={
-        !done && (saved || unsure) ? (
+        !done && (saved || unsure || back) ? (
           <span className="flex shrink-0 items-baseline gap-3">
+            {back && (
+              <Tip content={cameBackLine(back)}>
+                <span className="shrink-0 text-meta text-info">{copy.rules.cameBack}</span>
+              </Tip>
+            )}
             {saved && <SavedTag />}
             {unsure && <NotSureNote />}
           </span>

@@ -18,6 +18,7 @@ import { viteSeedSource } from "../connectors/source.vite";
 import { buildCorpus } from "../agent/corpus";
 import { now } from "../lib/clock";
 import { toZonedIso } from "../lib/dates";
+import type { Rule, RuleReason } from "../lib/rules";
 import type { ScanState, TraceLine } from "../lib/scan-store";
 import type { OnboardingState } from "../lib/onboarding";
 import type { EndpointStatus } from "../lib/endpoint";
@@ -357,7 +358,23 @@ function base(corpus: Corpus | undefined): ScanState {
     routes: {},
     rewrites: {},
     rewriting: {},
+    rules: {},
+    returned: {},
     undo: [],
+  };
+}
+
+/** A remembered answer, with a made-up record of the bank at the dismissal. */
+function sampleRule(id: string, reason: RuleReason | undefined, recurring: { key: string; cents: number }[] = []): Rule {
+  const f = findings.find((x) => x.id === id)!;
+  return {
+    findingId: id,
+    reason,
+    merchant: f.merchant,
+    kind: f.kind,
+    keys: f.keys,
+    baseline: { recurring: recurring.map((r) => ({ ...r, accountId: "acc_joint_everyday" })), seen: {} },
+    at: Date.now(),
   };
 }
 
@@ -696,6 +713,58 @@ export function scanSamples(corpus: Corpus | undefined) {
       ...done,
       decisions: Object.fromEntries(findings.map((f, i) => [f.id, i % 2 ? "dismissed" : "approved"])),
       decidedAt: Object.fromEntries(findings.map((f, i) => [f.id, mins(i + 1)])),
+    } satisfies ScanState,
+    /** D: the toast asks why, and holds keys 1 to 3 while it shows. */
+    ruleAsking: {
+      ...done,
+      decisions: { "f-brightpage": "dismissed" },
+      decidedAt: { "f-brightpage": mins(0) },
+      rules: { "f-brightpage": sampleRule("f-brightpage", undefined, [{ key: "brightpage", cents: 1499 }]) },
+      toast: { id: 1, text: copy.toasts.dismissed("BrightPage Kids"), undoable: true, ask: "f-brightpage" },
+    } satisfies ScanState,
+    /** Answered: the toast says what would bring it back. */
+    ruleAnswered: {
+      ...done,
+      decisions: { "f-brightpage": "dismissed" },
+      decidedAt: { "f-brightpage": mins(0) },
+      rules: { "f-brightpage": sampleRule("f-brightpage", "wanted", [{ key: "brightpage", cents: 1499 }]) },
+      toast: { id: 1, text: copy.rules.remembered(copy.rules.until.wantedAmount("$14.99")), undoable: true },
+    } satisfies ScanState,
+    /** Set aside with no answer: the finding still offers the question. */
+    ruleNoReason: {
+      ...done,
+      decisions: { "f-brightpage": "dismissed" },
+      decidedAt: { "f-brightpage": mins(3) },
+      rules: { "f-brightpage": sampleRule("f-brightpage", undefined, [{ key: "brightpage", cents: 1499 }]) },
+    } satisfies ScanState,
+    /** All three answers in "Checked and left alone" and in Settings. */
+    ruleKept: {
+      ...done,
+      decisions: { "f-brightpage": "dismissed", "f-skylink": "dismissed", "f-redgum": "dismissed" },
+      decidedAt: { "f-brightpage": mins(3), "f-skylink": mins(2), "f-redgum": mins(1) },
+      rules: {
+        "f-brightpage": sampleRule("f-brightpage", "wanted", [{ key: "brightpage", cents: 1499 }]),
+        "f-skylink": sampleRule("f-skylink", "sorted", [{ key: "skylink", cents: 9900 }]),
+        "f-redgum": sampleRule("f-redgum", "wrong"),
+      },
+    } satisfies ScanState,
+    /** Each way a finding comes back. Made-up figures: the seed can't produce these on its own. */
+    ruleBack: {
+      ...done,
+      decisions: { "f-brightpage": "dismissed", "f-skylink": "dismissed", "f-redgum": "dismissed", "f-streambox": "dismissed" },
+      decidedAt: { "f-brightpage": mins(4), "f-skylink": mins(3), "f-redgum": mins(2), "f-streambox": mins(1) },
+      rules: {
+        "f-brightpage": sampleRule("f-brightpage", "wanted", [{ key: "brightpage", cents: 1499 }]),
+        "f-skylink": sampleRule("f-skylink", "sorted", [{ key: "skylink", cents: 9900 }]),
+        "f-redgum": sampleRule("f-redgum", "wrong"),
+        "f-streambox": sampleRule("f-streambox", "sorted", [{ key: "apple", cents: 1799 }, { key: "streambox", cents: 1799 }]),
+      },
+      returned: {
+        "f-brightpage": { why: "amount_changed", from: 1499, to: 1699, date: "2026-12-18" },
+        "f-skylink": { why: "charged_again", cents: 9900, date: "2026-12-14" },
+        "f-redgum": { why: "new_problem", kind: "price_increase" },
+        "f-streambox": { why: "bank_unread" },
+      },
     } satisfies ScanState,
     toastNoUndo: { ...done, toast: { id: 1, text: "The draft is still being written. Try again in a moment.", undoable: false } } satisfies ScanState,
     toast: {

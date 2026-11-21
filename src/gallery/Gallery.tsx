@@ -891,6 +891,12 @@ export function Gallery() {
               <Shot title="Not a leak goes in the group" note="D: Maya says it's fine, so it joins the cases the agent left alone (⌘Z brings it back)">
                 <PaletteFrame scan={dismissedTop} group selected={top.id} />
               </Shot>
+              <Shot title="Left alone, with what Maya said" note="All three answers. A reason replaces the plain Not a leak">
+                <PaletteFrame scan={s.ruleKept} group selected="f-brightpage" />
+              </Shot>
+              <Shot title="Came back" note="Made-up later charges: the seed can't do this by itself. The tooltip has the reason in figures">
+                <PaletteFrame scan={s.ruleBack} selected="f-brightpage" />
+              </Shot>
               <Shot title="All approved" note="Ready to send on drafted ones, Handled when there's nothing to send">
                 <PaletteFrame scan={s.approved} />
               </Shot>
@@ -995,6 +1001,24 @@ export function Gallery() {
               </Shot>
               <Shot title="Whole source: a bank line" note="A transaction has no text: its description as the title, then account, date and amount">
                 <PaletteFrame scan={s.done} view="detail" selected="f-brightpage" source={0} />
+              </Shot>
+              <Shot title="Not a leak, no answer yet" note="1, 2 and 3 say why. The route keys rest while it's set aside">
+                <PaletteFrame scan={s.ruleNoReason} view="detail" selected="f-brightpage" />
+              </Shot>
+              <Shot title="Not a leak, answered" note="What Maya said and what would bring it back. Another number changes the answer">
+                <PaletteFrame scan={s.ruleKept} view="detail" selected="f-brightpage" />
+              </Shot>
+              <Shot title="Came back: the amount changed" note="Back among the open findings, with its route and draft untouched">
+                <PaletteFrame scan={s.ruleBack} view="detail" selected="f-brightpage" />
+              </Shot>
+              <Shot title="Came back: charged again" note="Already sorted, and Skylink charged the raised price again">
+                <PaletteFrame scan={s.ruleBack} view="detail" selected="f-skylink" />
+              </Shot>
+              <Shot title="Came back: a different problem" note="Seal got it wrong only holds for the same kind of problem">
+                <PaletteFrame scan={s.ruleBack} view="detail" selected="f-redgum" />
+              </Shot>
+              <Shot title="Came back: bank unread" note="Uncertain, so it shows. The next good check puts it away again">
+                <PaletteFrame scan={s.ruleBack} view="detail" selected="f-streambox" />
               </Shot>
               <Shot title="Keys on the draft" note="Tab: J/K scroll the draft, the sidebar's highlight goes away, the footer says Tab Evidence">
                 <PaletteFrame scan={s.done} view="detail" selected="f-skylink" pane="draft" />
@@ -1277,6 +1301,12 @@ export function Gallery() {
               <Shot title="Toast with undo" note="Replays every 5 s">
                 <PaletteFrame scan={s.toast} selected="f-ironworks" />
               </Shot>
+              <Shot title="Not a leak: the toast asks why" note="D. Keys 1 to 3 belong to it while it shows. Ignoring it is fine">
+                <PaletteFrame scan={s.ruleAsking} selected="f-ironworks" />
+              </Shot>
+              <Shot title="Not a leak: answered" note="Says what would bring it back, with Undo for the dismissal and its rule together">
+                <PaletteFrame scan={s.ruleAnswered} selected="f-ironworks" />
+              </Shot>
               <Shot title="Reminder couldn't be added" note="Calendar signed out (⌘⇧D, 1): nothing is stored, and R signs it back in">
                 <PaletteFrame scan={s.reminderFailed} />
               </Shot>
@@ -1339,6 +1369,18 @@ export function Gallery() {
               </Shot>
               <Shot title="Filters, nothing to filter yet">
                 <PaletteFrame scan={s.idle} live="none" settings="filters" />
+              </Shot>
+              <Shot title="Remembered, nothing yet" note="The empty state says how a rule gets here">
+                <PaletteFrame scan={s.done} settings="remembered" />
+              </Shot>
+              <Shot title="Remembered" note="Each answer and what would bring it back. A number or the bin forgets it, and the finding returns">
+                <PaletteFrame scan={s.ruleKept} settings="remembered" />
+              </Shot>
+              <Shot title="Remembered, mouse mode">
+                <PaletteFrame scan={s.ruleKept} mouse settings="remembered" />
+              </Shot>
+              <Shot title="Remembered, some came back" note="A rule stays listed while its finding is back, with the reason">
+                <PaletteFrame scan={s.ruleBack} settings="remembered" />
               </Shot>
               <Shot title="General" note="The summon key and the background check">
                 <PaletteFrame scan={s.done} settings="general" />
