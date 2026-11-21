@@ -138,6 +138,20 @@ These are real failures seen while building, for the report.
    the charge date, household mail by kind of business, same folder) found 76/76 evidence items, so the
    scan makes no embedding calls. On real mail, where names don't line up, embeddings are the fallback.
 
+## Fix routes (21 Nov)
+
+Each finding now gets a recommended way to fix it (email, call, chat or online steps), from a bundled help directory.
+Code narrows the options, Flash picks among them and writes the call script and chat opener, and code checks the words.
+
+- **On saved answers:** 7/7 best route, 7/7 pass the check, 7/7 have their scripts. The earlier results are unchanged.
+- **Three fully live runs (`--live --repeat 3`):** recall 21/21, decoys 0/6, kind 21/21, citations 21/21, **amount 17/21, deadline
+  20/21, drafts 17/21, routes 18/21**. Routes were right on all 18 findings that had a draft. The other 3 had no draft because the
+  judge gave no action. The amount misses came from fresh extraction: Redgum had no figures once and **$2.00 at high confidence**
+  once. Results elsewhere in this file reuse saved extraction, so they are not a measure of a fully live check.
+- **What the check caught while building:** an invented $200.00, household email addresses, a blank `[Account Number]`, and a chat
+  asking StreamBox to cancel a subscription only Apple can cancel. Reading the scripts also found a veiled threat and a made-up
+  "my husband", which the prompt now rules out; those two can't be caught by a pattern, so they still rely on reading the output.
+
 ## Caveats
 
 - The detectors' keyword rules and verify's label matching were written while looking at this seed. They are
