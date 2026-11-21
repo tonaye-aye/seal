@@ -264,6 +264,7 @@ export async function resetOnboarding(): Promise<boolean> {
   try {
     localStorage.removeItem("life.decisions");
     localStorage.removeItem("life.routes");
+    localStorage.removeItem("life.rewrites");
     localStorage.removeItem("life.hintSeen");
   } catch {
     // Nothing to clear.

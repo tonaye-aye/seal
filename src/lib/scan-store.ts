@@ -12,7 +12,8 @@
 // while the palette is hidden, and only swaps in the new results at the end.
 
 import { createContext, useContext, useSyncExternalStore } from "react";
-import { discardSaved, saveDraft } from "../agent/draft.ts";
+import { discardSaved, loadVoice, saveDraft } from "../agent/draft.ts";
+import { rewriteDraft, type RewriteOutcome, type Verb } from "../agent/rewrite.ts";
 import { copy } from "../copy.ts";
 import type { Corpus } from "../agent/corpus.ts";
 import { rank, runScan, type AgentEvent, type Cleared, type Finding, type ScanResult, type Stage } from "../agent/pipeline.ts";
@@ -21,9 +22,10 @@ import { getPreferences } from "./preferences.ts";
 import { ConnectorError } from "../connectors/runtime.ts";
 import { reminderEvent, type Reminder } from "./reminders.ts";
 import { shortDate } from "../ui/format.ts";
-import { chosenRoute } from "../ui/fix-route.ts";
+import { chosenRoute, usesEmail } from "../ui/fix-route.ts";
 import type { ConnectorId } from "../connectors/types.ts";
-import { checkEndpoint, dropAfterCalls, markLost, usesReplay, type EndpointState, type EndpointStatus } from "./endpoint.ts";
+import { draftKey, keepVersion, shownDraft, showVerb, stepBack, versionsFor, type DraftVersions } from "./draft-versions.ts";
+import { checkEndpoint, dropAfterCalls, getEndpoint, markLost, usesReplay, type EndpointState, type EndpointStatus } from "./endpoint.ts";
 import { tauriTransport } from "./llm-tauri.ts";
 import { createModelSession } from "./model-session.ts";
 
@@ -40,8 +42,8 @@ export type TraceLine = {
 export type Toast = { id: number; text: string; undoable: boolean };
 
 type UndoEntry = {
-  /** A decision (approve, not a leak) or a reminder Maya added. Decisions when absent. */
-  kind?: "decision" | "reminder";
+  /** A decision (approve, not a leak), a reminder Maya added, or a verb's rewrite. Decisions when absent. */
+  kind?: "decision" | "reminder" | "rewrite";
   findingId: string;
   before: Decision;
   /** The draft being saved for this approval: resolves to its id, or undefined if saving failed. */
@@ -88,6 +90,10 @@ export type ScanState = {
   reminders: Record<string, Reminder>;
   /** The way of fixing each finding Maya picked (1-4), by finding id. None: the recommended one. */
   routes: Record<string, string>;
+  /** Firmer and Shorter versions of each draft, by finding id. */
+  rewrites: Record<string, DraftVersions>;
+  /** The verb being written right now, by finding id. */
+  rewriting: Record<string, Verb>;
   undo: UndoEntry[];
   toast?: Toast;
 };
@@ -157,6 +163,25 @@ function persistRoutes(routes: Record<string, string>) {
   }
 }
 
+const REWRITES_KEY = "life.rewrites";
+
+function loadRewrites(): Record<string, DraftVersions> {
+  try {
+    const raw = JSON.parse(localStorage.getItem(REWRITES_KEY) ?? "null") as { v?: number; rewrites?: Record<string, DraftVersions> } | null;
+    return raw?.v === 1 && raw.rewrites ? raw.rewrites : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistRewrites(rewrites: Record<string, DraftVersions>) {
+  try {
+    localStorage.setItem(REWRITES_KEY, JSON.stringify({ v: 1, rewrites }));
+  } catch {
+    // Storage can be unavailable; rewrites then last until the app quits.
+  }
+}
+
 /** True until the first scan after launch has put the reminders back in the calendar (the stand-in calendar lives in memory). */
 let remindersPending = Object.keys(loadReminders()).length > 0;
 
@@ -171,6 +196,8 @@ let state: ScanState = {
   ...loadSaved(),
   reminders: loadReminders(),
   routes: loadRoutes(),
+  rewrites: loadRewrites(),
+  rewriting: {},
   undo: [],
 };
 const listeners = new Set<() => void>();
@@ -247,9 +274,12 @@ export async function resetScan(): Promise<boolean> {
     decidedAt: {},
     reminders: {},
     routes: {},
+    rewrites: {},
+    rewriting: {},
     undo: [],
     toast: undefined,
   });
+  rewritesRunning.clear();
   return true;
 }
 
@@ -258,6 +288,7 @@ function set(change: Partial<ScanState>) {
   if (("decisions" in change || "edits" in change || "saved" in change || "decidedAt" in change)) persist(state);
   if ("reminders" in change) persistReminders(state.reminders);
   if ("routes" in change) persistRoutes(state.routes);
+  if ("rewrites" in change) persistRewrites(state.rewrites);
   for (const listener of listeners) listener();
 }
 
@@ -394,7 +425,10 @@ export async function startScan({ background = false } = {}): Promise<void> {
   if (background && state.phase === "done") {
     return runBackground();
   }
+  // A full check replaces the drafts, so a rewrite still being written no longer applies.
+  rewritesRunning.clear();
   set({
+    rewriting: {},
     phase: "scanning",
     startedAt: Date.now(),
     finishedAt: undefined,
@@ -451,6 +485,7 @@ export async function startScan({ background = false } = {}): Promise<void> {
       usedReplay: result.usedReplay,
       trace: trace(copy.trace.done(Date.now() - (state.startedAt ?? Date.now())), "good"),
     });
+    forgetOldRewrites();
     await restoreDrafts();
     await restoreReminders();
   } catch (error) {
@@ -495,6 +530,7 @@ async function runBackground(): Promise<void> {
       replay: endpoint.state === "forced" ? { why: "forced", detail: endpoint.detail } : undefined,
       trace: trace(copy.trace.checkedAgain(Date.now() - (state.startedAt ?? Date.now())), "good"),
     });
+    forgetOldRewrites();
   } catch (error) {
     // Keep the last good results; just say the background check didn't finish.
     const message = error instanceof Error ? error.message : String(error);
@@ -644,7 +680,13 @@ function restoreUndo(): UndoEntry[] {
     at: r.at,
     entry: { kind: "reminder", findingId, before: "new", label: copy.toasts.decision.reminder } as UndoEntry,
   }));
-  return [...decisions, ...reminders].sort((a, b) => a.at - b.at).map((x) => x.entry);
+  const rewrites = Object.entries(loadRewrites()).flatMap(([findingId, entry]) =>
+    entry.trail.map((step) => ({
+      at: step.at,
+      entry: { kind: "rewrite", findingId, before: "new", label: copy.toasts.decision.rewrite } as UndoEntry,
+    })),
+  );
+  return [...decisions, ...reminders, ...rewrites].sort((a, b) => a.at - b.at).map((x) => x.entry);
 }
 
 /** Resolves to the finding's saved draft id once there is one (or undefined if the first scan ends without one). */
@@ -684,7 +726,9 @@ export function startBackgroundChecks(isHidden: () => boolean, everyMs = BACKGRO
 export function withDecision(f: Finding, s: ScanState = state): Finding {
   const status = s.decisions[f.id] ?? "new";
   const body = s.edits[f.id];
-  return { ...f, status, draft: f.draft && body !== undefined ? { ...f.draft, body } : f.draft };
+  // The version on screen (Seal's, or a verb's rewrite), then Maya's own edits on top.
+  const draft = shownDraft(f.draft, s.rewrites[f.id], status === "approved");
+  return { ...f, status, draft: draft && body !== undefined ? { ...draft, body } : draft };
 }
 
 /** Maya changed the draft's text ("Edited by you", Revert). */
@@ -733,6 +777,8 @@ function decide(findingId: string, status: Decision, entry: Omit<UndoEntry, "fin
 export async function approve(findingId: string): Promise<void> {
   const finding = state.findings.find((f) => f.id === findingId);
   if (!finding || (state.decisions[findingId] ?? "new") !== "new") return;
+  // Approving takes the version on screen: a rewrite still being written is ignored.
+  cancelRewrite(findingId);
   const shown = withDecision(finding);
   // The route is fixed by approving. Only Email saves a draft: a call, chat or
   // online step is Maya's to do, so nothing goes to the mailbox.
@@ -775,6 +821,7 @@ export async function approve(findingId: string): Promise<void> {
 
 export function dismiss(findingId: string): void {
   if ((state.decisions[findingId] ?? "new") !== "new") return;
+  cancelRewrite(findingId);
   const f = state.findings.find((x) => x.id === findingId);
   decide(findingId, "dismissed", { label: copy.toasts.decision.dismissed });
   showToast(copy.toasts.dismissed(f?.merchant ?? copy.toasts.it), true);
@@ -782,10 +829,22 @@ export function dismiss(findingId: string): void {
 
 /** Puts back the most recent decision (and removes its saved draft, if any), or removes the last reminder. */
 export async function undoLast(): Promise<void> {
+  // A rewrite still being written is the newest thing to take back.
+  const writing = Object.keys(state.rewriting)[0];
+  if (writing) {
+    cancelRewrite(writing);
+    return showToast(copy.verbs.stopped, false);
+  }
   const entry = state.undo[state.undo.length - 1];
   if (!entry) return;
+  // Maya's own edits sit on top of this rewrite, so going back would mix the two.
+  if (entry.kind === "rewrite" && state.edits[entry.findingId] !== undefined) {
+    const merchant = state.findings.find((x) => x.id === entry.findingId)?.merchant ?? copy.toasts.it;
+    return showToast(copy.verbs.revertEditsFirst(merchant), false);
+  }
   set({ undo: state.undo.slice(0, -1) });
   if (entry.kind === "reminder") return removeReminder(entry.findingId);
+  if (entry.kind === "rewrite") return goBackOneVersion(entry.findingId);
   const savedId = await revert(entry);
   const f = state.findings.find((x) => x.id === entry.findingId);
   showToast(savedId ? copy.toasts.undoneDraft(f?.merchant) : copy.toasts.undone(f?.merchant), false);
@@ -800,7 +859,7 @@ export async function reopen(findingId: string): Promise<boolean> {
   if (state.decisions[findingId] !== "approved") return false;
   // Its latest decision in the undo list (it may be gone after a restart).
   let at = state.undo.length - 1;
-  while (at >= 0 && (state.undo[at].findingId !== findingId || state.undo[at].kind === "reminder")) at--;
+  while (at >= 0 && (state.undo[at].findingId !== findingId || (state.undo[at].kind ?? "decision") !== "decision")) at--;
   const entry: UndoEntry = at >= 0 ? state.undo[at] : { findingId, before: "new", label: "" };
   if (at >= 0) set({ undo: state.undo.filter((_, i) => i !== at) });
   await revert(entry);
@@ -919,4 +978,123 @@ export function setEdit(findingId: string, body: string): void {
 export function resetEdit(findingId: string): void {
   const { [findingId]: _gone, ...edits } = state.edits;
   set({ edits });
+}
+
+// ---------- Draft verbs (Firmer, Shorter) ----------
+
+/** The latest run for each finding. A result from any other run is late, so it isn't shown. */
+const rewritesRunning = new Map<string, number>();
+let rewriteRun = 0;
+
+/** A call that takes this long has stopped being a quick rewrite. */
+const REWRITE_LIMIT_MS = 30_000;
+
+/** Why this finding's draft can't be rewritten right now, or undefined if it can. */
+export function cannotRewrite(findingId: string, s: ScanState = state): string | undefined {
+  const finding = s.findings.find((f) => f.id === findingId);
+  if (!finding?.draft) return copy.verbs.noDraft;
+  if (s.phase === "scanning" || !s.corpus) return copy.verbs.waitForCheck;
+  if ((s.decisions[findingId] ?? "new") !== "new") return copy.verbs.alreadyDecided;
+  if (!usesEmail(withDecision(finding, s), s)) return copy.verbs.emailOnly;
+  if (s.edits[findingId] !== undefined) return copy.verbs.revertFirst;
+  return undefined;
+}
+
+/** Stops waiting for a rewrite. If it arrives later it's kept for next time, but not shown. */
+export function cancelRewrite(findingId: string): void {
+  if (!state.rewriting[findingId]) return;
+  rewritesRunning.delete(findingId);
+  const { [findingId]: _gone, ...rewriting } = state.rewriting;
+  set({ rewriting });
+}
+
+/**
+ * A verb's key or button. Pressing the verb on screen goes back to the version
+ * before it, a version already written comes back at once, and anything else
+ * asks the model.
+ */
+export function pressVerb(findingId: string, verb: Verb): void {
+  const why = cannotRewrite(findingId);
+  if (why) return showToast(why, false);
+  const finding = state.findings.find((f) => f.id === findingId)!;
+  const original = finding.draft!;
+  // Pressed again while it's being written: stop waiting.
+  if (state.rewriting[findingId] === verb) return cancelRewrite(findingId);
+  cancelRewrite(findingId);
+  const entry = versionsFor(original, state.rewrites[findingId]);
+  if (entry?.active === verb) {
+    let at = state.undo.length - 1;
+    while (at >= 0 && !(state.undo[at].kind === "rewrite" && state.undo[at].findingId === findingId)) at--;
+    if (at >= 0) set({ undo: state.undo.filter((_, i) => i !== at) });
+    return goBackOneVersion(findingId);
+  }
+  if (entry?.versions[verb]) return putOnScreen(findingId, entry, verb);
+  void writeRewrite(finding, verb);
+}
+
+function putOnScreen(findingId: string, entry: DraftVersions, verb: Verb) {
+  set({
+    rewrites: { ...state.rewrites, [findingId]: showVerb(entry, verb, Date.now()) },
+    undo: [...state.undo, { kind: "rewrite", findingId, before: state.decisions[findingId] ?? "new", label: copy.toasts.decision.rewrite }],
+  });
+}
+
+function goBackOneVersion(findingId: string) {
+  const entry = state.rewrites[findingId];
+  if (!entry) return;
+  const back = stepBack(entry);
+  set({ rewrites: { ...state.rewrites, [findingId]: back } });
+  showToast(back.active ? copy.verbs.backToVerb(copy.verbs.name[back.active]) : copy.verbs.backToOriginal, false);
+}
+
+async function writeRewrite(finding: Finding, verb: Verb): Promise<void> {
+  const id = finding.id;
+  const original = finding.draft!;
+  const run = ++rewriteRun;
+  rewritesRunning.set(id, run);
+  set({ rewriting: { ...state.rewriting, [id]: verb } });
+
+  // Live, unless this app is on saved answers. A saved answer says so on screen.
+  const session = createModelSession({
+    transport: tauriTransport,
+    start: usesReplay(getEndpoint().state) ? "replay" : "live",
+    callLimitMs: REWRITE_LIMIT_MS,
+  });
+  let outcome: RewriteOutcome;
+  try {
+    const voice = await loadVoice(await getConnectors());
+    outcome = await rewriteDraft(session, finding, original, state.corpus!, voice, verb);
+  } catch (error) {
+    const problem = error instanceof Error ? error.message : String(error);
+    outcome = { ok: false, why: "failed", problems: [problem], attempts: [] };
+  }
+
+  const latest = rewritesRunning.get(id) === run;
+  if (latest) cancelRewrite(id);
+  // A new check may have written a different draft while this one was on its way.
+  const current = state.findings.find((f) => f.id === id)?.draft;
+  const sameDraft = !!current && draftKey(current) === draftKey(original);
+  if (outcome.ok && sameDraft) {
+    set({ rewrites: { ...state.rewrites, [id]: keepVersion(state.rewrites[id], original, verb, outcome.version) } });
+  }
+  if (!latest) return;
+  if (!outcome.ok) {
+    const name = copy.verbs.name[verb];
+    const offline = outcome.why === "no_saved";
+    return showToast(offline ? (session.lost() ? copy.verbs.unreachable(name) : copy.verbs.notOffline(name)) : copy.verbs.failed(name), false);
+  }
+  if (sameDraft && (state.decisions[id] ?? "new") === "new" && state.edits[id] === undefined) {
+    putOnScreen(id, state.rewrites[id], verb);
+  }
+}
+
+/** After a check: rewrites of a draft that has since changed no longer apply (an approved one stays as approved). */
+function forgetOldRewrites() {
+  const rewrites = { ...state.rewrites };
+  for (const [id, entry] of Object.entries(rewrites)) {
+    const draft = state.findings.find((f) => f.id === id)?.draft;
+    if (draft && !versionsFor(draft, entry) && state.decisions[id] !== "approved") delete rewrites[id];
+  }
+  if (Object.keys(rewrites).length === Object.keys(state.rewrites).length) return;
+  set({ rewrites, undo: state.undo.filter((u) => u.kind !== "rewrite" || rewrites[u.findingId]) });
 }

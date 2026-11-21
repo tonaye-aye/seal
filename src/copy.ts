@@ -329,6 +329,33 @@ export const copy = {
     repeats: "repeats",
   },
 
+  // ---------- Draft verbs ----------
+  /** Firmer and Shorter, under a finding's drafted email. */
+  verbs: {
+    label: "Rewrite this email",
+    name: { firmer: "Firmer", shorter: "Shorter" },
+    writing: (verb: string) => `Writing the ${verb} version…`,
+    checked: "Checked by code",
+    checkedSaved: "Saved answer, checked by code",
+    /** Beside the disabled verbs while a hand-edited draft is on screen. */
+    editedNote: "Edited by you",
+    finishEditing: "Finish editing first",
+    revertTip: "Revert first: press E, then ⌘⇧⌫",
+    backHint: "Back",
+    revertFirst: "Revert your edits first: press E, then ⌘⇧⌫.",
+    revertEditsFirst: (merchant: string) => `Revert your edits to ${merchant} first: press E, then ⌘⇧⌫.`,
+    noDraft: "There's no draft to rewrite.",
+    waitForCheck: "Wait for the check to finish.",
+    alreadyDecided: "This one is already decided. ⌘Z first to rewrite it.",
+    emailOnly: "Firmer and Shorter work on the Email route.",
+    stopped: "Stopped rewriting. Your draft hasn't changed.",
+    backToOriginal: "Back to Seal's draft.",
+    backToVerb: (verb: string) => `Back to the ${verb} version.`,
+    failed: (verb: string) => `Couldn't write a ${verb} version that passed the checks. Your draft hasn't changed.`,
+    notOffline: (verb: string) => `The ${verb} version isn't available offline. Your draft hasn't changed.`,
+    unreachable: (verb: string) => `Couldn't reach the model for the ${verb} version. Your draft hasn't changed.`,
+  },
+
   // ---------- After approve ----------
   /** The "Next" block on an approved finding, and the lines about what should happen once the draft is sent. */
   next: {
@@ -691,7 +718,7 @@ export const copy = {
     undo: "Undo",
     dismiss: "Dismiss",
     /** What each decision is called in the undo list. */
-    decision: { approved: "Saved to Drafts", route: "Route approved", snoozed: "Snoozed", dismissed: "Not a leak", new: "", handled: "Marked as handled", reminder: "Reminder added" },
+    decision: { rewrite: "Rewrote the draft", approved: "Saved to Drafts", route: "Route approved", snoozed: "Snoozed", dismissed: "Not a leak", new: "", handled: "Marked as handled", reminder: "Reminder added" },
   },
 
   // ---------- Onboarding ----------
@@ -839,6 +866,7 @@ export const copy = {
           [["Space"], "Open or close a group, or preview evidence"],
           [["C"], "Checked by code (in a finding)"],
           [["1", "4"], "Choose how to fix it (in a finding)"],
+          [["⇧", "1", "2"], "Make the email firmer or shorter (Email route)"],
           [["Y"], "Copy the script, opener or draft"],
           [["A"], "Approve the chosen way (Email saves a draft)"],
           [["E"], "Edit the draft (takes an approval back)"],

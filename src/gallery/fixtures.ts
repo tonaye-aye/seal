@@ -4,6 +4,8 @@
 // seed/eval, and nothing runs the agent or calls a model.
 
 import type { Corpus } from "../agent/corpus";
+import { copy } from "../copy";
+import { draftKey, type DraftVersions } from "../lib/draft-versions";
 import type { ProposedDraft } from "../agent/draft";
 import { merchantKey } from "../agent/merchants";
 import type { Cleared, Finding, ScanResult } from "../agent/pipeline";
@@ -243,6 +245,17 @@ const norvik: Finding = {
   ),
 };
 
+/** A Firmer rewrite of the Skylink draft, as the store keeps it. */
+function firmerVersion(source: "live" | "cache"): DraftVersions {
+  const draft = skylink.draft!;
+  return {
+    of: draftKey(draft),
+    versions: { firmer: { subject: draft.subject, body: draft.body.replace("Could you please", "Please"), model: "basecompute/qwen3.8-flash-next", source } },
+    active: "firmer",
+    trail: [{ from: null, at: 1 }],
+  };
+}
+
 export const FINDINGS = { skylink, streambox, ironworks, brightpage, redgum };
 
 const kookaburra: Cleared = {
@@ -342,6 +355,8 @@ function base(corpus: Corpus | undefined): ScanState {
     decidedAt: {},
     reminders: {},
     routes: {},
+    rewrites: {},
+    rewriting: {},
     undo: [],
   };
 }
@@ -581,6 +596,11 @@ export function scanSamples(corpus: Corpus | undefined) {
       toast: { id: 1, text: "Couldn't add the reminder: Calendar needs reconnecting. Press R to reconnect.", undoable: false },
     } satisfies ScanState,
     edited: { ...done, edits: { "f-skylink": skylink.draft!.body.replace("Could you please", "Can you") } } satisfies ScanState,
+    rewriting: { ...done, rewriting: { "f-skylink": "firmer" } } satisfies ScanState,
+    rewritten: { ...done, rewrites: { "f-skylink": firmerVersion("live") } } satisfies ScanState,
+    rewrittenSaved: { ...done, rewrites: { "f-skylink": firmerVersion("cache") } } satisfies ScanState,
+    rewriteFailed: { ...done, toast: { id: 1, text: copy.verbs.failed("Firmer"), undoable: false } } satisfies ScanState,
+    rewriteOffline: { ...done, toast: { id: 1, text: copy.verbs.notOffline("Shorter"), undoable: false } } satisfies ScanState,
     scanning: {
       ...done,
       phase: "scanning",
