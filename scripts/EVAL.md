@@ -204,6 +204,24 @@ Three fully live runs (`eval.ts --live --repeat 3`), every model call fresh:
 The two misses were both in earlier cases: one Wattle draft left out the quote's 4 December end date, and one Redgum route chose Email
 over the meter-read form. The 295 s run was the first of the three, and the other two took about 130 s. Three runs is a small sample.
 
+## Final live check on the submitted code (22 Nov)
+
+PR #36 made the draft claim check stricter about years after the runs above, so the whole eval was run again on `main` at `5aca746`.
+It ran from a clean copy of the committed code, so the saved answers in `.cache/llm` were not touched.
+
+Three fully live runs (`eval.ts --live --repeat 3`), every model call fresh:
+
+| | Result |
+| --- | --- |
+| Leaks flagged, right kind, amount, deadline, cites evidence | 24/24 each |
+| Decoys flagged, other false alarms | 0/6, 0 |
+| Drafts fully correct / pass the claim check / needed the 35B rewrite | 24/24 / 24/24 / 0 |
+| Best route / pass the check / have their scripts | 24/24 / 24/24 / 24/24 |
+| Time per scan | 103-155 s |
+
+These three runs had no misses, but the three before them, with the same prompts, missed one Wattle draft and one Redgum route, so
+those mistakes can still happen. Three runs is a small sample. The drafts were scored by the eval's checks and not read by hand.
+
 ## Caveats
 
 - The detectors' keyword rules and verify's label matching were written while looking at this seed. They are
