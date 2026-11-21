@@ -93,11 +93,19 @@ fn palette_visible(app: AppHandle) -> bool {
         .unwrap_or(false)
 }
 
+/// The only web pages the app may open: the real complaint bodies' own forms.
+/// Exact addresses, so the page can't ask for anything else on those sites.
+const COMPLAINT_PAGES: [&str; 2] = [
+    "https://www.tio.com.au/complaints",
+    "https://www.ewov.com.au/start-a-complaint",
+];
+
 /// "Seal the leak": opens the Mac's own app for the fix. An email link
-/// ("mailto:...") opens Mail with the draft filled in, a phone link ("tel:...")
-/// offers to call, and "calendar" opens the Calendar app. Nothing else is
-/// allowed, so the page can't ask the app to open a web page, a file or a
-/// program. Nothing is sent: Maya does that in Mail herself.
+/// ("mailto:...") opens Mail with the draft filled in, "calendar" opens the
+/// Calendar app, and a complaint body's page opens in the browser. Nothing else
+/// is allowed. Phone links are refused on purpose: the businesses' numbers are
+/// samples and must never really be dialled. Nothing is sent: Maya does that in
+/// Mail herself.
 #[tauri::command]
 fn open_external(target: String) -> Result<(), String> {
     // `open` is the Mac's "open this like a double-click" tool. The link is passed
@@ -106,10 +114,10 @@ fn open_external(target: String) -> Result<(), String> {
     if target == "calendar" {
         // -b picks the app by its bundle id: Apple's Calendar.
         open.args(["-b", "com.apple.iCal"]);
-    } else if target.starts_with("mailto:") || target.starts_with("tel:") {
+    } else if target.starts_with("mailto:") || COMPLAINT_PAGES.contains(&target.as_str()) {
         open.arg(&target);
     } else {
-        return Err("Only email, phone and Calendar links can be opened".into());
+        return Err("Only email, Calendar and complaint-body links can be opened".into());
     }
     open.spawn().map(|_| ()).map_err(|e| e.to_string())
 }
