@@ -1,22 +1,22 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { ChevronRight, Ellipsis } from "lucide-react";
 import * as Accordion from "@radix-ui/react-accordion";
 import { Menu, MenuItem, Tip } from "../layers";
 import type { Cleared, Finding } from "../../agent/pipeline";
 import { useLive } from "../../connectors/live";
 import { useScan, type ScanState } from "../../lib/scan-store";
-import { fromSaved, mixedReplay, SavedTag } from "../replay";
-import { daysUntil, headlineAmount, isUnsure, shortDate, urgency, type Urgency } from "../format";
+import { fromSaved, mixedReplay } from "../replay";
+import { shortDate, urgency, type Urgency } from "../format";
 import { copy } from "../../copy";
 import { KeyText } from "../KeyText";
 import { ApproveIcon, DismissIcon, SealIcon, RemindIcon } from "../icons";
 import { sealTarget } from "../seal";
 import { Kbd } from "../Kbd";
-import { CountUp } from "../CountUp";
 import { useFlip, useGlide, useScrollFade } from "../motion";
 import { TraceLines } from "./Trace";
 import { ViewHeading } from "./ViewHeading";
 import { FilterChips } from "./Filters";
+import { ClearedCells, FindingCells, GroupLabel, MENU_SLOT, ROW, ROW_SHAPE, UndecidedCells } from "./ListRow";
 import type { FilterId } from "../filters";
 
 // The palette's main view: a plain-words headline, then one row per finding,
@@ -182,10 +182,13 @@ export function Headline({
 
 // ---------- First-run hint ----------
 
+// Notes above the rows: the box matches the row highlight, and the words start at the tile's edge.
+const NOTE = "mx-1.5 mb-2 rounded-md px-2.5 py-2 text-small text-muted";
+
 export function FirstRunHint({ onDismiss }: { onDismiss: () => void }) {
   return (
-    <div className="mx-3 mb-2 flex items-start justify-between gap-3 rounded-lg border border-hairline bg-raised/60 px-3.5 py-2.5 text-small">
-      <div className="text-muted">
+    <div className={`${NOTE} flex items-start justify-between gap-3 bg-raised/60`}>
+      <div>
         {copy.list.hint.map((line) => (
           <p key={line}>
             <KeyText text={line} />
@@ -201,36 +204,13 @@ export function FirstRunHint({ onDismiss }: { onDismiss: () => void }) {
 
 // ---------- Rows ----------
 
-const STATUS_CHIP: Record<Exclude<Finding["status"], "new">, { text: string; className: string }> = {
-  approved: { text: copy.shared.decided.approved, className: "text-positive border-positive/30" },
-  snoozed: { text: copy.shared.decided.snoozed, className: "text-faint border-hairline" },
-  dismissed: { text: copy.shared.decided.dismissed, className: "text-faint border-hairline" },
-};
-
-/** A deadline's colour: amber only when it is within a week. */
+/** An open finding's deadline chip colour: amber only when it is within a week. */
 export const DEADLINE_TONE: Record<Urgency, string> = {
   soon: "bg-amber-glow text-amber",
   near: "text-text",
   later: "text-muted",
   none: "text-faint",
 };
-
-/** The row's dot says how pressing it is: amber within a week, solid within two, a ring after that. */
-const URGENCY_DOT: Record<Urgency, string> = {
-  soon: "bg-amber",
-  near: "bg-muted",
-  later: "border border-muted",
-  none: "border border-faint",
-};
-
-export function DeadlineChip({ date }: { date: string }) {
-  const days = daysUntil(date);
-  return (
-    <Tip content={copy.dates.days(days)}>
-      <span className={`inline-flex h-5 items-center rounded-full px-2 figure text-label ${DEADLINE_TONE[urgency(date)]}`}>{shortDate(date)}</span>
-    </Tip>
-  );
-}
 
 export type RowAction = "approve" | "seal" | "dismiss" | "remind";
 
@@ -256,7 +236,7 @@ function RowMenu({ finding, onAct, startOpen = false }: { finding: Finding; onAc
   const remindLabel = noCalendar ? copy.actions.remindNoCalendar : reminder ? copy.actions.remindSet(shortDate(reminder.date)) : copy.actions.remind;
   return (
     // Clicks here act on the row; they must not also open it.
-    <span className="flex w-7 shrink-0 justify-end" onClick={(e) => e.stopPropagation()}>
+    <span className={MENU_SLOT} onClick={(e) => e.stopPropagation()}>
       <Menu
         open={open}
         onOpenChange={(next) => {
@@ -301,73 +281,35 @@ function RowMenu({ finding, onAct, startOpen = false }: { finding: Finding; onAc
   );
 }
 
-// Column widths, shared by every kind of row so the columns line up. The
-// name gets the room the description used to take; kind (or a row's status)
-// is a fixed column, so every kind starts at the same place; amount and date
-// stay on the right edge, where all the money in the app lines up.
-const COL = {
-  name: "w-[220px] shrink-0 truncate",
-  kind: "flex w-[150px] shrink-0 items-center",
-  amount: "w-[88px] shrink-0 text-right",
-  date: "flex w-[60px] shrink-0 justify-end",
-  menu: "w-7 shrink-0",
-};
+// ---------- Groups ----------
 
-function FindingRow({ finding }: { finding: Finding }) {
-  const amount = headlineAmount(finding);
-  const done = finding.status !== "new";
-  // Only a check that is part live, part saved labels rows; otherwise the banner says it.
-  const saved = mixedReplay(useScan()) && fromSaved(finding);
-  const dot = done ? (finding.status === "approved" ? "bg-positive" : "bg-faint") : URGENCY_DOT[urgency(finding.deadline?.date)];
-  const status = done ? STATUS_CHIP[finding.status as keyof typeof STATUS_CHIP] : undefined;
-  // Approved with nothing to send reads "Handled", not "Ready to send".
-  const statusText = finding.status === "approved" && !finding.draft ? copy.shared.decided.handled : status?.text;
-  return (
-    <>
-      <span className={`size-1.5 shrink-0 rounded-full ${dot}`} aria-hidden="true" />
-      <span className={`${COL.name} font-semibold ${done ? "font-normal text-muted" : ""}`}>{finding.merchant}</span>
-      {/* The chips belong to the name's side of the gap, right up against the kind. */}
-      <span className="flex min-w-0 flex-1 items-center justify-end gap-2">
-        {!done && saved && <SavedTag />}
-        {!done && isUnsure(finding) && <NotSureChip />}
-      </span>
-      <span className={COL.kind}>
-        {status ? (
-          <span className={`rounded-full border px-2 py-px text-meta ${status.className}`}>{statusText}</span>
-        ) : (
-          // The kind is context, not news: quiet text, no pill.
-          <span className="truncate text-meta text-faint">{copy.shared.kind[finding.kind]}</span>
-        )}
-      </span>
-      {/* Amount and deadline lead the row: the brightest figures, in fixed columns. */}
-      <span className={`${COL.amount} figure text-body ${done ? "text-faint line-through decoration-faint/60" : "text-text"}`}>
-        {amount ? <CountUp id={`row:${finding.id}`} cents={amount.cents} /> : ""}
-      </span>
-      <span className={COL.date}>{finding.deadline && !done ? <DeadlineChip date={finding.deadline.date} /> : null}</span>
-    </>
-  );
+type FindingItem = Extract<ListItem, { type: "finding" }>;
+
+/** The three groups of findings that still need Maya, most pressing first. */
+const OPEN_GROUPS = ["soon", "coming", "none"] as const;
+
+function openGroup(f: Finding): (typeof OPEN_GROUPS)[number] {
+  const due = urgency(f.deadline?.date);
+  return due === "soon" ? "soon" : due === "none" ? "none" : "coming";
 }
 
-/** The agent isn't sure: its own status, so info, not amber. */
-export function NotSureChip() {
-  return <span className="shrink-0 rounded-full border border-info/30 px-2 py-px text-meta text-info">{copy.shared.notSure}</span>;
-}
+// Space above each group, except one that starts the list (right after the highlight).
+const GROUP_GAP = "mt-3 [.glide+&]:mt-0";
 
-function groupTitle(count: number, title: string, flipKey = title) {
+function GroupTitle({ id, label, count }: { id: string; label: string; count: number }) {
   if (!count) return null;
   return (
     // A steady key, so a title whose count changes still slides rather than reappears.
-    <h2 data-flip-key={`group:${flipKey}`} className="mt-3 mb-1 px-2.5 label text-faint">
-      {title}
+    // `relative` keeps the words above the highlight as it slides past.
+    <h2 data-flip-key={`group:${id}`} className={`${GROUP_GAP} relative flex h-6 items-center gap-1.5 px-2.5 text-meta font-medium`}>
+      <GroupLabel label={label} count={count} />
     </h2>
   );
 }
 
-// The selected row is the only highlighted one: one highlight (the raised
-// block with the bar on its left) slides to it (useGlide). Moving the mouse
-// moves it; so do J/K. There is no separate hover style, so the two can never
-// point at different rows.
-const ROW = "row-press group/row relative flex h-8 cursor-pointer items-center gap-3 rounded-md px-2.5 text-body";
+// The selected row is the only highlighted one: one soft block slides to it
+// (useGlide). Moving the mouse moves it; so do J/K. There is no separate hover
+// style, so the two can never point at different rows.
 
 export function FindingsList({
   items,
@@ -427,10 +369,16 @@ export function FindingsList({
   // straight in their places instead.
   useFlip(rowsRef, `${query}|${filters.join()}|${groupIsOpen}`);
   useGlide(rowsRef, highlightRef);
-  const findings = items.flatMap((i) => (i.type === "finding" && !leftAlone(i) && !isApproved(i) ? [i.finding] : []));
-  const approved = items.flatMap((i) => (isApproved(i) && i.type === "finding" ? [i.finding] : []));
+  const main = items.filter((i): i is FindingItem => i.type === "finding" && !leftAlone(i) && !isApproved(i));
+  // Already ranked by date, so each group is one unbroken run and J/K follow the order drawn.
+  const open = main.filter((i) => i.finding.status === "new");
+  // Only older saved decisions can be snoozed: they stay after the open groups.
+  const snoozed = main.filter((i) => i.finding.status !== "new");
+  const approved = items.filter(isApproved);
   const undecided = items.filter((i) => i.type === "undecided");
   const inside = items.filter(leftAlone);
+  // Only a check that is part live, part saved labels rows; otherwise the banner says it.
+  const labelSaved = mixedReplay(scan);
   const missing = Object.values(live.statuses).filter((s) => s && (s.state === "needs_reconnect" || s.state === "error"));
     const notConnected = (scan.result?.notConnected ?? []).map((id) => copy.shared.source[id]);
   const remaining =
@@ -454,57 +402,45 @@ export function FindingsList({
       },
     }) as const;
 
-  const row = (item: ListItem): React.ReactNode => {
+  // `leads` marks a group's first row: J/K scrolling then brings its header into view too.
+  const row = (item: ListItem, leads = false): React.ReactNode => {
     const selected = item.key === selectedKey;
     const common = {
       ...rowProps(item.key, leftAlone(item) ? "cleared" : isApproved(item) ? "approved" : item.type === "finding" ? (item.finding.status === "new" ? "open" : "done") : item.type),
       onClick: () => onOpen(item.key),
     };
+    const className = leads ? `${ROW} scroll-mt-9` : ROW;
     if (item.type === "finding")
       return (
-        <div key={item.key} {...common} className={ROW}>
-          <FindingRow finding={item.finding} />
+        <div key={item.key} {...common} className={className}>
+          <FindingCells finding={item.finding} saved={labelSaved && fromSaved(item.finding)} />
           {/* The quick menu on the selected row; the same width is kept on other rows so the columns line up. */}
           {selected && (item.finding.status === "new" || item.finding.status === "approved") ? (
             <RowMenu finding={item.finding} onAct={(action) => onAct(action, item.key)} startOpen={holdHover} />
           ) : (
-            <span className={COL.menu} aria-hidden="true" />
+            <span className={MENU_SLOT} aria-hidden="true" />
           )}
         </div>
       );
     if (item.type === "undecided")
       return (
         <Tip key={item.key} content={item.error}>
-          <div {...common} className={ROW}>
-            <span className="size-1.5 shrink-0 rounded-full bg-danger" aria-hidden="true" />
-            <span className={`${COL.name} font-semibold`}>{item.merchant}</span>
-            {/* The reason is in the tooltip; screen readers get it with the row. */}
-            <span className="sr-only">{item.error}</span>
-            <span className="min-w-0 flex-1" aria-hidden="true" />
-            {/* In the kind column, like a finding's chips and kinds; empty amount, date and menu columns. */}
-            <span className={COL.kind}>
-              <NotSureChip />
-            </span>
-            <span className={COL.amount} aria-hidden="true" />
-            <span className={COL.date} aria-hidden="true" />
-            <span className={COL.menu} aria-hidden="true" />
+          <div {...common} className={className}>
+            <UndecidedCells merchant={item.merchant} error={item.error} />
+            <span className={MENU_SLOT} aria-hidden="true" />
           </div>
         </Tip>
       );
     if (item.type === "cleared")
       return (
-        <div key={item.key} {...common} className={ROW}>
-          <span className="size-1.5 shrink-0 rounded-full border border-positive/70" aria-hidden="true" />
-          <span className={`${COL.name} text-muted`}>{item.cleared.merchant}</span>
-          <span className="min-w-0 flex-1" aria-hidden="true" />
-          <span className={`${COL.kind} text-meta text-positive`}>{copy.shared.looksFine}</span>
-          <span className={COL.amount} aria-hidden="true" />
-          <span className={COL.date} aria-hidden="true" />
-          <span className={COL.menu} aria-hidden="true" />
+        <div key={item.key} {...common} className={className}>
+          <ClearedCells merchant={item.cleared.merchant} />
+          <span className={MENU_SLOT} aria-hidden="true" />
         </div>
       );
     return null;
   };
+  const groupRows = (rows: ListItem[]) => rows.map((item, i) => row(item, i === 0));
 
   const headerSelected = selectedKey === CLEARED_GROUP;
 
@@ -520,38 +456,51 @@ export function FindingsList({
         chips={<FilterChips active={filters} mouse={mouse} onRemove={onRemoveFilter} onClear={onClearFilters} />}
       />
       <div ref={listRef} className="scroll-fade min-h-0 flex-1 overflow-y-auto pb-2">
-        {showHint && findings.length + approved.length > 0 && <FirstRunHint onDismiss={onDismissHint} />}
+        {showHint && main.length + approved.length > 0 && <FirstRunHint onDismiss={onDismissHint} />}
         {scan.phase === "error" && (
-          <p className="mx-3 mb-2 rounded-lg border border-danger/25 bg-danger/[0.07] px-3.5 py-2 text-small text-muted">
+          <p className={`${NOTE} bg-danger/[0.07]`}>
             <KeyText text={copy.list.stoppedEarly} slots={{ error: scan.error }} />
           </p>
         )}
         {notConnected.length > 0 && (
-          <p className="mx-3 mb-2 rounded-lg border border-hairline px-3.5 py-2 text-small text-muted">
+          <p className={`${NOTE} bg-raised/60`}>
             {copy.list.notConnected(notConnected)}
           </p>
         )}
         {missing.length > 0 && (
-          <p className="mx-3 mb-2 rounded-lg border border-danger/25 bg-danger/[0.07] px-3.5 py-2 text-small text-muted">
+          <p className={`${NOTE} bg-danger/[0.07]`}>
             <KeyText text={copy.list.couldntRead(missing.map((s) => s!.name))} />
           </p>
         )}
         <div ref={rowsRef} role="listbox" aria-label={copy.list.label} data-row-list className="relative flex flex-col px-1.5">
-          <div ref={highlightRef} className="glide inset-x-1.5" aria-hidden="true" />
-          {findings.map((f) => row({ type: "finding", key: f.id, finding: f }))}
+          <div ref={highlightRef} className="glide glide-soft inset-x-1.5" aria-hidden="true" />
+          {/* Headers sit beside the rows, not around them: the highlight and the row motion need rows kept flat. */}
+          {OPEN_GROUPS.map((id) => {
+            const rows = open.filter((i) => openGroup(i.finding) === id);
+            return (
+              <Fragment key={id}>
+                <GroupTitle id={id} label={copy.list.groups[id]} count={rows.length} />
+                {groupRows(rows)}
+              </Fragment>
+            );
+          })}
+          {snoozed.map((i) => row(i))}
           {remaining !== undefined && remaining > 0 && (
-            <div data-flip-key="pending" className="flex h-8 items-center gap-2.5 px-2.5 text-small text-faint">
-              <span className="size-1.5 rounded-full bg-info/60 motion-safe:animate-pulse" aria-hidden="true" />
+            <div data-flip-key="pending" className="relative flex h-8.5 items-center gap-2 px-2.5 text-meta text-faint">
+              <span className="grid size-5 shrink-0 place-items-center" aria-hidden="true">
+                <span className="size-1.5 rounded-full bg-info/60 motion-safe:animate-pulse" />
+              </span>
               {copy.list.stillDeciding(remaining)}
-              <span className="shimmer ml-1 h-2 flex-1 rounded-full" aria-hidden="true" />
+              {/* Ends where the amounts end, clear of the ⋯ slot. */}
+              <span className="shimmer mr-8 ml-1 h-2 flex-1 rounded-full" aria-hidden="true" />
             </div>
           )}
           {/* "Approved" stays open, like "Couldn't decide": a plain title, not a J/K stop. */}
-          {groupTitle(approved.length, copy.list.approvedGroup(approved.length), "approved")}
-          {approved.map((f) => row({ type: "finding", key: f.id, finding: f }))}
+          <GroupTitle id="approved" label={copy.list.groups.approved} count={approved.length} />
+          {groupRows(approved)}
           {/* "Couldn't decide" stays open: it needs Maya. */}
-          {groupTitle(undecided.length, copy.list.undecidedGroup)}
-          {undecided.map(row)}
+          <GroupTitle id="undecided" label={copy.list.groups.undecided} count={undecided.length} />
+          {groupRows(undecided)}
           {/* "Checked and left alone" folds away: nothing in it needs her. The
               palette owns the keys (J/K stop on the header, Enter or Space
               opens it), so the header never takes focus from the panel. */}
@@ -561,27 +510,26 @@ export function FindingsList({
               collapsible
               value={groupIsOpen ? CLEARED_GROUP : ""}
               onValueChange={(value) => onToggleGroup(value === CLEARED_GROUP)}
-              className="mt-2"
+              // A little less than the other groups: this header is 4 px taller, so its words land the same distance down.
+              className="mt-2.5 [.glide+&]:mt-0"
             >
               <Accordion.Item value={CLEARED_GROUP} data-glide-rows>
                 <Accordion.Trigger asChild>
-                  <div {...rowProps(CLEARED_GROUP, "header")} className={ROW}>
-                    {/* Starts where the "Couldn't decide" title does, so the two group names line up. */}
-                    <span className={`label ${headerSelected ? "text-muted" : "text-faint"}`}>{copy.list.clearedGroup}</span>
-                    <span className="-ml-1.5 rounded-full border border-hairline px-1.5 figure text-label text-faint">{inside.length}</span>
+                  <div {...rowProps(CLEARED_GROUP, "header")} className={`${ROW_SHAPE} h-7 gap-1.5 text-meta font-medium`}>
+                    <GroupLabel label={copy.list.clearedGroup} count={inside.length} selected={headerSelected} />
                     <ChevronRight
                       size={12}
                       strokeWidth={2}
                       aria-hidden="true"
-                      className={`accordion-chevron -ml-1.5 shrink-0 ${headerSelected ? "text-muted" : "text-faint"}`}
+                      className={`accordion-chevron shrink-0 ${headerSelected ? "text-muted" : "text-faint"}`}
                     />
                     <span className="flex-1" />
                     {headerSelected && !mouse && <Kbd keys={["↵"]} />}
-                    <span className={COL.menu} aria-hidden="true" />
+                    <span className={MENU_SLOT} aria-hidden="true" />
                   </div>
                 </Accordion.Trigger>
                 <Accordion.Content data-glide-rows data-flip-off={groupIsOpen ? undefined : ""} className="accordion-content flex flex-col">
-                  {inside.map(row)}
+                  {groupRows(inside)}
                 </Accordion.Content>
               </Accordion.Item>
             </Accordion.Root>

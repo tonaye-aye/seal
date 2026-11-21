@@ -174,10 +174,15 @@ export const copy = {
     /** Rows. */
     quickActions: "Quick actions",
     quickActionsFor: (merchant: string) => `Quick actions for ${merchant}`,
-    stillDeciding: (n: number) => `Still deciding on ${plural(n, "more")}`,
-    undecidedGroup: "Couldn't decide: check these yourself",
-    /** Approved findings, after the ones that still need Maya. */
-    approvedGroup: (n: number) => `Approved · ${n}`,
+    stillDeciding: (n: number) => `Still deciding on ${n} more`,
+    /** Group headers in the list. Each is drawn with its count beside it. */
+    groups: {
+      soon: "Due within 7 days",
+      coming: "Coming up",
+      none: "No deadline",
+      approved: "Approved",
+      undecided: "Couldn't decide",
+    },
     clearedGroup: "Checked and left alone",
 
     /** Notes above the rows. */
@@ -376,12 +381,19 @@ export const copy = {
   timeline: {
     label: "Timeline",
     title: "What's coming",
-    expected: (cents: number) => `${formatAUD(cents)} expected to leave your accounts in the next 30 days`,
-    soonDates: (n: number, before: string) => `${plural(n, "date")} that ${pick(n, "needs", "need")} you before ${before}`,
-    searchHelp: "Try a business, like Skylink, or a date, like 28 Nov. Esc clears the search",
+    /** Under the heading's total. */
+    inNextThirty: "in the next 30 days",
+    soonDates: (n: number, by: string) => `${plural(n, "date")} ${pick(n, "needs", "need")} you by ${by}.`,
+    noSoonDates: "No dates need you in the next 7 days.",
+    searchHelp: "Try a business, like Skylink, or a date, like 28 Nov. Esc clears the search.",
     stillChecking: "Still checking, so more may appear.",
     now: "Now",
-    nowLabel: (day: string) => `Now: ${day}`,
+    /** Groups of lines still to come. */
+    groups: { next: "Next 7 days", laterIn: (month: string) => `Later in ${month}` },
+    /** Everything before today, folded away. */
+    earlier: "Earlier",
+    /** After Now, when nothing is coming. */
+    nothingAhead: "Nothing else coming up",
     /** Lines on the timeline. */
     expectedCharge: "Expected charge",
     checked: (why: string) => `Checked: ${why}`,

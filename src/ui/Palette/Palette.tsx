@@ -51,7 +51,7 @@ import { Toast } from "./Toast";
 import { TraceDrawer } from "./Trace";
 import { replayNote } from "../replay";
 import { Timeline } from "./Timeline";
-import { buildTimeline, filterTimeline, nowIndex } from "../timeline";
+import { EARLIER_GROUP, buildTimeline, earlierOpen, filterTimeline, isEarlier, isEarlierStop, nowIndex, pickTimelineStop, timelineStops } from "../timeline";
 import { changeView, nativeViewTransitions } from "../motion";
 
 // The summoned palette. It fills the native window; the window itself is
@@ -169,6 +169,10 @@ export function Palette() {
   const [groupClosedInSearch, setGroupClosedInSearch] = useState(false);
   const filterKey = filters.join();
   useEffect(() => setGroupClosedInSearch(false), [query, filterKey]);
+  // The timeline's Earlier: closed by default, open by itself while a search matches inside it.
+  const [earlierOpened, setEarlierOpened] = useState(false);
+  const [earlierClosedInSearch, setEarlierClosedInSearch] = useState(false);
+  useEffect(() => setEarlierClosedInSearch(false), [query]);
   // Editing belongs to an open finding: leaving it (Esc, the rail, the
   // breadcrumb, the search) ends editing, so the list's keys never get stuck
   // waiting for a draft that isn't on screen.
@@ -204,7 +208,10 @@ export function Palette() {
   // Details only exist on a draft that's still shown (not once approved).
   const hasDetails = hasDraftPanel && !!selectedFinding?.draft;
   const entries = filterTimeline(buildTimeline(scan), query);
-  const selectedEntry = entries.find((e) => e.key === timelineKey) ?? entries[nowIndex(entries)] ?? entries[entries.length - 1];
+  const isEarlierOpen = earlierOpen(entries, !!query.trim(), earlierOpened, earlierClosedInSearch);
+  // The stops J/K move through on the timeline (Earlier's header included), and the selected one.
+  const timelineItems = timelineStops(entries, isEarlierOpen);
+  const timelineStop = pickTimelineStop(entries, timelineItems, timelineKey);
 
   useEffect(() => {
     activeHotkey()
@@ -225,6 +232,7 @@ export function Palette() {
         setKeysIntro(false);
         setSettingsTab(undefined);
         setGroupOpened(false);
+        setEarlierOpened(false);
         setFilters([]);
       }
       setOpenCount((n) => n + 1);
@@ -380,21 +388,31 @@ export function Palette() {
   }
 
   function moveInTimeline(by: number) {
-    if (!entries.length) return;
-    const at = Math.max(0, entries.findIndex((e) => e.key === selectedEntry?.key));
-    // Up from the first line goes to the search bar.
+    if (!timelineItems.length) return;
+    const at = Math.max(0, timelineItems.findIndex((s) => s.key === timelineStop?.key));
+    // Up from the first stop goes to the search bar.
     if (by < 0 && at === 0) return inputRef.current?.focus();
-    const to = entries[Math.min(entries.length - 1, Math.max(0, at + by))].key;
-    if (to === selectedEntry?.key) return;
+    const to = timelineItems[Math.min(timelineItems.length - 1, Math.max(0, at + by))].key;
+    if (to === timelineStop?.key) return;
     setTimelineKey(to);
     setScrollKey((n) => n + 1);
   }
 
-  /** Enter (or a click) on a timeline line opens the finding, or the cleared case, it belongs to. */
-  function openEntry(key = selectedEntry?.key) {
+  /** Opens or closes the timeline's Earlier. Its header takes the selection, so the highlight stays put while it folds. */
+  function toggleEarlier(next = !isEarlierOpen) {
+    if (query.trim()) setEarlierClosedInSearch(!next);
+    setEarlierOpened(next);
+    setTimelineKey(EARLIER_GROUP);
+  }
+
+  /** Enter (or a click) on a timeline line opens the finding, or the cleared case, it belongs to. On Earlier's header it opens or closes it. */
+  function openEntry(key = timelineStop?.key) {
+    if (key === EARLIER_GROUP) return toggleEarlier();
     const entry = entries.find((e) => e.key === key);
     const target = entry?.findingId ?? entry?.clearedId;
     if (!entry || !target) return;
+    // Coming back, a line from Earlier is still there, selected.
+    if (isEarlier(entry)) setEarlierOpened(true);
     setTimelineKey(entry.key);
     open(target, "timeline");
   }
@@ -692,7 +710,7 @@ export function Palette() {
         if (key === "Enter" || key === "ArrowDown") {
           event.preventDefault();
           panelRef.current?.focus();
-          if (view === "timeline") setTimelineKey((entries[nowIndex(entries)] ?? entries[0])?.key);
+          if (view === "timeline") setTimelineKey((entries[nowIndex(entries)] ?? timelineItems.find((s) => !isEarlierStop(s)) ?? timelineItems[0])?.key);
           // The first matching row, not the "Checked and left alone" header in front of it.
           else select((items.find((i) => i.type !== "group") ?? items[0])?.key);
           setScrollKey((n) => n + 1);
@@ -727,6 +745,10 @@ export function Palette() {
         } else if (key === "Enter") {
           event.preventDefault();
           openEntry();
+        } else if (key === " " && isEarlierStop(timelineStop)) {
+          // Space opens and closes Earlier, like Enter.
+          event.preventDefault();
+          toggleEarlier();
         } else if (key === "/") {
           event.preventDefault();
           inputRef.current?.focus();
@@ -870,15 +892,18 @@ export function Palette() {
     main = (
       <Timeline
         entries={entries}
-        selectedKey={selectedEntry?.key}
+        selectedKey={timelineStop?.key}
         scrollKey={scrollKey}
         onHover={(key) => {
           setMouse(true);
-          if (key !== selectedEntry?.key) setTimelineKey(key);
+          if (key !== timelineStop?.key) setTimelineKey(key);
         }}
         onOpen={openEntry}
         scan={scan}
         query={query}
+        earlierOpen={isEarlierOpen}
+        onToggleEarlier={toggleEarlier}
+        mouse={mouse}
       />
     );
   } else if (nothingYet && scan.phase === "scanning") main = <Scanning scan={scan} />;
@@ -1013,7 +1038,7 @@ export function Palette() {
                 onPane={() => run("pane")}
               />
             ) : view === "timeline" ? (
-              <TimelineHint entry={selectedEntry} mouse={mouse} onOpen={() => openEntry()} />
+              <TimelineHint stop={timelineStop} mouse={mouse} onOpen={() => openEntry()} />
             ) : view === "list" && !nothingYet ? (
               <ListHint
                 item={selected?.type === "group" ? { group: selected.open } : actionItem}

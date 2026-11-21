@@ -5,7 +5,7 @@ import { copy } from "../copy";
 import { LivePreviewProvider } from "../connectors/live";
 import { TOAST_MS, isEdited, rankedFindings, ScanPreviewProvider, type ScanState } from "../lib/scan-store";
 import { KeyButton } from "../ui/Kbd";
-import { buildTimeline, filterTimeline, nowIndex } from "../ui/timeline";
+import { EARLIER_GROUP, buildTimeline, earlierOpen, filterTimeline, isSoonDay, pickTimelineStop, showsDate, timelineStops, type TimelineEntry } from "../ui/timeline";
 import { SearchField } from "../ui/Palette/SearchField";
 import { FilterButton } from "../ui/Palette/Filters";
 import { applyFilters, filterOptions, type FilterId } from "../ui/filters";
@@ -15,7 +15,6 @@ import { DEFAULT_PANELS, FindingActions, FindingDetail, findingActions, hasDraft
 import {
   AllClear,
   CLEARED_GROUP,
-  DeadlineChip,
   FindingsList,
   Headline,
   NotChecked,
@@ -26,6 +25,7 @@ import {
   listStops,
   pickSelected,
 } from "../ui/Palette/FindingsList";
+import { ClearedCells, FindingCells, MENU_SLOT, ROW, RowDate, UndecidedCells } from "../ui/Palette/ListRow";
 import { Footer, ScanStatus } from "../ui/Palette/Footer";
 import { SettingsButton, TraceButton, ViewButton, type ControlItem } from "../ui/Palette/Controls";
 import { Header } from "../ui/Palette/Header";
@@ -34,7 +34,7 @@ import { PaletteShell } from "../ui/Palette/PaletteShell";
 import { ScenariosSheet } from "../ui/Palette/ScenariosSheet";
 import { ShortcutIntro, ShortcutSheet } from "../ui/Palette/ShortcutSheet";
 import { StatusStrip } from "../ui/Palette/StatusStrip";
-import { Timeline } from "../ui/Palette/Timeline";
+import { TIMELINE_ROW, Timeline, TimelineLine } from "../ui/Palette/Timeline";
 import { Toast } from "../ui/Palette/Toast";
 import { TraceDrawer } from "../ui/Palette/Trace";
 import { ViewHeading } from "../ui/Palette/ViewHeading";
@@ -48,7 +48,7 @@ import { EndpointPreviewProvider, ModelDemoPreviewProvider, type EndpointStatus 
 import { SettingsDialog, type SettingsTab } from "../ui/Palette/SettingsDialog";
 import { SyncButton } from "../ui/Palette/SyncButton";
 import { PreviewLayers, Tip } from "../ui/layers";
-import { Settings } from "lucide-react";
+import { Ellipsis, Settings } from "lucide-react";
 import { MotionFreeze, type Freeze } from "../ui/motion";
 
 // Dev only (#/gallery): every palette state drawn from fixed sample data, so
@@ -228,6 +228,8 @@ type FrameProps = {
   search?: { focused?: boolean; tip?: boolean };
   /** "Checked and left alone" opened (it is closed by default, and opens by itself for a search that matches inside). */
   group?: boolean;
+  /** The timeline's Earlier opened (closed by default, and open by itself for a search that matches inside). */
+  earlier?: boolean;
   /** The list's filters that are on. */
   filters?: FilterId[];
   /** The rail's Filter menu drawn open. */
@@ -266,6 +268,7 @@ function PaletteFrame({
   controls,
   search,
   group = false,
+  earlier = false,
   filters = [],
   filterMenu = false,
   settings,
@@ -288,7 +291,9 @@ function PaletteFrame({
   const item = pickSelected(rows, items, selected, view === "list");
   const openItem = item?.type === "finding" ? item.finding : item?.type === "cleared" ? item.cleared : undefined;
   const entries = filterTimeline(buildTimeline(shownScan), query);
-  const entry = entries[nowIndex(entries)] ?? entries[entries.length - 1];
+  const isEarlierOpen = earlierOpen(entries, !!query.trim(), earlier, false);
+  const timelineItems = timelineStops(entries, isEarlierOpen);
+  const entry = pickTimelineStop(entries, timelineItems, selected);
   const nothingYet = items.length === 0 && !query && !filters.length;
   const inDetail = view === "detail" && !!openItem;
   const stops = openItem ? sidebarStops(openItem, shownScan.corpus, panels) : [];
@@ -343,6 +348,9 @@ function PaletteFrame({
         onOpen={noop}
         scan={shownScan}
         query={query}
+        earlierOpen={isEarlierOpen}
+        onToggleEarlier={noop}
+        mouse={mouse}
       />
     );
   } else if (nothingYet && shownScan.phase === "scanning") main = <Scanning scan={shownScan} />;
@@ -470,7 +478,7 @@ function PaletteFrame({
                     onPane={noop}
                   />
                 ) : view === "timeline" ? (
-                  <TimelineHint entry={entry} mouse={mouse} onOpen={noop} />
+                  <TimelineHint stop={entry} mouse={mouse} onOpen={noop} />
                 ) : view === "list" && !nothingYet ? (
                   <ListHint item={hintItem} mouse={mouse} onOpen={noop} onRescan={noop} />
                 ) : undefined
@@ -593,6 +601,105 @@ function Labelled({ label, children }: { label: string; children: React.ReactNod
   );
 }
 
+/** Every state of a list row, stacked so the columns can be compared. */
+function RowStates() {
+  const { skylink, streambox, ironworks, brightpage, redgum } = FINDINGS;
+  const unsure = { ...skylink, confidence: "low" as const };
+  // The IronWorks sample carries a doubt, which would show "Not sure" on every row made from it.
+  const sure = { ...ironworks, confidence: "high" as const, doubts: [] };
+  const states: { label: string; cells: React.ReactNode; selected?: boolean }[] = [
+    { label: "Open", cells: <FindingCells finding={sure} /> },
+    { label: "Selected", cells: <FindingCells finding={skylink} />, selected: true },
+    { label: "Due within 7 days", cells: <FindingCells finding={streambox} /> },
+    { label: "Selected, due soon", cells: <FindingCells finding={{ ...streambox, confidence: "low" }} />, selected: true },
+    { label: "Later date", cells: <FindingCells finding={brightpage} /> },
+    { label: "No deadline", cells: <FindingCells finding={{ ...redgum, deadline: undefined }} /> },
+    { label: "Not sure", cells: <FindingCells finding={unsure} /> },
+    { label: "Saved", cells: <FindingCells finding={sure} saved /> },
+    { label: "Saved, not sure", cells: <FindingCells finding={unsure} saved /> },
+    { label: "Approved", cells: <FindingCells finding={{ ...skylink, status: "approved" }} /> },
+    { label: "Approved, selected", cells: <FindingCells finding={{ ...skylink, status: "approved" }} />, selected: true },
+    { label: "Handled", cells: <FindingCells finding={{ ...streambox, status: "approved", draft: undefined }} /> },
+    { label: "Not a leak", cells: <FindingCells finding={{ ...brightpage, status: "dismissed" }} /> },
+    { label: "Couldn't decide", cells: <UndecidedCells merchant="Moreland Council" error="The model couldn't settle this one." /> },
+    { label: "Undecided, selected", cells: <UndecidedCells merchant="Moreland Council" error="The model couldn't settle this one." />, selected: true },
+    { label: "Cleared", cells: <ClearedCells merchant="Kookaburra Mobile" /> },
+    { label: "Cleared, selected", cells: <ClearedCells merchant="Kookaburra Mobile" />, selected: true },
+    {
+      label: "Long name",
+      cells: <FindingCells finding={{ ...unsure, merchant: "Brunswick and Northcote Community Energy Co-operative Retail Services Proprietary Limited" }} saved />,
+    },
+  ];
+  return (
+    <Strip>
+      <div className="flex flex-col">
+        {states.map(({ label, cells, selected }) => (
+          <Labelled key={label} label={label}>
+            <div className={`${ROW} ${selected ? "bg-raised" : ""}`}>
+              {cells}
+              <span className={`${MENU_SLOT} ${selected ? "text-muted" : ""}`}>
+                {selected && <Ellipsis size={15} strokeWidth={1.75} aria-hidden="true" className="m-auto block" />}
+              </span>
+            </div>
+          </Labelled>
+        ))}
+      </div>
+    </Strip>
+  );
+}
+
+/** Every kind of timeline line, stacked on one rail so the columns can be compared. */
+function TimelineLineStates() {
+  const line = (key: string, date: string, tone: TimelineEntry["tone"], who: string, what: string, extra: Partial<TimelineEntry> = {}): TimelineEntry => ({
+    key,
+    date,
+    side: date <= "2026-11-19" ? "past" : "future",
+    tone,
+    who,
+    what,
+    ...extra,
+  });
+  const expect = "Once sent, expect $40.00 back, and $79.00 on the 14 Dec debit";
+  const states: { label: string; entry: TimelineEntry; selected?: boolean }[] = [
+    { label: "Past", entry: line("past", "2026-11-14", "past", "IronWorks Fitness", "Last day to give notice") },
+    { label: "Past, with amount", entry: line("past-paid", "2026-11-10", "past", "Redgum Energy", "Bill paid", { amountCents: 57720 }) },
+    { label: "Agent activity", entry: line("agent", "2026-11-19", "agent", "Checked everything", "Found 7 to look at, 2 that look fine", { at: Date.now() - 240_000, detail: "7 still need you. Nothing was sent or changed." }) },
+    { label: "Agent, a decision", entry: line("agent-decided", "2026-11-19", "agent", "Skylink Internet", "Saved a draft", { at: Date.now() - 60_000, detail: "Ready to send. Then expect $40.00 back, and $79.00 on the 14 Dec debit." }) },
+    { label: "Urgent, no amount", entry: line("soon", "2026-11-20", "soon", "Apple + StreamBox", "Cancel the Apple one before it renews") },
+    { label: "Same day, not urgent", entry: line("same-day", "2026-11-20", "upcoming", "Aquastart Swim", "Expected charge", { amountCents: 16800 }) },
+    { label: "Urgent, selected", entry: line("soon-selected", "2026-11-21", "soon", "Apple + StreamBox", "Apple renews", { amountCents: 1799 }), selected: true },
+    { label: "Upcoming", entry: line("upcoming", "2026-11-28", "upcoming", "IronWorks Fitness", "Renews", { amountCents: 8900 }) },
+    { label: "Upcoming, selected", entry: line("upcoming-selected", "2026-11-30", "upcoming", "Calendar", "Council rates due", { amountCents: 41230 }), selected: true },
+    { label: "Deadline, no amount", entry: line("deadline", "2026-12-04", "upcoming", "Wattle Insurance", "Quote expires") },
+    { label: "Several on one day", entry: line("day-1", "2026-12-07", "upcoming", "Wattle Insurance", "Renews", { amountCents: 148554 }) },
+    { label: "Several on one day", entry: line("day-2", "2026-12-07", "upcoming", "Transit Top", "Expected charge", { amountCents: 5000 }) },
+    { label: "Reminder", entry: line("reminder", "2026-12-12", "upcoming", "Skylink Internet", "Reminder in your calendar", { detail: "Check Skylink replied" }) },
+    { label: "Approved", entry: line("done", "2026-12-14", "done", "Skylink Internet", "Next Skylink Internet charge", { amountCents: 9900, detail: expect }) },
+    { label: "Approved, selected", entry: line("done-selected", "2026-12-15", "done", "Skylink Internet", "Next Skylink Internet charge", { amountCents: 9900, detail: expect }), selected: true },
+    { label: "Handled", entry: line("handled", "2026-12-16", "done", "Kestrel Plumbing", "Refund due", { amountCents: 38500, handled: true, detail: "Then expect $385.00 back" }) },
+    { label: "Long name", entry: line("long", "2026-12-18", "upcoming", "Brunswick and Northcote Community Energy Co-operative Retail Services Proprietary Limited", "A very long description of what happens on this date that has to truncate cleanly", { amountCents: 148554 }) },
+  ];
+  const entries = states.map((s) => s.entry);
+  return (
+    <Strip>
+      <div className="flex gap-4">
+        <div className="flex w-40 shrink-0 flex-col" aria-hidden="true">
+          {states.map(({ entry, label }) => (
+            <span key={entry.key} className="flex h-10.5 items-center font-mono text-label text-faint">{label}</span>
+          ))}
+        </div>
+        <div role="listbox" aria-label="Timeline line states" className="flex min-w-0 flex-1 flex-col">
+          {states.map(({ entry, selected = false }, i) => (
+            <div key={entry.key} role="option" aria-selected={selected} className={`${TIMELINE_ROW} ${selected ? "bg-raised" : ""}`}>
+              <TimelineLine entry={entry} showDate={showsDate(entries, i)} amberDate={isSoonDay(entries, entry.date)} first={i === 0} last={i === states.length - 1} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </Strip>
+  );
+}
+
 const SECTIONS = [
   ["onboarding", "Onboarding"],
   ["list", "List"],
@@ -639,6 +746,16 @@ export function Gallery() {
   const sealBank = approvedWith("f-brightpage", { kind: "duplicate_payment", draft: undefined, action: { kind: "none", summary: "Ask your bank to dispute the second charge." } });
   // The top finding marked "Not a leak": it goes into "Checked and left alone".
   const dismissedTop: ScanState = { ...s.done, decisions: { ...s.done.decisions, [top.id]: "dismissed" } };
+  // The timeline: a line from before today, and a check that found nothing still to come.
+  const pastKey = buildTimeline(s.done).find((e) => e.date < "2026-11-19")?.key;
+  const nothingAhead: ScanState = {
+    ...s.done,
+    findings: [],
+    cleared: [],
+    undecided: [],
+    result: s.done.result && { ...s.done.result, findings: [], cleared: [], upcoming: [] },
+    corpus: s.done.corpus && { ...s.done.corpus, events: [] },
+  };
   const now = nowSamples(corpus);
   const o = onboardingSample;
 
@@ -729,10 +846,13 @@ export function Gallery() {
             </Section>
 
             <Section id="list" title="List">
-              <Shot title="Findings, first run" note="Compact rows: name, kind, amount, date. Couldn't decide stays open; Checked and left alone is closed (the first-run hint is under Onboarding)">
+              <Shot title="Row states" note="One row layout for every state: tile, merchant, kind, flags, date, amount, a reserved ⋯ slot" height={650}>
+                <RowStates />
+              </Shot>
+              <Shot title="Findings, first run" note="Grouped by urgency: tile, name, kind, date, amount. Couldn't decide stays open; Checked and left alone is closed (the first-run hint is under Onboarding)">
                 <PaletteFrame scan={s.done} />
               </Shot>
-              <Shot title="Approved group, selected" note="Approved rows leave the main list for an open Approved · n group (a title, not a J/K stop). ⋯ on an approved row has Seal the leak and Remind me">
+              <Shot title="Approved group, selected" note="Approved rows leave the main list for an open Approved group with a count (a title, not a J/K stop). ⋯ on an approved row has Seal the leak and Remind me">
                 <PaletteFrame scan={s.decided} selected="f-skylink" />
               </Shot>
               <Shot title="After some decisions" note="An approved row and one marked Not a leak, mouse mode">
@@ -945,8 +1065,29 @@ export function Gallery() {
             </Section>
 
             <Section id="timeline" title="Timeline">
-              <Shot title="Timeline" note="Past dates, today's activity, NOW, upcoming with amber deadlines (within 7 days)">
+              <Shot title="Line states" note="One line for every state: date, marker, merchant, what, amount. A second line only on agent and approved lines" height={770}>
+                <TimelineLineStates />
+              </Shot>
+              <Shot title="Timeline" note="Earlier folded, today's activity, Now, then Next 7 days, Later in November and each month, with subtotals. Amber only within 7 days">
                 <PaletteFrame scan={s.decided} view="timeline" />
+              </Shot>
+              <Shot title="Earlier, header selected" note="Closed by default, with a count. J/K stop on its header; Enter or Space opens it">
+                <PaletteFrame scan={s.done} view="timeline" selected={EARLIER_GROUP} />
+              </Shot>
+              <Shot title="Earlier, open, a line selected" note="Month names stay inside. Coming back from a finding opened here keeps it open, with the line selected">
+                <PaletteFrame scan={s.done} view="timeline" earlier selected={pastKey} />
+              </Shot>
+              <Shot title="Search that matches inside Earlier" note='"notice": Earlier opens by itself while the search holds'>
+                <PaletteFrame scan={s.done} view="timeline" query="notice" />
+              </Shot>
+              <Shot title="Nothing ahead" note="Now ends the rail, with a quiet line under it">
+                <PaletteFrame scan={nothingAhead} view="timeline" />
+              </Shot>
+              <Shot title="Timeline, while checking" note="Checking now sits above Now; the heading says more may appear">
+                <PaletteFrame scan={s.scanning} view="timeline" />
+              </Shot>
+              <Shot title="Timeline, check didn't finish">
+                <PaletteFrame scan={s.error} view="timeline" />
               </Shot>
               <Shot title="Timeline, all approved" note="Today's lines say Ready to send and what to expect; each finding's next line says what should happen once it's sent">
                 <PaletteFrame scan={s.approved} view="timeline" />
@@ -1344,14 +1485,14 @@ export function Gallery() {
                   </Labelled>
                 </Strip>
               </Shot>
-              <Shot title="Deadline chips" note="Past or within 7 days is amber, within 14 bright, later muted" height={110}>
+              <Shot title="Row dates" note="Plain figures. Past or within 7 days is amber, anything later is the normal text colour" height={110}>
                 <Strip>
                   <Labelled label="14 Nov, 21 Nov, 18 Dec">
                     <div className="flex items-center gap-4">
-                      <DeadlineChip date="2026-11-14" />
-                      <DeadlineChip date="2026-11-21" />
-                      <DeadlineChip date="2026-11-28" />
-                      <DeadlineChip date="2026-12-18" />
+                      <RowDate date="2026-11-14" />
+                      <RowDate date="2026-11-21" />
+                      <RowDate date="2026-11-28" />
+                      <RowDate date="2026-12-18" />
                     </div>
                   </Labelled>
                 </Strip>

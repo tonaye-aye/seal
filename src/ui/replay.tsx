@@ -66,7 +66,7 @@ export function replayNote(scan: ScanState): React.ReactNode | undefined {
 export function SavedTag({ title }: { title?: string }) {
   return (
     <Tip content={title ?? copy.replay.tagTitle}>
-      <span className="shrink-0 rounded-full border border-info/30 px-2 py-px text-meta text-info">{copy.replay.tag}</span>
+      <span className="shrink-0 text-meta text-faint">{copy.replay.tag}</span>
     </Tip>
   );
 }
