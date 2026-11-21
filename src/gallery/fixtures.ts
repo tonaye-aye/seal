@@ -340,7 +340,7 @@ export function scanSamples(corpus: Corpus | undefined) {
     done,
     decided: {
       ...done,
-      decisions: { "f-skylink": "approved", "f-brightpage": "snoozed" },
+      decisions: { "f-skylink": "approved", "f-brightpage": "dismissed" },
       decidedAt: { "f-skylink": mins(4), "f-brightpage": mins(2) },
     } satisfies ScanState,
     /** Every finding approved: the Next block on each, "Ready to send" and "Handled" chips, expectation lines on the timeline. */
@@ -457,7 +457,7 @@ export function scanSamples(corpus: Corpus | undefined) {
     } satisfies ScanState,
     handled: {
       ...done,
-      decisions: Object.fromEntries(findings.map((f, i) => [f.id, i % 2 ? "snoozed" : "approved"])),
+      decisions: Object.fromEntries(findings.map((f, i) => [f.id, i % 2 ? "dismissed" : "approved"])),
       decidedAt: Object.fromEntries(findings.map((f, i) => [f.id, mins(i + 1)])),
     } satisfies ScanState,
     toastNoUndo: { ...done, toast: { id: 1, text: "The draft is still being written. Try again in a moment.", undoable: false } } satisfies ScanState,

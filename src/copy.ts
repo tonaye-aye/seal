@@ -197,11 +197,26 @@ export const copy = {
   // ---------- Actions (row menu, action bar, footer hints) ----------
   actions: {
     approve: "Approve",
-    approveToDrafts: "Approve: save to Drafts",
-    markHandled: "Mark handled",
+    /** Tooltips on Approve: what it does. */
+    approveTip: "Saves the draft to Drafts. Nothing is sent.",
+    approveHandledTip: "Marks it handled: the fix is a step you take yourself.",
     edit: "Edit",
-    snooze: "Snooze",
+    /** Edit before approving: change the wording first. */
+    editNewTip: "Change the draft before you approve it",
+    /** Edit on an approved finding takes the approval back. */
+    editTip: "Takes the approval back so you can change the draft",
+    /** Once approved: opens the app where Maya does the fix (Mail, a call, Calendar, her bank). */
+    seal: "Seal the leak",
+    sealTip: {
+      email: (to: string) => `Opens Mail with the draft to ${to}, ready to send`,
+      phone: (number: string) => `Calls ${number}`,
+      calendar: "Opens Calendar",
+      bank: (account: string) => `Do it in your bank's app (${account})`,
+    },
     notALeak: "Not a leak",
+    /** Tooltips on the heading's right-hand buttons. */
+    notALeakTip: "It's fine: it moves to Checked and left alone. ⌘Z brings it back.",
+    remindTip: (date: string) => `Adds an all-day reminder to your calendar for ${date}. Nothing is sent.`,
     remind: "Remind me",
     /** The ⋯ menu's Remind me, when the calendar wasn't connected. */
     remindNoCalendar: "Remind me: connect Calendar first",
@@ -218,6 +233,13 @@ export const copy = {
     close: "Close",
     toDraft: "Draft",
     toEvidence: "Evidence",
+    /** The trace icon at the end of an open finding's button row. */
+    traceTip: "What the agent did for this finding",
+    /** Enter on the draft side: open or fold the draft's Details (To, Subject, Attach). */
+    showDetails: "Show details",
+    hideDetails: "Hide details",
+    /** Enter on a piece of evidence in the sidebar: its card. */
+    preview: "Preview",
     /** What a click does, in mouse mode. */
     clickForDetail: "Click for more detail",
     clickWhyFine: "Click to see why it looks fine",
@@ -232,23 +254,38 @@ export const copy = {
   // ---------- One finding, opened ----------
   detail: {
     label: "Finding",
+    actionsLabel: "Actions",
     /** Header. */
     deadlineChip: (date: string, when: string) => `${date} · ${when}`,
-    nextDate: (label: string, date: string) => `Next date: ${label}, ${date}`,
     atStake: "At stake",
     canRecover: "Can recover",
-    perMonth: "Per month",
     notSure: "Not sure: check evidence. ",
     lessConfident: "The agent is less confident about this one.",
-    /** The sidebar (right): evidence, then the figures code checked. */
+    /** The sidebar (right): three folding panels, each with a count beside its title. */
     sidebarLabel: "Evidence and checks",
-    reliedOn: (n: number) => `Evidence it relied on · ${n}`,
-    alsoGathered: (n: number) => `Also gathered · ${n}`,
+    /** The sidebar's heading: a finding, or a case the agent left alone. */
+    sidebarTitle: "Leaks found",
+    sidebarTitleCleared: "Why it looks fine",
+    /** The button at the sidebar's top (and ]): fold it to a strip, or bring it back. */
+    hideSidebar: "Hide evidence for more room",
+    showSidebar: "Show evidence",
+    reliedOn: "Evidence it relied on",
+    alsoGathered: "Also gathered",
+    /** The card a piece of evidence opens, and the sheet with the whole source. */
+    openSource: "Open source",
+    sourceDate: "Date",
+    sourceAccount: "Account",
+    sourceAmount: "Amount",
+    noText: "No text to show for this one.",
     cited: "Cited",
     photoFailed: "Couldn't load the photo.",
     loadingPhoto: "Loading photo",
     /** Draft (main column). */
     draftedEmail: "Drafted email",
+    /** The draft panel's title when the fix is a step Maya takes herself (nothing to send). */
+    whatToDo: "What to do",
+    /** The draft panel, folded: who it's to and what about. */
+    draftTo: (to: string, subject: string) => `To ${to} · ${subject}`,
     editedByYou: "Edited by you",
     checkBeforeSending: "Check before sending",
     to: "To",
@@ -288,13 +325,29 @@ export const copy = {
   next: {
     title: "Next",
     saved: "Saved in Drafts",
-    send: "Send it from your mail app. Nothing goes until you do.",
+    /** The Next timeline's lines. */
+    doneLabel: "Done",
+    reminderCreated: "Reminder created",
+    reminderCreatedFor: (date: string) => `In your calendar for ${date}`,
+    /** The line on the reminder's own date. */
+    reminderDue: "Reminder",
+    /** The step after approving a draft: Maya sends it. */
+    sendIt: "Send it",
+    /** The notice's button (L again does the same, inside the finding). */
+    removeReminder: "Remove reminder",
+    /** The notice above the timeline once a reminder is set. "when" is "tomorrow" or "in 14 days". */
+    remindedIn: (when: string, date: string) => `You'll be reminded about this ${when}, on ${date}. It's in your calendar.`,
+    /** What Seal the leak does, under "Saved in Drafts" or "Marked as handled". */
+    seal: {
+      email: "Seal the leak opens it in Mail, ready to send. Nothing goes until you do.",
+      phone: (number: string) => `Seal the leak calls them on ${number}.`,
+      calendar: (date?: string) => (date ? `Seal the leak opens Calendar: look at ${date}.` : "Seal the leak opens Calendar."),
+      bank: (account: string) => `Do it in your bank's app, on the ${account} account.`,
+    },
     handled: "Marked as handled",
     thenExpect: (expect: string) => `Then expect ${expect}.`,
     /** The reminder Maya asked for (L). */
     reminder: (date: string) => `Reminder in your calendar on ${date}.`,
-    /** The same, short, beside the next date in a finding's header. */
-    reminderShort: (date: string) => `Reminder ${date}`,
     /** Read after "Then expect" or "Once sent, expect", so they start in lower case. Written by code from checked figures. */
     expect: {
       priceRestored: (back: string, price: string, on: string) => `${back} back, and ${price} on the ${on} debit`,
@@ -535,8 +588,13 @@ export const copy = {
     stillWriting: "The draft is still being written. Try again in a moment.",
     markedHandled: (merchant: string) => `Marked ${merchant} as handled.`,
     couldntSave: (error: string) => `Couldn't save the draft: ${error}`,
-    savedToDrafts: (to: string) => `Saved to Drafts for ${to}. Send it from your mail app when you're ready.`,
-    snoozed: (merchant: string) => `Snoozed ${merchant}. It stays in the list, below the rest.`,
+    savedToDrafts: (to: string) => `Saved to Drafts for ${to}. Seal the leak opens it in Mail when you're ready.`,
+    /** Edit on an approved finding. */
+    reopened: "Approval taken back: change the draft, then approve it again.",
+    /** Seal the leak, when the app it opens couldn't be opened. */
+    sealPreview: "Seal the leak opens Mail, a call or Calendar in the desktop app. This browser preview can't.",
+    sealFailed: "Couldn't open it. Try again, or do it from the app yourself.",
+    sealBank: (account: string) => `Open your bank's app and do it there, on the ${account} account.`,
     dismissed: (merchant: string) => `Marked ${merchant} as not a leak.`,
     undoneDraft: (merchant?: string) => `Undone: the draft for ${merchant} was removed from Drafts.`,
     undone: (merchant?: string) => `Undone: ${merchant} is back in the list.`,
@@ -547,6 +605,8 @@ export const copy = {
     reminderNoCalendar: "Calendar isn't connected, so there's nowhere to add a reminder.",
     reminderNotNow: "Reminders are for findings that still need you or are approved.",
     undoneReminder: (merchant?: string) => `Undone: the reminder for ${merchant} was removed from your calendar.`,
+    /** Remove reminder (the notice's button, or L again). */
+    reminderRemoved: (merchant?: string) => `Removed the reminder for ${merchant} from your calendar.`,
     /** Stands in for the business's name when it isn't known. */
     it: "it",
     undo: "Undo",
@@ -609,13 +669,14 @@ export const copy = {
           [["J"], "Next"],
           [["K"], "Previous"],
           [["↵"], "Open evidence and draft"],
-          [["Space"], "Open or close a group or evidence"],
+          [["Space"], "Open or close a group, or preview evidence"],
           [["C"], "Checked by code (in a finding)"],
           [["A"], "Approve: save the draft to Drafts"],
-          [["E"], "Edit the draft"],
-          [["S"], "Snooze"],
+          [["E"], "Edit the draft (takes an approval back)"],
+          [["⌘", "⇧", "⌫"], "Revert your edits and stop editing (while editing)"],
+          [["S"], "Seal the leak: open the fix in Mail (once approved)"],
           [["D"], "Not a leak"],
-          [["L"], "Remind me: add it to your calendar"],
+          [["L"], "Remind me: add it to your calendar (in a finding, L again removes it)"],
           [["F"], "Filter"],
           [["⌫"], "Remove the last filter"],
           [["⌘", "Z"], "Undo"],
@@ -628,7 +689,8 @@ export const copy = {
           [["V"], "View: findings or timeline"],
           [["/"],"Search findings or the timeline"],
           [["Tab"], "Draft or evidence (in a finding)"],
-          [["T"], "Show what the agent did"],
+          [["]"], "Hide or show the evidence (in a finding)"],
+          [["T"], "What the agent did (in a finding: for that one)"],
           [["R"], "Check again (reconnects first)"],
           [["Esc"], "Back, then close"],
           [["⌘", ","], "Settings"],
@@ -702,6 +764,32 @@ export const copy = {
   trace: {
     title: "What the agent did",
     close: "Close",
+    /** The drawer's switch: this finding's trace, or the whole check's. */
+    thisFinding: "This finding",
+    wholeCheck: "Whole check",
+    /** One finding's trace, written by code from its record (ui/finding-trace.ts). */
+    finding: {
+      models: {
+        "basecompute/qwen3.5-9b": "Qwen 3.5 9B",
+        "basecompute/qwen3.6-35b-a3b": "Qwen 3.6 35B",
+        "basecompute/qwen3.8-flash-next": "Qwen 3.8 Flash",
+      } as Record<string, string>,
+      took: (seconds: string) => `in ${seconds}s`,
+      fromSaved: "from saved answers",
+      emails: (n: number) => plural(n, "email"),
+      documents: (n: number) => plural(n, "document"),
+      bankLines: (n: number) => plural(n, "bank line"),
+      events: (n: number) => plural(n, "calendar event"),
+      gathered: (what: string, relied: number) => `Gathered ${what}, and relied on ${relied} of them`,
+      figures: (n: number) => `Worked out ${plural(n, "figure")} in code: amounts, dates and totals`,
+      judged: (model: string, how: string, kind: string, confidence: string) => `Judged by ${model} ${how}: ${kind}, ${confidence} confidence`,
+      doubt: (doubt: string) => `Doubt: ${doubt}`,
+      draftPassed: (model: string, how: string) => `Draft by ${model} ${how} passed the claim check`,
+      draftFailed: (model: string, how: string, problems: string) => `Draft by ${model} ${how} didn't pass the claim check: ${problems}`,
+      nothingToDraft: "Nothing to draft: the fix is a step you take yourself",
+      noDraftYet: "No draft yet",
+      footnote: "Written by code from this finding's record. Every amount and date was checked by code, not by a model.",
+    },
     nothingYet: "Nothing yet.",
     privacy: "Connectors are read-only. Nothing is sent anywhere except to your model endpoint (on-device in production).",
     /** Each stage as it starts. */

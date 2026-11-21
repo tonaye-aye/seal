@@ -17,7 +17,8 @@ import { useCountUp, useGlide } from "../motion";
 const MONTHS = copy.dates.months;
 const WEEKDAYS = copy.dates.weekdays;
 
-function weekdayOf(date: string): string {
+/** "Thu" for "2026-11-19" (also used by an open finding's Next timeline). */
+export function weekdayOf(date: string): string {
   const [y, m, d] = date.split("-").map(Number);
   return WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
 }
@@ -28,7 +29,8 @@ export function ago(at: number | undefined): string {
   return copy.dates.ago(Math.round((Date.now() - at) / 60_000));
 }
 
-const DOT: Record<TimelineTone, string> = {
+/** Each line's dot. Shared with an open finding's Next timeline (NextSteps.tsx), so both read the same. */
+export const DOT: Record<TimelineTone, string> = {
   soon: "size-2.5 bg-amber shadow-[0_0_0_4px_var(--color-amber-glow)]",
   upcoming: "size-2 border border-muted bg-bg",
   past: "size-1.5 bg-faint",
@@ -37,7 +39,7 @@ const DOT: Record<TimelineTone, string> = {
 };
 
 /** The rail runs down this column; every dot is centred on it. */
-const RAIL = "w-5 shrink-0 flex justify-center";
+export const RAIL = "w-5 shrink-0 flex justify-center";
 
 function Headline({
   entries,

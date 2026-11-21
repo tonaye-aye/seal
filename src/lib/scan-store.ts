@@ -1,7 +1,7 @@
 // The scan as the UI sees it. Runs the agent (src/agent/pipeline.ts) and turns
 // its stream of AgentEvents into one small state object: what is happening
 // now, the findings so far, a readable trace, and Maya's decisions (approved,
-// snoozed, "not a leak") with an undo list. React reads it with
+// "not a leak"; older saved decisions can also be snoozed) with an undo list. React reads it with
 // useSyncExternalStore, the same way as the connector store.
 //
 // Nothing here sends anything. Approving saves an email draft through the
@@ -38,7 +38,7 @@ export type TraceLine = {
 export type Toast = { id: number; text: string; undoable: boolean };
 
 type UndoEntry = {
-  /** A decision (approve, snooze, not a leak) or a reminder Maya added. Decisions when absent. */
+  /** A decision (approve, not a leak) or a reminder Maya added. Decisions when absent. */
   kind?: "decision" | "reminder";
   findingId: string;
   before: Decision;
@@ -622,6 +622,11 @@ export function withDecision(f: Finding, s: ScanState = state): Finding {
   return { ...f, status, draft: f.draft && body !== undefined ? { ...f.draft, body } : f.draft };
 }
 
+/** Maya changed the draft's text ("Edited by you", Revert). */
+export function isEdited(findingId: string, s: ScanState = state): boolean {
+  return s.edits[findingId] !== undefined;
+}
+
 /** Still needing Maya first (most urgent first), then the ones she has dealt with. */
 export function rankedFindings(s: ScanState): Finding[] {
   const all = rank(s.findings).map((f) => withDecision(f, s));
@@ -694,13 +699,6 @@ export async function approve(findingId: string): Promise<void> {
   await saving;
 }
 
-export function snooze(findingId: string): void {
-  if ((state.decisions[findingId] ?? "new") !== "new") return;
-  const f = state.findings.find((x) => x.id === findingId);
-  decide(findingId, "snoozed", { label: copy.toasts.decision.snoozed });
-  showToast(copy.toasts.snoozed(f?.merchant ?? copy.toasts.it), true);
-}
-
 export function dismiss(findingId: string): void {
   if ((state.decisions[findingId] ?? "new") !== "new") return;
   const f = state.findings.find((x) => x.id === findingId);
@@ -714,7 +712,36 @@ export async function undoLast(): Promise<void> {
   if (!entry) return;
   set({ undo: state.undo.slice(0, -1) });
   if (entry.kind === "reminder") return removeReminder(entry.findingId);
-  const savedId = entry.saving && (await entry.saving);
+  const savedId = await revert(entry);
+  const f = state.findings.find((x) => x.id === entry.findingId);
+  showToast(savedId ? copy.toasts.undoneDraft(f?.merchant) : copy.toasts.undone(f?.merchant), false);
+}
+
+/**
+ * Edit on an approved finding: takes the approval back (and its draft out of
+ * Drafts), so Maya can change the draft and approve it again. Returns false
+ * when it isn't approved.
+ */
+export async function reopen(findingId: string): Promise<boolean> {
+  if (state.decisions[findingId] !== "approved") return false;
+  // Its latest decision in the undo list (it may be gone after a restart).
+  let at = state.undo.length - 1;
+  while (at >= 0 && (state.undo[at].findingId !== findingId || state.undo[at].kind === "reminder")) at--;
+  const entry: UndoEntry = at >= 0 ? state.undo[at] : { findingId, before: "new", label: "" };
+  if (at >= 0) set({ undo: state.undo.filter((_, i) => i !== at) });
+  await revert(entry);
+  showToast(copy.toasts.reopened, false);
+  return true;
+}
+
+/** Shows a short message in the toast (Seal the leak's notes), with no Undo. */
+export function notify(text: string): void {
+  showToast(text, false);
+}
+
+/** Puts a decision back as it was before, removing its saved draft. Returns the draft's id if one was removed. */
+async function revert(entry: UndoEntry): Promise<string | undefined> {
+  const savedId = (entry.saving && (await entry.saving)) || state.saved[entry.findingId];
   if (savedId) {
     try {
       await discardSaved(await getConnectors(), savedId);
@@ -731,8 +758,7 @@ export async function undoLast(): Promise<void> {
     delete decidedAt[entry.findingId];
   } else decisions[entry.findingId] = entry.before;
   set({ decisions, decidedAt });
-  const f = state.findings.find((x) => x.id === entry.findingId);
-  showToast(savedId ? copy.toasts.undoneDraft(f?.merchant) : copy.toasts.undone(f?.merchant), false);
+  return savedId;
 }
 
 // ---------- Remind me (L) ----------
@@ -779,7 +805,7 @@ export async function remind(findingId: string): Promise<void> {
 }
 
 /** Takes a reminder out of the calendar and the list (undo). */
-async function removeReminder(findingId: string): Promise<void> {
+async function removeReminder(findingId: string, toast: (merchant: string) => string = copy.toasts.undoneReminder): Promise<void> {
   const reminder = state.reminders[findingId];
   if (!reminder) return;
   if (reminder.eventId) {
@@ -792,13 +818,24 @@ async function removeReminder(findingId: string): Promise<void> {
   const { [findingId]: _gone, ...reminders } = state.reminders;
   set({ reminders });
   const f = state.findings.find((x) => x.id === findingId);
-  showToast(copy.toasts.undoneReminder(f?.merchant ?? copy.toasts.it), false);
+  showToast(toast(f?.merchant ?? copy.toasts.it), false);
+}
+
+/**
+ * Remove reminder (the button on the reminder notice, or L again inside the
+ * finding): takes it out of the calendar, and out of the undo list so ⌘Z
+ * doesn't try to remove it twice. Remind me comes back.
+ */
+export async function cancelReminder(findingId: string): Promise<void> {
+  set({ undo: state.undo.filter((u) => !(u.kind === "reminder" && u.findingId === findingId)) });
+  await removeReminder(findingId, copy.toasts.reminderRemoved);
 }
 
 export function setEdit(findingId: string, body: string): void {
   set({ edits: { ...state.edits, [findingId]: body } });
 }
 
+/** Revert: back to the agent's draft. */
 export function resetEdit(findingId: string): void {
   const { [findingId]: _gone, ...edits } = state.edits;
   set({ edits });

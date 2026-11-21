@@ -9,7 +9,8 @@ import { fromSaved, mixedReplay, SavedTag } from "../replay";
 import { daysUntil, headlineAmount, isUnsure, shortDate, urgency, type Urgency } from "../format";
 import { copy } from "../../copy";
 import { KeyText } from "../KeyText";
-import { ApproveIcon, DismissIcon, RemindIcon, SnoozeIcon } from "../icons";
+import { ApproveIcon, DismissIcon, SealIcon, RemindIcon } from "../icons";
+import { sealTarget } from "../seal";
 import { Kbd } from "../Kbd";
 import { CountUp } from "../CountUp";
 import { useFlip, useGlide } from "../motion";
@@ -230,11 +231,12 @@ export function DeadlineChip({ date }: { date: string }) {
   );
 }
 
-export type RowAction = "approve" | "snooze" | "dismiss" | "remind";
+export type RowAction = "approve" | "seal" | "dismiss" | "remind";
 
 /**
- * The selected row's quick menu: a ⋯ button that opens Approve, Snooze and
- * Not a leak, each with its key (A, S, D still work without opening it). It
+ * The selected row's quick menu: a ⋯ button that opens Approve and Not a
+ * leak (or, once approved, Seal the leak), and Remind me, each with its key
+ * (A, S, D, L still work without opening it). It
  * opens downwards, or upwards when the row is near the bottom of the list.
  * `startOpen` shows it open without a click (the dev gallery only).
  */
@@ -242,10 +244,11 @@ function RowMenu({ finding, onAct, startOpen = false }: { finding: Finding; onAc
   const [open, setOpen] = useState(startOpen);
   const [side, setSide] = useState<"top" | "bottom">("bottom");
   const button = useRef<HTMLButtonElement>(null);
-  const approve = finding.draft ? copy.actions.approve : finding.action.kind === "none" ? copy.actions.markHandled : copy.actions.approve;
   const choose = (action: RowAction) => () => onAct(action);
   const scan = useScan();
   const open_ = finding.status === "new";
+  // Approved: Seal the leak opens Mail, a call or Calendar for it.
+  const canSeal = finding.status === "approved" && !!sealTarget(finding, scan.corpus);
   // Remind me: greyed out with the reason when there's no calendar, or once one is set.
   const noCalendar = scan.result?.notConnected?.includes("calendar");
   const reminder = scan.reminders[finding.id];
@@ -268,8 +271,8 @@ function RowMenu({ finding, onAct, startOpen = false }: { finding: Finding; onAc
         side={side}
         align="end"
         label={copy.list.quickActions}
-        // A, S and D work with the menu open too, as its rows say.
-        shortcuts={open_ ? { a: choose("approve"), s: choose("snooze"), d: choose("dismiss"), l: choose("remind") } : { l: choose("remind") }}
+        // The rows' keys work with the menu open too.
+        shortcuts={open_ ? { a: choose("approve"), d: choose("dismiss"), l: choose("remind") } : canSeal ? { s: choose("seal"), l: choose("remind") } : { l: choose("remind") }}
         trigger={
           <Tip content={copy.list.quickActions}>
             <button
@@ -286,11 +289,11 @@ function RowMenu({ finding, onAct, startOpen = false }: { finding: Finding; onAc
       >
         {open_ && (
           <>
-            <MenuItem icon={<ApproveIcon />} label={approve} keys={<Kbd keys={["A"]} />} onSelect={choose("approve")} />
-            <MenuItem icon={<SnoozeIcon />} label={copy.actions.snooze} keys={<Kbd keys={["S"]} />} onSelect={choose("snooze")} />
+            <MenuItem icon={<ApproveIcon />} label={copy.actions.approve} keys={<Kbd keys={["A"]} />} onSelect={choose("approve")} />
             <MenuItem icon={<DismissIcon />} label={copy.actions.notALeak} keys={<Kbd keys={["D"]} />} onSelect={choose("dismiss")} />
           </>
         )}
+        {canSeal && <MenuItem icon={<SealIcon />} label={copy.actions.seal} keys={<Kbd keys={["S"]} />} onSelect={choose("seal")} />}
         <MenuItem icon={<RemindIcon />} label={remindLabel} keys={<Kbd keys={["L"]} />} disabled={!!noCalendar || !!reminder} onSelect={choose("remind")} />
       </Menu>
     </span>

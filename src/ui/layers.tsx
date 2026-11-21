@@ -2,6 +2,7 @@ import { cloneElement, createContext, useContext, useEffect, useRef, useState } 
 import * as Tooltip from "@radix-ui/react-tooltip";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Dialog from "@radix-ui/react-dialog";
+import * as Popover from "@radix-ui/react-popover";
 import { Kbd } from "./Kbd";
 
 // Everything that floats above the palette: tooltips, menus and sheets, built
@@ -331,6 +332,56 @@ export function MenuCheckItem({
 /** A thin line between groups of rows. */
 export function MenuSeparator() {
   return <DropdownMenu.Separator className="mx-1 my-1 h-px bg-hairline" />;
+}
+
+// ---------- Peek ----------
+
+/**
+ * A small card that opens beside a line (a piece of evidence in a finding's
+ * sidebar): a short preview and a button. Opened by a click or by the
+ * palette (Enter). While open it owns the keys: Enter or Space presses its
+ * button (focus starts there), Esc or a click outside closes it.
+ */
+export function Peek({
+  open,
+  onOpenChange,
+  trigger,
+  label,
+  side = "left",
+  children,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** The line it opens from (one element that can hold a ref). */
+  trigger: React.ReactElement;
+  label: string;
+  side?: "left" | "right" | "top" | "bottom";
+  children: React.ReactNode;
+}) {
+  const { container, preview } = useContext(LayerScope);
+  useLayer(open, !preview);
+  return (
+    <Popover.Root open={open} onOpenChange={onOpenChange}>
+      <Popover.Trigger asChild>{trigger}</Popover.Trigger>
+      <Popover.Portal container={container ?? undefined}>
+        <Popover.Content
+          aria-label={label}
+          side={side}
+          align="start"
+          sideOffset={10}
+          collisionPadding={8}
+          onCloseAutoFocus={(e) => {
+            e.preventDefault();
+            focusPalette();
+          }}
+          {...previewProps(preview)}
+          className="layer-pop z-40 w-[248px] rounded-lg border border-hairline bg-surface p-1 shadow-(--shadow-menu) outline-none"
+        >
+          {children}
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
+  );
 }
 
 // ---------- Sheet ----------

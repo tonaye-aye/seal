@@ -3,13 +3,15 @@ import type { Corpus } from "../agent/corpus";
 import { formatAUD } from "../lib/money";
 import { copy } from "../copy";
 import { LivePreviewProvider } from "../connectors/live";
-import { TOAST_MS, rankedFindings, ScanPreviewProvider, type ScanState } from "../lib/scan-store";
+import { TOAST_MS, isEdited, rankedFindings, ScanPreviewProvider, type ScanState } from "../lib/scan-store";
 import { KeyButton } from "../ui/Kbd";
 import { buildTimeline, filterTimeline, nowIndex } from "../ui/timeline";
 import { SearchField } from "../ui/Palette/SearchField";
 import { FilterButton } from "../ui/Palette/Filters";
 import { applyFilters, filterOptions, type FilterId } from "../ui/filters";
-import { ActionBar, FindingDetail, sidebarStops, type Pane } from "../ui/Palette/FindingDetail";
+import type { Finding } from "../agent/pipeline";
+import { findingTrace } from "../ui/finding-trace";
+import { DEFAULT_PANELS, FindingDetail, hasDraftPanel as findingHasDraftPanel, firstStop, sidebarStops, type Pane, type PanelId } from "../ui/Palette/FindingDetail";
 import {
   AllClear,
   CLEARED_GROUP,
@@ -38,8 +40,8 @@ import { TraceDrawer } from "../ui/Palette/Trace";
 import { ViewHeading } from "../ui/Palette/ViewHeading";
 import { FINDINGS, endpointSamples, liveSamples, nowSamples, onboardingSample, sampleCorpus, scanSamples, type LiveSample } from "./fixtures";
 import { isSetupScreen, type OnboardingState } from "../lib/onboarding";
-import { ListHint, TimelineHint } from "../ui/Palette/FooterHint";
-import { ApproveIcon, CheckNowIcon, SnoozeIcon, TraceIcon } from "../ui/icons";
+import { DetailHint, ListHint, TimelineHint } from "../ui/Palette/FooterHint";
+import { ApproveIcon, CheckNowIcon, SealIcon, RemindIcon, TraceIcon } from "../ui/icons";
 import { PrimaryButton, SetupScreen } from "../ui/Onboarding/SetupScreen";
 import { replayNote } from "../ui/replay";
 import { EndpointPreviewProvider, ModelDemoPreviewProvider, type EndpointStatus } from "../lib/endpoint";
@@ -183,14 +185,22 @@ type FrameProps = {
   selected?: string;
   query?: string;
   pane?: Pane;
-  evidenceIndex?: number;
-  /** The open evidence item in a finding's sidebar (-1: all folded). */
-  openEvidence?: number;
-  figuresOpen?: boolean;
+  /** The selected stop in a finding's sidebar (-1: its first piece of evidence; past the end: the last stop). */
+  stop?: number;
+  /** The sidebar's open panels. */
+  panels?: PanelId[];
+  /** The evidence whose card is open, and the one open in the source sheet (-1: none). */
+  peek?: number;
+  source?: number;
+  /** The draft's Details (To, Subject, Attach) unfolded. */
+  detailsOpen?: boolean;
   editing?: boolean;
   mouse?: boolean;
   hint?: boolean;
-  trace?: boolean;
+  /** The trace drawer: the whole check's, or ("finding") the open finding's own. */
+  trace?: boolean | "finding";
+  /** An open finding's sidebar folded to a strip (left out: as the app does it, folded once approved). */
+  sidebarFolded?: boolean;
   sheet?: "keys" | "scenarios";
   /** Shows the selected row's click buttons as if the pointer were on it. */
   holdHover?: boolean;
@@ -224,14 +234,17 @@ function PaletteFrame({
   view = "list",
   selected,
   query = "",
-  pane = "evidence",
-  evidenceIndex = 0,
-  openEvidence = 0,
-  figuresOpen = false,
+  pane: paneAsked = "evidence",
+  stop = -1,
+  panels = DEFAULT_PANELS,
+  peek = -1,
+  source = -1,
+  detailsOpen = true,
   editing = false,
   mouse = false,
   hint = false,
   trace = false,
+  sidebarFolded,
   sheet,
   holdHover = false,
   onboarding,
@@ -263,6 +276,14 @@ function PaletteFrame({
   const entry = entries[nowIndex(entries)] ?? entries[entries.length - 1];
   const nothingYet = items.length === 0 && !query && !filters.length;
   const inDetail = view === "detail" && !!openItem;
+  const stops = openItem ? sidebarStops(openItem, shownScan.corpus, panels) : [];
+  const stopAt = stop < 0 ? firstStop(stops) : Math.min(stop, stops.length - 1);
+  const openFinding = openItem && "evidence" in openItem ? openItem : undefined;
+  const hasDraftPanel = !!openFinding && findingHasDraftPanel(openFinding);
+  const hasDetails = hasDraftPanel && !!openFinding?.draft;
+  // As in the app: the sidebar folds once a finding is approved, and then the keys are on the draft side.
+  const sidebarShown = sidebarFolded !== undefined ? !sidebarFolded : openFinding?.status !== "approved";
+  const pane: Pane = !sidebarShown && paneAsked === "evidence" ? "draft" : paneAsked;
 
   let main: React.ReactNode;
   if (setup) {
@@ -272,17 +293,27 @@ function PaletteFrame({
       <FindingDetail
         item={openItem}
         corpus={shownScan.corpus}
-        edited={"evidence" in openItem && shownScan.edits[openItem.id] !== undefined}
+        edited={"evidence" in openItem && isEdited(openItem.id, shownScan)}
         pane={pane}
-        evidenceIndex={evidenceIndex}
-        openEvidence={openEvidence}
-        figuresOpen={figuresOpen}
+        stops={stops}
+        stop={stopAt}
+        panels={panels}
+        peek={peek}
+        source={source}
         editing={editing}
+        detailsOpen={detailsOpen}
+        onToggleDetails={noop}
         mouse={mouse}
         onStopEditing={noop}
         onFocusDraft={noop}
-        onToggleEvidence={noop}
-        onToggleFigures={noop}
+        onCommand={noop}
+        sidebarOpen={sidebarShown}
+        onToggleSidebar={noop}
+        traceOpen={!!trace}
+        tracePressed={trace === "finding"}
+        onTogglePanel={noop}
+        onPeek={noop}
+        onOpenSource={noop}
         draftRef={draftRef}
         scanning={shownScan.phase === "scanning"}
       />
@@ -369,7 +400,7 @@ function PaletteFrame({
               <Rail
                 view={inDetail ? "detail" : view === "timeline" ? "timeline" : "list"}
                 from={detailFrom}
-                traceOpen={trace}
+                traceOpen={!!trace}
                 onList={noop}
                 onTimeline={noop}
                 onTrace={noop}
@@ -412,13 +443,23 @@ function PaletteFrame({
               </>
             ) : undefined
           }
-          bar={!setup && inDetail ? <ActionBar item={actionItem} detail pane={pane} stopOpen={openItem && evidenceIndex === sidebarStops(openItem, shownScan.corpus).evidence ? figuresOpen : evidenceIndex === openEvidence} mouse={mouse} onCommand={noop} /> : undefined}
           footer={
             <Footer
               onScenarios={noop}
               right={
                 setup ? (
                   <PrimaryButton onboarding={onboarding} mouse={mouse} />
+                ) : inDetail && editing ? undefined : inDetail ? (
+                  <DetailHint
+                    pane={pane}
+                    stop={stops[stopAt]}
+                    panelOpen={!!stops[stopAt] && "panel" in stops[stopAt] && panels.includes((stops[stopAt] as { panel: PanelId }).panel)}
+                    twoPanes={!!openItem && "evidence" in openItem && sidebarShown}
+                    detailsOpen={hasDetails ? detailsOpen : undefined}
+                    mouse={mouse}
+                    onToggle={noop}
+                    onPane={noop}
+                  />
                 ) : view === "timeline" ? (
                   <TimelineHint entry={entry} mouse={mouse} onOpen={noop} />
                 ) : view === "list" && !nothingYet ? (
@@ -436,7 +477,16 @@ function PaletteFrame({
           }
         >
           {main}
-          {trace && <TraceDrawer lines={shownScan.trace} onClose={noop} />}
+          {trace && (
+            <TraceDrawer
+              lines={shownScan.trace}
+              finding={inDetail && openFinding ? { merchant: openFinding.merchant, lines: findingTrace(openFinding) } : undefined}
+              scope={trace === "finding" ? "finding" : "check"}
+              mouse={mouse}
+              editing={editing}
+              onClose={noop}
+            />
+          )}
         </PaletteShell>
       </div>
     </Preview>
@@ -550,6 +600,19 @@ export function Gallery() {
   // The top finding, and the list once it is approved (for the motion stills).
   const [top, second] = rankedFindings(s.done);
   const approvedTop: ScanState = { ...s.done, decisions: { ...s.done.decisions, [top.id]: "approved" } };
+  // Seal the leak's other routes, on approved findings with no email draft
+  // (every finding in the seed has one, so these are hand-made from the samples).
+  const approvedWith = (id: string, change: Partial<Finding>): ScanState => {
+    const swap = (f: Finding) => (f.id === id ? { ...f, ...change } : f);
+    return { ...s.approved, findings: s.approved.findings.map(swap), result: s.approved.result && { ...s.approved.result, findings: s.approved.result.findings.map(swap) } };
+  };
+  const sealPhone = approvedWith("f-skylink", { draft: undefined, action: { kind: "none", summary: "Call Skylink and ask them to restore the $79.00 price." } });
+  const sealCalendar = approvedWith("f-ironworks", {
+    draft: undefined,
+    action: { kind: "none", summary: "Cancel at the front desk before 28 Nov." },
+    evidence: [{ kind: "event", id: "evt_004", cited: true }, ...s.approved.findings.find((f) => f.id === "f-ironworks")!.evidence],
+  });
+  const sealBank = approvedWith("f-brightpage", { kind: "duplicate_payment", draft: undefined, action: { kind: "none", summary: "Ask your bank to dispute the second charge." } });
   // The top finding marked "Not a leak": it goes into "Checked and left alone".
   const dismissedTop: ScanState = { ...s.done, decisions: { ...s.done.decisions, [top.id]: "dismissed" } };
   const now = nowSamples(corpus);
@@ -612,22 +675,22 @@ export function Gallery() {
               <Shot title="Findings, first run" note="Compact rows: name, kind, amount, date. Couldn't decide stays open; Checked and left alone is closed (the first-run hint is under Onboarding)">
                 <PaletteFrame scan={s.done} />
               </Shot>
-              <Shot title="Approved group, selected" note="Approved rows leave the main list for an open Approved · n group (a title, not a J/K stop); snoozed rows stay at the end of the main list. ⋯ on an approved row has Remind me">
+              <Shot title="Approved group, selected" note="Approved rows leave the main list for an open Approved · n group (a title, not a J/K stop). ⋯ on an approved row has Seal the leak and Remind me">
                 <PaletteFrame scan={s.decided} selected="f-skylink" />
               </Shot>
-              <Shot title="After some decisions" note="Approved and snoozed rows, mouse mode">
+              <Shot title="After some decisions" note="An approved row and one marked Not a leak, mouse mode">
                 <PaletteFrame scan={s.decided} mouse selected="f-ironworks" />
               </Shot>
-              <Shot title="Row quick menu open" note="The selected row's ⋯ menu: Approve, Snooze, Not a leak, Remind me (L)">
+              <Shot title="Row quick menu open" note="The selected row's ⋯ menu: Approve, Not a leak, Remind me (L)">
                 <PaletteFrame scan={s.done} mouse holdHover selected="f-ironworks" />
               </Shot>
               <Shot title="Quick menu, reminder already set" note="Remind me is greyed out and says the date, so L can't add a second one">
                 <PaletteFrame scan={s.reminded} mouse holdHover selected="f-streambox" />
               </Shot>
-              <Shot title="Quick menu on an approved row" note="Only Remind me: to check for a reply">
+              <Shot title="Quick menu on an approved row" note="Seal the leak (S) opens Mail with the draft; Remind me (L) to check for a reply">
                 <PaletteFrame scan={s.decided} mouse holdHover selected="f-skylink" />
               </Shot>
-              <Shot title="Couldn't decide, selected" note="The action bar for a case the model couldn't settle">
+              <Shot title="Couldn't decide, selected" note="The footer's Check again for a case the model couldn't settle">
                 <PaletteFrame scan={s.done} selected="u-council" />
               </Shot>
               <Shot title="Checked and left alone, header selected" note="Closed by default, with a count. J/K stop on its header; Enter or Space opens it">
@@ -645,7 +708,7 @@ export function Gallery() {
               <Shot title="All approved" note="Ready to send on drafted ones, Handled when there's nothing to send">
                 <PaletteFrame scan={s.approved} />
               </Shot>
-              <Shot title="Everything dealt with" note="Every finding approved or snoozed">
+              <Shot title="Everything dealt with" note="Every finding approved or marked Not a leak">
                 <PaletteFrame scan={s.handled} />
               </Shot>
             </Section>
@@ -726,17 +789,26 @@ export function Gallery() {
             </Section>
 
             <Section id="finding" title="Finding">
-              <Shot title="Evidence and draft" note="Main column: header, figures, deadline, then the draft. Sidebar: the first cited item open, amounts checked by code highlighted; Checked by code folded with a count">
+              <Shot title="Evidence and draft" note="Main column: header, the amount at stake, deadline chip, then the draft. Sidebar: its heading (Leaks found, the trace and fold buttons), then one accordion, Evidence it relied on open with its first line selected; Also gathered and Checked by code folded. Each header has its count in a circle">
                 <PaletteFrame scan={s.done} view="detail" selected="f-skylink" />
               </Shot>
-              <Shot title="All evidence folded" note="Enter or Space on the open item closes it: one line each (icon, name, date; bank lines add the amount)">
-                <PaletteFrame scan={s.done} view="detail" selected="f-skylink" openEvidence={-1} evidenceIndex={2} />
+              <Shot title="All panels folded" note="Enter or Space on a header folds its panel: three headers, one line each">
+                <PaletteFrame scan={s.done} view="detail" selected="f-skylink" panels={[]} stop={0} />
               </Shot>
-              <Shot title="Another item open" note="J moved to the second line, Enter opened it (one open at a time)">
-                <PaletteFrame scan={s.done} view="detail" selected="f-ironworks" evidenceIndex={1} openEvidence={1} />
+              <Shot title="Evidence preview" note="J to the second line, Enter: a card beside it with where it's from, a few words (at most 30 characters, around the amount code checked) and Open source. Esc closes it">
+                <PaletteFrame scan={s.done} view="detail" selected="f-ironworks" stop={2} peek={1} />
+              </Shot>
+              <Shot title="Also gathered open" note="Several panels can be open at once; its lines preview the same way">
+                <PaletteFrame scan={s.done} view="detail" selected="f-ironworks" panels={["cited", "gathered"]} stop={4} />
               </Shot>
               <Shot title="Checked by code open" note="C from either side, or J to its header and Enter. The header is the sidebar's last stop">
-                <PaletteFrame scan={s.done} view="detail" selected="f-skylink" openEvidence={-1} evidenceIndex={7} figuresOpen />
+                <PaletteFrame scan={s.done} view="detail" selected="f-skylink" panels={["cited", "figures"]} stop={99} />
+              </Shot>
+              <Shot title="Whole source" note="Open source (Enter on the card): the whole email over a dimmed palette, amounts checked by code highlighted. J/K scroll it, Esc goes back to the line">
+                <PaletteFrame scan={s.done} view="detail" selected="f-skylink" source={0} />
+              </Shot>
+              <Shot title="Whole source: a bank line" note="A transaction has no text: its description as the title, then account, date and amount">
+                <PaletteFrame scan={s.done} view="detail" selected="f-brightpage" source={0} />
               </Shot>
               <Shot title="Keys on the draft" note="Tab: J/K scroll the draft, the sidebar's highlight goes away, the footer says Tab Evidence">
                 <PaletteFrame scan={s.done} view="detail" selected="f-skylink" pane="draft" />
@@ -747,31 +819,64 @@ export function Gallery() {
               <Shot title="Check before sending" note="Draft the claim check couldn't fully match">
                 <PaletteFrame scan={s.done} view="detail" selected="f-brightpage" pane="draft" />
               </Shot>
-              <Shot title="Meter photo" note="Evidence with no text layer: the photo shows inside its item">
-                <PaletteFrame scan={s.done} view="detail" selected="f-redgum" evidenceIndex={1} openEvidence={1} />
+              <Shot title="Meter photo" note="Evidence with no text layer: its card shows the photo">
+                <PaletteFrame scan={s.done} view="detail" selected="f-redgum" stop={2} peek={1} />
               </Shot>
-              <Shot title="Editing the draft" note="Typing is blocked here">
+              <Shot title="Meter photo, whole source" note="Open source shows the photo large, so the red tenths digit can be read">
+                <PaletteFrame scan={s.done} view="detail" selected="f-redgum" stop={2} source={1} />
+              </Shot>
+              <Shot title="Editing the draft" note="In the heading, Approve and Edit give way to Done (Esc, not primary), the same as the Done under the editor; they come back after. Revert (⌘⇧⌫) and Done (Esc, or ⌘↵) follow the button pattern: key caps here, icons with the mouse. While editing, letters type, Tab stays in the editor, and focus comes back to it if a menu took it">
                 <PaletteFrame scan={s.edited} view="detail" selected="f-skylink" pane="draft" editing />
+              </Shot>
+              <Shot title="Editing, mouse mode" note="Revert and Done with their icons">
+                <PaletteFrame scan={s.edited} view="detail" selected="f-skylink" pane="draft" editing mouse />
+              </Shot>
+              <Shot title="Editing with the trace open" note="Both at once: keys stay in the editor (T types a t), Esc ends editing first and then closes the drawer, so its Close shows an X. The draft keeps room to scroll clear of the drawer">
+                <PaletteFrame scan={s.edited} view="detail" selected="f-skylink" pane="draft" editing trace="finding" />
               </Shot>
               <Shot title="Nothing to send" note="The fix is a step Maya takes herself">
                 <PaletteFrame scan={s.done} view="detail" selected="f-streambox" />
               </Shot>
-              <Shot title="Approved: what happens next" note="The Next block above the draft: saved in Drafts, send it from your mail app, then what to expect (written by code from the checked figures)">
+              <Shot title="Actions in the heading" note="On the left, the ways to act: Approve (A, the main action) and Edit (E: change the wording first). On the right, the ways to put it off or set it aside: Remind me (L) and Not a leak (D). Always in view while the draft scrolls. The draft's text is clickable (editing starts with the caret where you clicked); hovering it shows Edit under its bottom right, where Done sits while editing">
+                <PaletteFrame scan={s.done} view="detail" selected="f-skylink" pane="draft" />
+              </Shot>
+              <Shot title="Approved: Seal the leak" note="The sidebar folds by itself on Approve (the evidence has done its job; ] brings it back). The heading keeps Edit (E, takes the approval back) on the left and Remind me on the right. The draft itself is hidden: the timeline's first line says what was saved (hover it for a pencil that edits it). Seal the leak (S, opens Mail with the draft filled in) is on the Send it line, left of its dot, between today and the next date">
                 <PaletteFrame scan={s.approved} view="detail" selected="f-skylink" pane="draft" />
               </Shot>
-              <Shot title="Approved, with a reminder" note="L added an all-day reminder to check for a reply; the Next block says when. The L key leaves the action bar once it's set">
+              <Shot title="Evidence folded away" note="] or the fold button in the sidebar's heading folds it to a strip: the unfold button and the trace icon under it (still in reach). The draft gets the room; Tab has only the draft side then, and ] (or a click on the strip) brings it back">
+                <PaletteFrame scan={s.done} view="detail" selected="f-skylink" pane="draft" sidebarFolded />
+              </Shot>
+              <Shot title="Trace for this finding" note="The trace icon in the sidebar's heading (pressed while open), or T inside a finding: what the agent did for this one, written by code from its record. A second press closes it; the switch goes to the whole check's. Close: Esc's key cap (an X with the mouse)">
+                <PaletteFrame scan={s.done} view="detail" selected="f-redgum" trace="finding" />
+              </Shot>
+              <Shot title="Drafted email folded" note="Drafted email is a fold drawn like the sidebar's panel headers, open to start: To, Subject and Attach as a paper plane, a quote and a paper clip, each named in its tooltip. Enter or Space on the draft side (Hide details in the footer), or a click, folds it">
+                <PaletteFrame scan={s.done} view="detail" selected="f-redgum" pane="draft" detailsOpen={false} />
+              </Shot>
+              <Shot title="Approved, mouse mode" note="Plain buttons, each with its icon before the label (Seal the leak: a seal); hovering Seal the leak says where it goes">
+                <PaletteFrame scan={s.approved} view="detail" selected="f-skylink" mouse />
+              </Shot>
+              <Shot title="Seal the leak: a call" note="Sample: no email draft, so the number in the evidence it relied on (Skylink's agreement, 1300 000 000) becomes a call">
+                <PaletteFrame scan={sealPhone} view="detail" selected="f-skylink" pane="draft" />
+              </Shot>
+              <Shot title="Seal the leak: Calendar" note="Sample: no email or number, and a calendar event in the evidence (Ben's reminder), so it opens Calendar and names the date">
+                <PaletteFrame scan={sealCalendar} view="detail" selected="f-ironworks" pane="draft" />
+              </Shot>
+              <Shot title="Seal the leak: the bank" note="Sample: a payment made twice with no email: there's no bank app to link to, so it says where to do it (in a toast on S)">
+                <PaletteFrame scan={sealBank} view="detail" selected="f-brightpage" pane="draft" />
+              </Shot>
+              <Shot title="Approved, with a reminder" note="L added an all-day reminder to check for a reply: the bell notice says when, and the timeline has Reminder created (ticked) and the reminder's own day. Remind me leaves the button row once it's set">
                 <PaletteFrame scan={s.reminded} view="detail" selected="f-skylink" pane="draft" />
               </Shot>
-              <Shot title="Reminder on an open finding" note="Two days before the deadline, never before tomorrow: here 20 Nov. The header's next-date line says it">
-                <PaletteFrame scan={s.reminded} view="detail" selected="f-streambox" />
+              <Shot title="Reminder on an open finding" note="Not approved yet, but put off: a bell notice says when, with Remove reminder (L again) to take it off, and Remind me comes back (two days before the deadline, never before tomorrow: here 20 Nov), and the Next timeline starts with Reminder created, then the reminder and the deadline (amber: within 7 days)">
+                <PaletteFrame scan={s.reminded} view="detail" selected="f-streambox" pane="draft" />
               </Shot>
               <Shot title="Approved, a refund to expect" note="Redgum: the credit is an estimate, so it says about">
                 <PaletteFrame scan={s.approved} view="detail" selected="f-redgum" pane="draft" />
               </Shot>
-              <Shot title="Approved, nothing to send" note="Marked as handled, and what to expect once Maya cancels it herself">
+              <Shot title="Approved, nothing to send" note="Marked as handled, and what to expect once Maya cancels it herself. The step is in Apple's settings, so there's no Seal the leak: Undo (⌘Z) instead of Edit">
                 <PaletteFrame scan={s.approved} view="detail" selected="f-streambox" />
               </Shot>
-              <Shot title="Finding, mouse mode" note="Plain action buttons, no selection highlight; click any evidence line to open it">
+              <Shot title="Finding, mouse mode" note="Plain action buttons, no selection highlight; the footer says to click any evidence line to preview it">
                 <PaletteFrame scan={s.done} view="detail" selected="f-skylink" mouse />
               </Shot>
               <Shot title="Checked and left alone" note="Why the mobile rise was fine; the sidebar has the evidence it relied on and no figures">
@@ -849,8 +954,8 @@ export function Gallery() {
               <Shot title="Pressed" note="Buttons give a little while held down; rows dim instead. Changing view crossfades (no still)" height={110}>
                 <Strip>
                   <Pressed>
-                    <KeyButton keys={["A"]} label={copy.actions.approveToDrafts} icon={<ApproveIcon />} tone="primary" onClick={noop} />
-                    <KeyButton keys={["S"]} label={copy.actions.snooze} icon={<SnoozeIcon />} onClick={noop} />
+                    <KeyButton keys={["A"]} label={copy.actions.approve} icon={<ApproveIcon />} tone="primary" onClick={noop} />
+                    <KeyButton keys={["L"]} label={copy.actions.remind} icon={<RemindIcon />} onClick={noop} />
                   </Pressed>
                 </Strip>
               </Shot>
@@ -1124,12 +1229,13 @@ export function Gallery() {
                   </div>
                 </Strip>
               </Shot>
-              <Shot title="Key buttons" note="Keyboard (key caps before the label), mouse (an icon instead) and disabled" height={150}>
+              <Shot title="Key buttons" note="Keyboard (key caps before the label), mouse (an icon instead) and disabled. Seal the leak follows the same pattern: S in keyboard mode, its seal in mouse mode" height={150}>
                 <Strip>
                   <Labelled label="Keyboard">
                     <div className="flex items-center gap-6 text-meta">
                       <KeyButton keys={["A"]} label={copy.actions.approve} icon={<ApproveIcon />} tone="primary" onClick={noop} />
-                      <KeyButton keys={["S"]} label={copy.actions.snooze} icon={<SnoozeIcon />} onClick={noop} />
+                      <KeyButton keys={["S"]} label={copy.actions.seal} icon={<SealIcon />} tone="primary" onClick={noop} />
+                      <KeyButton keys={["L"]} label={copy.actions.remind} icon={<RemindIcon />} onClick={noop} />
                       <KeyButton keys={["T"]} label="Trace" icon={<TraceIcon />} tone="faint" onClick={noop} />
                       <KeyButton keys={["R"]} label={copy.demo.checkInProgress} icon={<CheckNowIcon />} onClick={noop} disabled />
                     </div>
@@ -1137,7 +1243,8 @@ export function Gallery() {
                   <Labelled label="Mouse">
                     <div className="flex items-center gap-6 text-meta">
                       <KeyButton keys={["A"]} label={copy.actions.approve} icon={<ApproveIcon />} tone="primary" onClick={noop} mouse />
-                      <KeyButton keys={["S"]} label={copy.actions.snooze} icon={<SnoozeIcon />} onClick={noop} mouse />
+                      <KeyButton keys={["S"]} label={copy.actions.seal} icon={<SealIcon />} tone="primary" onClick={noop} mouse />
+                      <KeyButton keys={["L"]} label={copy.actions.remind} icon={<RemindIcon />} onClick={noop} mouse />
                       <KeyButton keys={["T"]} label="Trace" icon={<TraceIcon />} tone="faint" onClick={noop} mouse />
                       <KeyButton keys={["R"]} label={copy.demo.checkInProgress} icon={<CheckNowIcon />} onClick={noop} mouse disabled />
                     </div>
