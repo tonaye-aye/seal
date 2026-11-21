@@ -136,7 +136,7 @@ if (process.argv.includes("--scan")) {
   console.log(`\nWhole check, endpoint drops after ${dropAfter} calls: ${((Date.now() - started) / 1000).toFixed(1)} s`);
   console.log(`  lost at ${lostAt ?? "never"}`);
   console.log(`  ${result.findings.length} findings (${saved} from saved answers), ${result.cleared.length} left alone, ${result.undecided.length} couldn't decide`);
-  check("redone check still finds 7, leaves 2 alone, none undecided", result.findings.length === 7 && result.cleared.length === 2 && result.undecided.length === 0);
+  check("redone check still finds 8, leaves 2 alone, none undecided", result.findings.length === 8 && result.cleared.length === 2 && result.undecided.length === 0);
   check("every finding and draft is labelled saved", result.findings.every((f) => f.judgedBy.source === "cache" && (!f.draft || f.draft.source === "cache")));
   check("the drop was reported", lostAt !== undefined);
   // The abandoned live run carries on in the background; don't wait for it.
