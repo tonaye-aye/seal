@@ -95,9 +95,10 @@ fn palette_visible(app: AppHandle) -> bool {
 
 /// The only web pages the app may open: the real complaint bodies' own forms.
 /// Exact addresses, so the page can't ask for anything else on those sites.
-const COMPLAINT_PAGES: [&str; 2] = [
+const COMPLAINT_PAGES: [&str; 3] = [
     "https://www.tio.com.au/complaints",
     "https://www.ewov.com.au/start-a-complaint",
+    "https://www.consumer.vic.gov.au/contact-us/resolve-your-problem/general-complaint",
 ];
 
 /// "Seal the leak": opens the Mac's own app for the fix. An email link
