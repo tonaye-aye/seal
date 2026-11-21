@@ -42,6 +42,26 @@ export function dateIn(iso: string, text: string): boolean {
   ].some((form) => new RegExp(`(^|[^0-9])${form.toLowerCase()}(?![0-9])`).test(lower));
 }
 
+/**
+ * Is this exact date, year included, written in the text? Stricter than
+ * `dateIn`: "6 December 2024" does not count as "6 December 2025".
+ */
+export function exactDateIn(iso: string, text: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return false;
+  const [year, month, day] = [m[1], Number(m[2]), Number(m[3])];
+  const long = MONTHS[month - 1].toLowerCase();
+  // September is the one month also commonly shortened to four letters.
+  const names = month === 9 ? "september|sept|sep" : `${long}|${long.slice(0, 3)}`;
+  const dayWord = `0?${day}(?:st|nd|rd|th)?`;
+  const lower = text.toLowerCase();
+  return [
+    `${dayWord}\\s+(?:of\\s+)?(?:${names})\\.?,?\\s+${year}`,
+    `(?:${names})\\.?\\s+${dayWord},?\\s+${year}`,
+    `${m[3]}/${m[2]}/${year}`, `${day}/${month}/${year}`, iso,
+  ].some((form) => new RegExp(`(^|[^0-9])${form}(?![0-9])`).test(lower));
+}
+
 /** Does the reference ("KP-20418") appear, ignoring case and spacing? */
 export function referenceIn(reference: string, text: string): boolean {
   const squash = (s: string) => s.toLowerCase().replace(/\s+/g, "");

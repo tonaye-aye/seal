@@ -19,7 +19,7 @@ import { formatAUD } from "../lib/money.ts";
 import type { Connectors, Draft, Mailbox } from "../connectors/index.ts";
 import type { Corpus } from "./corpus.ts";
 import type { EvidenceRef } from "./detectors.ts";
-import { amountIn, dateIn, numberIn, referenceIn } from "./grounding.ts";
+import { amountIn, dateIn, exactDateIn, numberIn, referenceIn } from "./grounding.ts";
 import type { ActionKind, FindingKind } from "./judge.ts";
 import type { Figure } from "./verify.ts";
 
@@ -191,8 +191,11 @@ export function claimCheck(draft: string, allowed: string, today = localDate(now
   // Dates with a day: "14 November", "14th Nov 2026", "November 14".
   const dayFirst = new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONTH_WORD})\\b\\.?(?:,?\\s+(\\d{4}))?`, "gi");
   const monthFirst = new RegExp(`\\b(${MONTH_WORD})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?:,?\\s+(\\d{4}))?`, "gi");
+  // A date written with a year needs that same year in the evidence.
   const datesSeen = (day: string, month: string, year?: string) =>
-    (year ? [year] : ["2025", "2026", "2027"]).some((y) => dateIn(iso(y, monthIndex(month), day), pool));
+    year
+      ? exactDateIn(iso(year, monthIndex(month), day), pool)
+      : ["2025", "2026", "2027"].some((y) => dateIn(iso(y, monthIndex(month), day), pool));
   for (const m of text.matchAll(dayFirst)) if (!datesSeen(m[1], m[2], m[3])) bad.push(m[0]);
   for (const m of text.matchAll(monthFirst)) if (!datesSeen(m[2], m[1], m[3])) bad.push(m[0]);
   // A month and year with no day ("until October 2027"): that month must be mentioned somewhere.
@@ -200,7 +203,7 @@ export function claimCheck(draft: string, allowed: string, today = localDate(now
     const mo = monthIndex(m[1]);
     const days = Array.from({ length: 31 }, (_, i) => iso(m[2], mo, i + 1));
     const named = new RegExp(`\\b(${MONTHS[mo - 1]}|${MONTHS[mo - 1].slice(0, 3)})\\s+${m[2]}\\b`, "i").test(pool);
-    if (!named && !days.some((d) => dateIn(d, pool))) bad.push(m[0]);
+    if (!named && !days.some((d) => exactDateIn(d, pool))) bad.push(m[0]);
   }
   // Business references: "KP-20418", "R-77311", "OH-Y3-0908".
   for (const m of text.matchAll(/\b[A-Z]{1,4}-[A-Z0-9-]*\d[A-Z0-9-]*\b/g)) {
