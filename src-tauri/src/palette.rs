@@ -31,6 +31,14 @@ pub fn hides_on_blur() -> bool {
     HIDE_ON_BLUR && HIDE_ON_BLUR_NOW.load(Ordering::SeqCst)
 }
 
+/// Onboarding's first step asks the user to press the hotkey. While this is
+/// true, the next press counts as that proof instead of hiding the window.
+static SUMMON_TEST: AtomicBool = AtomicBool::new(false);
+
+pub fn set_summon_test(armed: bool) {
+    SUMMON_TEST.store(armed, Ordering::SeqCst);
+}
+
 /// Show the palette, focus it and tell the UI it opened (the UI uses that
 /// event to reset itself and replay its entrance animation). It opens where
 /// the user last left it: it starts centred (tauri.conf.json) and can be
@@ -68,6 +76,17 @@ pub fn toggle<R: Runtime>(app: &AppHandle<R>) {
     let window = app.get_webview_window(LABEL);
     let visible = window.as_ref().and_then(|w| w.is_visible().ok()).unwrap_or(false);
     let focused = window.as_ref().and_then(|w| w.is_focused().ok()).unwrap_or(false);
+    // `swap` turns the test off and says whether it was on, in one step, so
+    // only the first press counts. Every press after this one toggles as usual.
+    if SUMMON_TEST.swap(false, Ordering::SeqCst) {
+        if !(visible && focused) {
+            show(app);
+        }
+        if let Some(window) = window {
+            let _ = window.emit("palette:summon-proved", ());
+        }
+        return;
+    }
     if visible && focused {
         hide(app);
     } else {
