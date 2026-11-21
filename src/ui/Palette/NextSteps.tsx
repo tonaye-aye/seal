@@ -77,6 +77,11 @@ export function nextLines(finding: Finding, scan: ScanState): Line[] {
     // The deadline itself; once approved, what to expect by then.
     dated.push({ key: "deadline", date: finding.deadline.date, title: finding.deadline.label, detail: expect && copy.next.thenExpect(expect) });
   }
+  // A warranty has a second date that matters: the claim itself must be in by the day it ends.
+  const claimBy = finding.kind === "warranty_claim" ? finding.figures.find((f) => f.id === "warranty_ends")?.value : undefined;
+  if (typeof claimBy === "string" && claimBy !== finding.deadline?.date) {
+    dated.push({ key: "claim-by", date: claimBy, title: copy.next.warrantyEnds });
+  }
   // An expectation with no deadline to hang it on (a refund, a credit) follows the step,
   // ahead of the dated lines, so "If they say no" reads as what comes after it.
   if (expect && !finding.deadline) lines.push({ key: "expect", title: copy.next.thenExpect(expect) });

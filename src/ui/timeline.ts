@@ -64,6 +64,7 @@ const AMOUNT_FOR_DATE: Record<string, string> = {
   second_payment: "payment_amount",
   bill_paid_on: "bill_total",
   price_changed_on: "new_price",
+  repair_visit: "repair_booked",
 };
 
 /** Calendar entries worth showing even when no finding cites them. */

@@ -1070,6 +1070,15 @@ export function Gallery() {
               <Shot title="Approved: Online" note="The steps stay under the timeline while Maya does them">
                 <PaletteFrame scan={r.approvedOnline} view="detail" selected="f-redgum" pane="draft" />
               </Shot>
+              <Shot title="Warranty: Online" note="Two businesses, two jobs. The claim goes to Norvik, and the deadline is the time free cancellation ends at Spinwell">
+                <PaletteFrame scan={r.warranty} view="detail" selected="f-norvik" pane="draft" />
+              </Shot>
+              <Shot title="Warranty: Call" note="The script is for Spinwell and only cancels the booking. The number is a sample and is never dialled">
+                <PaletteFrame scan={r.warrantyCall} view="detail" selected="f-norvik" pane="draft" />
+              </Shot>
+              <Shot title="Warranty: approved" note="Approving the claim doesn't cancel the repair, so the cancel time and the last day to claim each keep their own dated line">
+                <PaletteFrame scan={r.warrantyApproved} view="detail" selected="f-norvik" pane="draft" />
+              </Shot>
               <Shot title="If they say no: a sample body" note="A fictional bank is marked Sample, and O shows its sample page">
                 <PaletteFrame scan={r.approvedSampleBody} view="detail" selected="f-skylink" pane="draft" />
               </Shot>

@@ -78,5 +78,10 @@ export function expectation(finding: Finding, scan: Pick<ScanState, "result">): 
       const over = cents(finding, "overcharge_estimate");
       return over === undefined ? undefined : say.credit(formatAUD(over));
     }
+    case "warranty_claim": {
+      const repair = cents(finding, "repair_booked");
+      const visit = date(finding, "repair_visit");
+      return repair === undefined || !visit ? undefined : say.warranty(formatAUD(repair), shortDate(visit));
+    }
   }
 }
