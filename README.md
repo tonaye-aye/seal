@@ -4,7 +4,7 @@ A desktop agent for one household's monthly money check. It reads the household'
 documents and calendar, and finds charges that are wrong or unwanted: price rises that break a contract,
 things paid twice, forgotten trials, renewal traps and a bill based on a bad meter estimate. For each one it
 gathers the evidence and drafts the fix, and you approve it with one key. It isn't a chat window. You summon
-it, triage what it found, then approve, snooze or dismiss each item. All model calls go to the Base Compute endpoint (Qwen models).
+it, triage what it found, then approve or dismiss each item, and seal the leak from your own mail app. All model calls go to the Base Compute endpoint (Qwen models).
 
 The household is fictional: Maya and Ben Whitlock and their two kids, renting in Brunswick, Melbourne. Their
 data is in [`seed/`](seed/README.md).
@@ -52,7 +52,8 @@ Press **⌥Space** to bring it up (or **⌘⇧Space** if ⌥Space is taken). The
 | `J` / `K` | Next / previous finding |
 | `↵` | Open the evidence and the draft |
 | `A` | Approve: save the draft to Drafts (nothing is sent) |
-| `E` / `S` / `D` | Edit the draft / Snooze / Not a leak |
+| `S` | Seal the leak, once approved: opens Mail with the draft filled in (you send it) |
+| `E` / `D` / `L` | Edit the draft (takes an approval back) / Not a leak / Remind me (a calendar reminder) |
 | `⌘Z` | Undo |
 | `⌘↵` | Timeline: what's coming |
 | `/` | Search |
@@ -204,8 +205,10 @@ error, replay, undo and more.
 - [Geist Mono](https://github.com/vercel/geist-font) by Vercel (figures, dates and small labels): SIL Open Font
   License 1.1, installed through `@fontsource-variable/geist-mono`.
 - [Lucide](https://lucide.dev) icons (`lucide-react`): ISC.
+- The seal on Seal the leak is from Microsoft's [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) (High Contrast
+  set, via [shadcn.io](https://www.shadcn.io/icon/fluent-emoji-high-contrast-seal)): MIT.
 - [Radix Primitives](https://www.radix-ui.com/primitives) (`@radix-ui/react-tooltip`, `react-dropdown-menu`,
-  `react-dialog`, `react-switch`, `react-accordion`) for tooltips, menus, sheets, switches and the "Checked and left
-  alone" group, restyled from the app's own tokens: MIT.
+  `react-dialog`, `react-popover`, `react-switch`, `react-accordion`) for tooltips, menus, sheets, evidence previews,
+  switches and the folding groups, restyled from the app's own tokens: MIT.
 - React, Vite, Tailwind CSS: MIT. Tauri: MIT or Apache-2.0.
 - All seed data, people and brands are made up.
