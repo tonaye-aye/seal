@@ -22,14 +22,12 @@ type Props = {
   placeholder: string;
   /** Mouse mode: a clear button instead of the key caps. */
   mouse?: boolean;
-  /** Runs when the field takes focus (an open finding goes back to its list first). */
-  onFocus?: () => void;
   /** The dev gallery only: drawn as if focused, or with the closed tooltip held open. */
   preview?: { focused?: boolean; tip?: boolean };
 };
 
 export const SearchField = forwardRef<HTMLInputElement | null, Props>(function SearchField(
-  { value, onChange, label, placeholder, mouse = false, onFocus, preview },
+  { value, onChange, label, placeholder, mouse = false, preview },
   ref,
 ) {
   const input = useRef<HTMLInputElement>(null);
@@ -86,10 +84,7 @@ export const SearchField = forwardRef<HTMLInputElement | null, Props>(function S
         tabIndex={open ? 0 : -1}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        onFocus={() => {
-          setHasFocus(true);
-          onFocus?.();
-        }}
+        onFocus={() => setHasFocus(true)}
         onBlur={() => setHasFocus(false)}
         className={`min-w-0 flex-1 bg-transparent text-small text-text outline-none placeholder:text-faint transition-opacity duration-(--duration-fast) ${
           open ? "opacity-100" : "opacity-0"

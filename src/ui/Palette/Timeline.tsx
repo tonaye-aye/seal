@@ -7,7 +7,7 @@ import { comingUp, nowIndex, type TimelineEntry, type TimelineTone } from "../ti
 import { clockTime, daysUntil, shortDate } from "../format";
 import { copy } from "../../copy";
 import { ViewHeading } from "./ViewHeading";
-import { useCountUp, useGlide } from "../motion";
+import { useCountUp, useGlide, useScrollFade } from "../motion";
 
 // The case view: one vertical line through time. What already happened sits
 // above the violet "now" marker, what is coming sits below it, and today's
@@ -150,6 +150,7 @@ export function Timeline({
   query: string;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
+  useScrollFade(listRef);
   const linesRef = useRef<HTMLOListElement>(null);
   const highlightRef = useRef<HTMLLIElement>(null);
   useGlide(linesRef, highlightRef);
@@ -215,7 +216,7 @@ export function Timeline({
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Pinned: the heading stays put while the timeline scrolls. */}
       <Headline entries={entries} scan={scan} query={query} />
-      <div ref={listRef} className="relative min-h-0 flex-1 overflow-y-auto pb-4">
+      <div ref={listRef} className="scroll-fade relative min-h-0 flex-1 overflow-y-auto pb-4">
         <div className="relative px-2">
           {/* The rail: one hairline behind every dot. It sits at the centre of the
               dot column: 8px outer padding + 12px row padding + 48px date + 12px gap + 10px. */}

@@ -6,10 +6,35 @@ import { flushSync } from "react-dom";
 //   useGlide     the selection highlight slides between rows on J/K
 //   useCountUp   amounts count up the first time they appear
 //   changeView   list, finding and timeline crossfade into each other
+//   useScrollFade  no edge fade on a scrolling area whose content fits
+//   useSettleText  text beside the sliding sidebar wraps once, not every frame
 //
 // Two rules hold everywhere. Nothing ever waits: a key press changes the state
 // at once, and any motion still running is picked up from where it is. And with
 // "reduce motion" switched on, there is no movement at all, only the end state.
+
+// ---------- Scroll fade ----------
+
+/**
+ * Marks a `.scroll-fade` area whose content fits. The fade follows the scroll
+ * position, and with nothing to scroll the browser reports "at the end", which
+ * would fade the top row for no reason. Rechecks when the area or its rows resize.
+ */
+export function useScrollFade(ref: React.RefObject<HTMLElement | null>) {
+  useLayoutEffect(() => {
+    const area = ref.current;
+    if (!area) return;
+    const update = () => {
+      if (area.scrollHeight <= area.clientHeight + 1) area.dataset.fits = "";
+      else delete area.dataset.fits;
+    };
+    update();
+    const watch = new ResizeObserver(update);
+    watch.observe(area);
+    Array.from(area.children).forEach((child) => watch.observe(child));
+    return () => watch.disconnect();
+  });
+}
 
 // ---------- Shared ----------
 
@@ -30,6 +55,43 @@ function easing(): string {
 /** The same curve as --ease-out, roughly, for counting in JavaScript. */
 function easeOut(p: number): number {
   return 1 - Math.pow(1 - p, 3);
+}
+
+/**
+ * While a side panel slides, the text beside it (anything marked `data-settle`,
+ * inside a parent that clips it) takes the width it will end at straight away.
+ * Its lines then wrap once and fade up, instead of rewrapping on every frame.
+ */
+export function useSettleText(
+  areaRef: React.RefObject<HTMLElement | null>,
+  panelRef: React.RefObject<HTMLElement | null>,
+  open: boolean,
+) {
+  const was = useRef(open);
+  useLayoutEffect(() => {
+    if (was.current === open) return;
+    was.current = open;
+    const area = areaRef.current;
+    const panel = panelRef.current;
+    const full = panel?.firstElementChild as HTMLElement | null | undefined;
+    if (!area || !panel || !full || reducedMotion()) return;
+    const texts = Array.from(area.querySelectorAll<HTMLElement>("[data-settle]"));
+    // Measured free of any earlier hold, so pressing again mid-slide still lands right.
+    texts.forEach((text) => (text.style.width = ""));
+    const change = panel.offsetWidth - (open ? full.offsetWidth : 0);
+    const widths = texts.map((text) => text.offsetWidth + change);
+    const duration = ms("--duration-panel", 280);
+    texts.forEach((text, i) => {
+      text.style.width = `${widths[i]}px`;
+      text.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration, easing: easing() });
+    });
+    const release = () => texts.forEach((text) => (text.style.width = ""));
+    const timer = setTimeout(release, duration + 40);
+    return () => {
+      clearTimeout(timer);
+      release();
+    };
+  }, [open, areaRef, panelRef]);
 }
 
 /**
@@ -252,7 +314,8 @@ export function useCountUp(id: string, target: number): number {
     const start = performance.now();
     let frame = 0;
     const step = (t: number) => {
-      const p = Math.min(1, (t - start) / duration);
+      // The first frame's time can be from just before `start`: held at 0, or an amount would flash negative.
+      const p = Math.max(0, Math.min(1, (t - start) / duration));
       const v = Math.round(from + (target - from) * easeOut(p));
       shown.set(id, v);
       setValue(v);

@@ -1,8 +1,9 @@
-import { cloneElement, createContext, useContext, useEffect, useRef, useState } from "react";
+import { Children, cloneElement, createContext, useContext, useEffect, useRef, useState } from "react";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Dialog from "@radix-ui/react-dialog";
 import * as Popover from "@radix-ui/react-popover";
+import { SlidersHorizontal } from "lucide-react";
 import { Kbd } from "./Kbd";
 
 // Everything that floats above the palette: tooltips, menus and sheets, built
@@ -132,7 +133,7 @@ export function Tip({
    * Anything else is passed on to that element, so a menu's button can sit
    * inside a tooltip (<Menu trigger={<Tip><button/></Tip>}>).
    */
-} & React.HTMLAttributes<HTMLElement> & { ref?: React.Ref<HTMLButtonElement> }) {
+} & Omit<React.HTMLAttributes<HTMLElement>, "content"> & { ref?: React.Ref<HTMLButtonElement> }) {
   const { container } = useContext(LayerScope);
   const [shown, setShown] = useState(false);
   if (!content) return Object.keys(trigger).length ? cloneElement(children, trigger) : children;
@@ -166,8 +167,8 @@ export function Tip({
 // ---------- Menu ----------
 
 /**
- * A small menu that opens from a button: upwards from the footer, to the
- * right from the icon rail, downwards from a row. Arrow keys and Enter move through it; the key shown on a
+ * A small menu that opens from a button: upwards from the footer, downwards
+ * from the heading row or a list row. Arrow keys and Enter move through it; the key shown on a
  * row (`shortcuts`) runs that row straight away; Esc or a click outside closes it.
  */
 export function Menu({
@@ -185,7 +186,7 @@ export function Menu({
   /** The button that opens it (one element that can hold a ref). */
   trigger: React.ReactElement;
   label: string;
-  /** Above the button (footer), beside it (icon rail) or below it. */
+  /** Above the button (footer), beside it or below it. */
   side?: "top" | "bottom" | "right";
   /** Line up with the button's left edge ("start") or right edge ("end"). */
   align?: "start" | "end";
@@ -332,6 +333,63 @@ export function MenuCheckItem({
 /** A thin line between groups of rows. */
 export function MenuSeparator() {
   return <DropdownMenu.Separator className="mx-1 my-1 h-px bg-hairline" />;
+}
+
+/**
+ * The on/off switch, drawn from the tokens. Its parent carries the `group`
+ * class and a data-state (a Radix switch or a menu row), and this follows it.
+ * Neutral by default: violet is kept for the main action.
+ */
+export function SwitchLook({ tone = "neutral", className = "" }: { tone?: "neutral" | "info"; className?: string }) {
+  const on =
+    tone === "info"
+      ? "group-data-[state=checked]:border-info/60 group-data-[state=checked]:bg-info/80"
+      : "group-data-[state=checked]:border-text group-data-[state=checked]:bg-text";
+  return (
+    <span
+      aria-hidden="true"
+      className={`relative block h-[18px] w-[30px] shrink-0 rounded-full border border-hairline bg-raised transition-colors duration-(--duration-fast) ${on} ${className}`}
+    >
+      <span className="absolute top-[2px] left-[2px] block size-3 rounded-full bg-muted transition-transform duration-(--duration-fast) ease-out group-data-[state=checked]:translate-x-3 group-data-[state=checked]:bg-bg" />
+    </span>
+  );
+}
+
+/**
+ * The structure every menu shares: the most obvious action, a line, the other
+ * options, a line, then one row that always opens the Settings dialog, for
+ * when none of the rows above is what you were after. `,` presses that row
+ * (each menu adds it to its `shortcuts`).
+ */
+export function MenuSections({
+  first,
+  rest,
+  dialog,
+  mouse,
+}: {
+  first: React.ReactNode;
+  rest?: React.ReactNode;
+  dialog: { label: string; onOpen: () => void };
+  mouse: boolean;
+}) {
+  return (
+    <>
+      {first}
+      {Children.toArray(rest).length > 0 && (
+        <>
+          <MenuSeparator />
+          {rest}
+        </>
+      )}
+      <MenuSeparator />
+      <MenuItem
+        icon={<SlidersHorizontal size={14} strokeWidth={1.75} aria-hidden="true" />}
+        label={dialog.label}
+        keys={mouse ? undefined : <Kbd keys={[","]} />}
+        onSelect={dialog.onOpen}
+      />
+    </>
+  );
 }
 
 // ---------- Peek ----------

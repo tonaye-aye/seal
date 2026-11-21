@@ -1,21 +1,24 @@
 import { useEffect, useRef, useState } from "react";
+import { isTauri } from "@tauri-apps/api/core";
 import type { Cleared, Finding } from "../../agent/pipeline";
-import { reconnectCalendar, useLive } from "../../connectors/live";
 import { activeHotkey, hidePalette, onPaletteShown, onWindowFocus } from "../../lib/native";
 import {
+  finishOnboarding,
   runFirstCheck,
   onboardingDone,
   isSetupScreen,
   next as nextSetupStep,
+  proveSummon,
   resetOnboarding,
   useOnboarding,
 } from "../../lib/onboarding";
+import { getPreferences } from "../../lib/preferences";
 import { DetailHint, ListHint, TimelineHint } from "./FooterHint";
-import { PrimaryButton, SetupScreen } from "../Onboarding/SetupScreen";
-import { approve, cancelReminder, dismiss, isEdited, rankedFindings, remind, reopen, resetEdit, startScan, undoLast, useScan } from "../../lib/scan-store";
+import { SetupScreen, welcomeLocked } from "../Onboarding/SetupScreen";
+import { approve, cancelReminder, dismiss, isEdited, rankedFindings, remind, reopen, resetEdit, syncEverything, undoLast, useScan } from "../../lib/scan-store";
 import { seal, sealTarget } from "../seal";
 import { findingTrace } from "../finding-trace";
-import { DEFAULT_PANELS, FindingDetail, hasDraftPanel as findingHasDraftPanel, firstStop, sidebarStops, type Command, type Pane, type PanelId } from "./FindingDetail";
+import { DEFAULT_PANELS, FindingActions, FindingDetail, findingActions, hasDraftPanel as findingHasDraftPanel, firstStop, sidebarStops, type Command, type Pane, type PanelId } from "./FindingDetail";
 import {
   AllClear,
   CLEARED_GROUP,
@@ -35,12 +38,14 @@ import { SearchField } from "./SearchField";
 import { FilterButton } from "./Filters";
 import { applyFilters, filterOptions, toggleFilter, type FilterId } from "../filters";
 import { Footer } from "./Footer";
-import { Header } from "./Header";
+import { Header, type Crumb } from "./Header";
 import { PaletteShell } from "./PaletteShell";
 import { copy } from "../../copy";
-import { Rail, SettingsButton } from "./Rail";
-import { ShortcutSheet } from "./ShortcutSheet";
+import { SettingsButton, TraceButton, ViewButton } from "./Controls";
+import { SettingsDialog, type SettingsTab } from "./SettingsDialog";
+import { ShortcutIntro, ShortcutSheet } from "./ShortcutSheet";
 import { ScenariosSheet } from "./ScenariosSheet";
+import { SyncButton } from "./SyncButton";
 import { layerOwns, setPaletteElement } from "../layers";
 import { Toast } from "./Toast";
 import { TraceDrawer } from "./Trace";
@@ -59,9 +64,9 @@ import { changeView, nativeViewTransitions } from "../motion";
 //           opens or closes the selected line, C "Checked by code", Tab draft/sidebar
 //   timeline  J/K move through time, Enter opens the line's finding
 //   list    F filter menu, Backspace removes the newest filter (Esc clears them all, after the search)
-//   always  Cmd+Enter timeline, V view menu, Cmd+Z undo, / search, T trace, R check again, ? keys, Esc back
+//   always  Cmd+Enter timeline, V view menu, Cmd+Z undo, / search, T trace, R sync everything, N connectors, M models, ? keys, Esc back
 //   hidden  Cmd+Shift+D demo panel (its own keys live in ScenariosSheet)
-//   setup   (first-run onboarding screens) Enter does the screen's action, Cmd+Enter runs the first check
+//   setup   (the three onboarding steps) Enter does the step's action, Cmd+Enter runs the first check
 //
 // While a menu or a sheet is open, it owns the keys instead (src/ui/layers.tsx).
 
@@ -79,9 +84,22 @@ function typingIn(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
 }
 
+/** The view to open on (Settings, View). "Where I left off" starts on the list after a restart. */
+function startingView(): "list" | "timeline" {
+  return getPreferences().startView === "timeline" ? "timeline" : "list";
+}
+
+/**
+ * Is this key press the summon hotkey? Only needed in a plain browser, which
+ * has no global hotkey: in the app, the native side catches it first.
+ */
+function isHotkey(event: KeyboardEvent, keys: string[]): boolean {
+  if (event.code !== "Space") return false;
+  return keys.join("") === "⌘⇧Space" ? event.metaKey && event.shiftKey : event.altKey && !event.metaKey;
+}
+
 export function Palette() {
   const scan = useScan();
-  const live = useLive();
   const onboarding = useOnboarding();
   const setup = isSetupScreen(onboarding.step);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -91,6 +109,8 @@ export function Palette() {
   // animation plays again. Findings and decisions live in the store, so they stay.
   const [openCount, setOpenCount] = useState(0);
   const [hotkey, setHotkey] = useState<string[]>([]);
+  // False until the app says which key registered, so step 1 doesn't flash unlocked.
+  const [hotkeyReady, setHotkeyReady] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedKey, setSelectedKey] = useState<string>();
   // Bumped when the keyboard moves the selection, so only that scrolls the list.
@@ -100,7 +120,7 @@ export function Palette() {
   const [mouse, setMouse] = useState(false);
   // False while another app has focus: the palette dims, like an inactive window.
   const [focused, setFocused] = useState(true);
-  const [view, setView] = useState<"list" | "detail" | "timeline">("list");
+  const [view, setView] = useState<"list" | "detail" | "timeline">(startingView);
   // Where Esc goes back to from an open finding.
   const [detailFrom, setDetailFrom] = useState<"list" | "timeline">("list");
   const [timelineKey, setTimelineKey] = useState<string>();
@@ -111,7 +131,7 @@ export function Palette() {
   const [sideStop, setSideStop] = useState(-1);
   const [panels, setPanels] = useState<PanelId[]>(DEFAULT_PANELS);
   const [peek, setPeek] = useState(-1);
-  // The finding's sidebar, unfolded or folded to a strip (] or its button). For
+  // The finding's sidebar, showing or slid away (] or its icon). For
   // findings that still need Maya it stays as she left it from one to the next.
   // An approved finding is past its evidence, so its sidebar folds on its own
   // (approvedSidebarOpen, false each time one is opened or approved); ⌘Z or Edit
@@ -129,9 +149,13 @@ export function Palette() {
   const [sheetOpen, setSheetOpen] = useState(false);
   // The settings menu (the cog, or ⌘,).
   const [settingsOpen, setSettingsOpen] = useState(false);
-  // The rail's View menu (V, or a click): Findings or Timeline.
-  const [viewMenuOpen, setViewMenuOpen] = useState(false);
-  // The findings list's filters, newest last, and the rail's Filter menu (F, or a click).
+  // The Settings dialog, on one of its tabs (undefined: closed). Every menu's last row opens it.
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>();
+  // Onboarding's step 3: the "Agent working" fold (T, or a click).
+  const [agentOpen, setAgentOpen] = useState(false);
+  // The short shortcuts dialog, shown once as onboarding ends.
+  const [keysIntro, setKeysIntro] = useState(false);
+  // The findings list's filters, newest last, and the Filter menu (F, or a click).
   // Like the search, they are cleared on every summon: the palette opens on
   // everything that needs Maya, and a filter left on could hide a new one.
   const [filters, setFilters] = useState<FilterId[]>([]);
@@ -183,15 +207,23 @@ export function Palette() {
   const selectedEntry = entries.find((e) => e.key === timelineKey) ?? entries[nowIndex(entries)] ?? entries[entries.length - 1];
 
   useEffect(() => {
-    activeHotkey().then(setHotkey).catch(() => setHotkey([]));
+    activeHotkey()
+      .then(setHotkey)
+      .catch(() => setHotkey([]))
+      .finally(() => setHotkeyReady(true));
     const stopShown = onPaletteShown(() => {
       // During onboarding, everything stays exactly as it was left.
       if (onboardingDone()) {
+        const start = getPreferences().startView;
         setQuery("");
-        setView("list");
-        setDetailFrom("list");
+        if (start !== "last") {
+          setView(start);
+          setDetailFrom("list");
+        }
         setEditing(false);
         setSheetOpen(false);
+        setKeysIntro(false);
+        setSettingsTab(undefined);
         setGroupOpened(false);
         setFilters([]);
       }
@@ -206,17 +238,24 @@ export function Palette() {
   }, []);
 
   // Each onboarding step starts from the list, with nothing open on top.
+  const lastStep = useRef(onboarding.step);
   useEffect(() => {
-    setView("list");
+    const finished = lastStep.current === "first-scan" && onboarding.step === "done";
+    lastStep.current = onboarding.step;
+    setView(startingView());
     setPane("evidence");
     setDetailFrom("list");
     setQuery("");
     setFilters([]);
     setEditing(false);
     setSheetOpen(false);
+    setSettingsTab(undefined);
     setTraceOpen(false);
-    // Starting onboarding again clears the first-run hint, so it shows again after the first check.
-    setShowHint(!hintSeen());
+    setAgentOpen(false);
+    // Onboarding just ended: the short shortcuts dialog does the teaching, so the list's hint stays away.
+    setKeysIntro(finished);
+    if (finished) dismissHint();
+    else setShowHint(!hintSeen());
     panelRef.current?.focus();
   }, [onboarding.step]);
 
@@ -270,7 +309,7 @@ export function Palette() {
     setPeek(index);
   }
 
-  /** T outside a finding, and the rail's Trace: the whole check's trace, open or closed. */
+  /** T outside a finding, and the bottom bar's Trace: the whole check's trace, open or closed. */
   function toggleCheckTrace() {
     // Open on a finding's trace: switch to the whole check rather than close.
     if (traceOpen && traceScope === "finding" && view === "detail") return setTraceScope("check");
@@ -278,7 +317,7 @@ export function Palette() {
     setTraceOpen((o) => !o);
   }
 
-  /** Folds the sidebar to a strip (keys go to the draft) or brings it back (keys go to the evidence). */
+  /** Slides the sidebar away (keys go to the draft) or brings it back (keys go to the evidence). */
   function toggleSidebar() {
     const open = !sidebarShown;
     if (selectedFinding?.status === "approved") setApprovedSidebarOpen(open);
@@ -365,16 +404,29 @@ export function Palette() {
     else if (view === "timeline") changeView(() => setView("list"), "back");
   }
 
-  /** The rail's Findings icon: back to the list from wherever you are. */
+  /** Back to the list from wherever you are. */
   function goList() {
     if (view === "timeline" || (view === "detail" && detailFrom === "list")) back();
     else if (view === "detail") changeView(() => setView("list"), "back");
   }
 
-  /** The rail's Timeline icon: back to it from a finding opened there, else open it (like ⌘↵). */
+  /** Back to the timeline from a finding opened there, else open it (like ⌘↵). */
   function goTimeline() {
     if (view === "detail" && detailFrom === "timeline") back();
     else if (view !== "timeline") openTimeline();
+  }
+
+  /** The / key. An open finding has no search in its top bar, so it steps back to its view first. */
+  function focusSearch() {
+    if (view !== "detail") return inputRef.current?.focus();
+    setEditing(false);
+    changeView(() => setView(detailFrom), "back", () => inputRef.current?.focus());
+  }
+
+  /** V, or the View button: over to the other view (from an open finding, the other one from where it was opened). */
+  function toggleView() {
+    if ((view === "detail" ? detailFrom : view) === "timeline") goList();
+    else goTimeline();
   }
 
   /**
@@ -506,9 +558,8 @@ export function Palette() {
       case "rescan":
         // Not on the setup screens: the first check is their own button.
         if (setup) return;
-        // Check again, signing the calendar back in first if it needs it.
-        if (live.statuses.calendar?.state === "needs_reconnect") void reconnectCalendar().then(() => startScan());
-        else void startScan();
+        // Signs the calendar back in first if it needs it.
+        void syncEverything();
         return;
     }
   }
@@ -531,10 +582,11 @@ export function Palette() {
         return;
       }
 
-      // Cmd+, opens Settings (the cog), the usual shortcut on a Mac.
+      // Cmd+, opens Settings (the cog), the usual shortcut on a Mac. The setup
+      // steps have no cog, and the menu mustn't be waiting open when they end.
       if (event.metaKey && key === ",") {
         event.preventDefault();
-        setSettingsOpen((o) => !o);
+        if (!setup) setSettingsOpen((o) => !o);
         return;
       }
 
@@ -543,6 +595,30 @@ export function Palette() {
       // check needs connected sources.
 
       if (setup) {
+        // A plain browser has no global hotkey, so the page spots it for step 1.
+        if (onboarding.step === "welcome" && !isTauri() && isHotkey(event, hotkey)) {
+          event.preventDefault();
+          proveSummon();
+          return;
+        }
+        // Step 3: T opens or closes "Agent working".
+        if (onboarding.step === "first-scan" && lower === "t" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+          event.preventDefault();
+          setAgentOpen((o) => !o);
+          return;
+        }
+        // Step 1: Cmd+Enter skips the summon key, for when another app holds it.
+        if (key === "Enter" && event.metaKey && onboarding.step === "welcome") {
+          event.preventDefault();
+          nextSetupStep();
+          return;
+        }
+        // Step 3, if the check didn't finish: Cmd+Enter carries on without it.
+        if (key === "Enter" && event.metaKey && onboarding.step === "first-scan") {
+          event.preventDefault();
+          if (scan.phase === "error") finishOnboarding();
+          return;
+        }
         if (key === "Enter" && event.metaKey && onboarding.step === "connect") {
           // Run my first check (once a source is connected).
           event.preventDefault();
@@ -553,7 +629,8 @@ export function Palette() {
           event.preventDefault();
         } else if (key === "Enter" && !event.metaKey) {
           event.preventDefault();
-          nextSetupStep();
+          // Step 1 waits until the summon key has been pressed.
+          if (!(onboarding.step === "welcome" && welcomeLocked(onboarding, hotkey, hotkeyReady))) nextSetupStep();
         }
         return;
       }
@@ -630,6 +707,13 @@ export function Palette() {
       }
       if (event.metaKey || event.ctrlKey || event.altKey) return;
 
+      // Settings on its Connectors or Models tab, from any view.
+      if (lower === "n" || lower === "m") {
+        event.preventDefault();
+        setSettingsTab(lower === "n" ? "connectors" : "models");
+        return;
+      }
+
       const inDetail = view === "detail";
       const down = lower === "j" || key === "ArrowDown";
       const up = lower === "k" || key === "ArrowUp";
@@ -657,7 +741,7 @@ export function Palette() {
           toggleCheckTrace();
         } else if (lower === "v") {
           event.preventDefault();
-          setViewMenuOpen(true);
+          toggleView();
         } else if (lower === "f") {
           event.preventDefault();
           setFilterMenu(true);
@@ -678,8 +762,7 @@ export function Palette() {
       switch (key) {
         case "/":
           event.preventDefault();
-          // From an open finding, the field's onFocus goes back to the list it came from.
-          inputRef.current?.focus();
+          focusSearch();
           return;
         case "?":
           event.preventDefault();
@@ -735,7 +818,7 @@ export function Palette() {
         else toggleCheckTrace();
       } else if (lower === "v") {
         event.preventDefault();
-        setViewMenuOpen(true);
+        toggleView();
       } else if (lower === "f") {
         event.preventDefault();
         setFilterMenu(true);
@@ -749,7 +832,7 @@ export function Palette() {
   const nothingYet = items.length === 0 && !query && !filters.length;
   let main: React.ReactNode;
   if (setup) {
-    main = <SetupScreen onboarding={onboarding} hotkey={hotkey} onHotkey={setHotkey} mouse={mouse} />;
+    main = <SetupScreen onboarding={onboarding} hotkey={hotkey} hotkeyReady={hotkeyReady} onHotkey={setHotkey} mouse={mouse} agentOpen={agentOpen} onAgentOpen={setAgentOpen} />;
   } else if (view === "detail" && selectedItem) {
     main = (
       <FindingDetail
@@ -828,18 +911,12 @@ export function Palette() {
       />
     );
 
-  // A line under the top bar during the first check.
-  const banner =
-    onboarding.step === "first-scan" && scan.phase === "scanning" ? (
-      <>
-        <span className="font-semibold text-text">{copy.onboarding.firstCheckLead}</span> {copy.onboarding.firstCheckBody}
-      </>
-    ) : undefined;
-
   const inDetail = view === "detail" && !!selectedItem;
-  // The breadcrumb: the view you're in, then an open finding's business.
+  // The breadcrumb: the view you're in, then an open finding's business. While
+  // a finding is open, the view's name (and the app's) link back to that view.
   const shownView = inDetail ? detailFrom : view === "timeline" ? "timeline" : "list";
-  const crumbs = [shownView === "timeline" ? copy.rail.timeline : copy.rail.list, ...(inDetail ? [selectedItem.merchant] : [])];
+  const homeName = shownView === "timeline" ? copy.controls.timeline : copy.controls.list;
+  const crumbs: Crumb[] = inDetail ? [{ label: homeName, onClick: back }, { label: selectedItem.merchant }] : [{ label: homeName }];
   const actionItem = selected?.type === "undecided" ? { undecided: selected.error } : selectedItem;
   // One search for both views, in the top bar. It searches the view you're
   // in (an open finding: the one it was opened from).
@@ -852,13 +929,6 @@ export function Palette() {
       label={searchTimeline ? copy.search.timelineLabel : copy.search.findingsLabel}
       placeholder={searchTimeline ? copy.search.timelinePlaceholder : copy.search.findingsPlaceholder}
       mouse={mouse}
-      onFocus={() => {
-        // Searching from an open finding (/ or a click) goes back to its list
-        // or timeline first, so the matches are in view.
-        if (view !== "detail") return;
-        setEditing(false);
-        back();
-      }}
     />
   );
 
@@ -874,56 +944,63 @@ export function Palette() {
       onMouseMove={(e) => {
         if (e.movementX !== 0 || e.movementY !== 0) setMouse(true);
       }}
-      header={<Header crumbs={setup ? [] : crumbs} search={setup ? undefined : search} />}
-      rail={
-        setup ? undefined : (
-          <Rail
-            view={view === "detail" && !selectedItem ? "list" : view}
-            from={detailFrom}
-            traceOpen={traceOpen}
-            onList={goList}
-            onTimeline={goTimeline}
-            // The rail's Trace is about the whole check (on a finding's trace, it switches to it).
-            onTrace={toggleCheckTrace}
-            viewOpen={viewMenuOpen}
-            onViewOpenChange={setViewMenuOpen}
-            mouse={mouse}
-            filter={
-              <FilterButton
-                options={filterOptions(everyRow, filters)}
-                active={filters}
-                onToggle={(id) => setFilters((f) => toggleFilter(f, id))}
-                onClear={() => setFilters([])}
-                open={filterMenuOpen}
-                onOpenChange={setFilterMenu}
-                mouse={mouse}
-                away={shownView === "timeline"}
-              />
-            }
-            settings={
-              <SettingsButton
-                hotkey={hotkey}
-                mouse={mouse}
-                onKeys={() => setSheetOpen(true)}
-                open={settingsOpen}
-                onOpenChange={setSettingsOpen}
-              />
+      header={
+        setup ? (
+          <Header bare />
+        ) : (
+          <Header
+            crumbs={crumbs}
+            onHome={inDetail ? { label: homeName, run: back } : undefined}
+            // An open finding swaps Search, Filter and View for its own actions.
+            search={inDetail ? undefined : search}
+            controls={
+              inDetail ? (
+                selectedFinding && <FindingActions actions={findingActions(selectedFinding, scan, editing)} mouse={mouse} sidebarOpen={sidebarShown} onCommand={run} />
+              ) : (
+                <>
+                  <FilterButton
+                    options={filterOptions(everyRow, filters)}
+                    active={filters}
+                    onToggle={(id) => setFilters((f) => toggleFilter(f, id))}
+                    onClear={() => setFilters([])}
+                    open={filterMenuOpen}
+                    onOpenChange={setFilterMenu}
+                    onSettings={() => setSettingsTab("filters")}
+                    mouse={mouse}
+                    away={shownView === "timeline"}
+                  />
+                  <ViewButton current={shownView} onToggle={toggleView} />
+                </>
+              )
             }
           />
         )
       }
       replay={replayNote(scan)}
-      banner={banner}
       // An open finding's actions sit above its draft; how to move around goes in
-      // the footer, like the list's and the timeline's, and setup steps put their action there.
+      // the footer, like the list's and the timeline's. The setup steps have no footer.
 
       footer={
+        setup ? undefined : (
         <Footer
           onScenarios={() => setScenariosOpen(true)}
+          sync={<SyncButton onSync={() => run("rescan")} />}
+          // The whole check's trace (on a finding's trace, it switches to it).
+          trace={<TraceButton pressed={traceOpen} onClick={toggleCheckTrace} />}
+          settings={
+            <SettingsButton
+              hotkey={hotkey}
+              mouse={mouse}
+              onKeys={() => setSheetOpen(true)}
+              onConnectors={() => setSettingsTab("connectors")}
+              onModels={() => setSettingsTab("models")}
+              onAllSettings={() => setSettingsTab("general")}
+              open={settingsOpen}
+              onOpenChange={setSettingsOpen}
+            />
+          }
           right={
-            setup ? (
-              <PrimaryButton onboarding={onboarding} mouse={mouse} />
-            ) : inDetail && editing ? undefined : inDetail ? (
+            inDetail && editing ? undefined : inDetail ? (
               // While editing there are no move hints: those keys type into the draft (Revert and Done carry theirs).
               <DetailHint
                 pane={pane}
@@ -947,11 +1024,33 @@ export function Palette() {
             ) : undefined
           }
         />
+        )
       }
       overlay={
         <>
           <Toast />
           <ShortcutSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />
+          <ShortcutIntro
+            open={keysIntro}
+            mouse={mouse}
+            onClose={() => setKeysIntro(false)}
+            onAll={() => {
+              setKeysIntro(false);
+              setSheetOpen(true);
+            }}
+          />
+          <SettingsDialog
+            tab={settingsTab}
+            onTab={setSettingsTab}
+            onClose={() => setSettingsTab(undefined)}
+            mouse={mouse}
+            hotkey={hotkey}
+            onHotkey={setHotkey}
+            filterOptions={filterOptions(everyRow, filters)}
+            activeFilters={filters}
+            onToggleFilter={(id) => setFilters((f) => toggleFilter(f, id))}
+            onClearFilters={() => setFilters([])}
+          />
           <ScenariosSheet
             open={scenariosOpen}
             mouse={mouse}

@@ -11,7 +11,7 @@ import { FilterButton } from "../ui/Palette/Filters";
 import { applyFilters, filterOptions, type FilterId } from "../ui/filters";
 import type { Finding } from "../agent/pipeline";
 import { findingTrace } from "../ui/finding-trace";
-import { DEFAULT_PANELS, FindingDetail, hasDraftPanel as findingHasDraftPanel, firstStop, sidebarStops, type Pane, type PanelId } from "../ui/Palette/FindingDetail";
+import { DEFAULT_PANELS, FindingActions, FindingDetail, findingActions, hasDraftPanel as findingHasDraftPanel, firstStop, sidebarStops, type Pane, type PanelId } from "../ui/Palette/FindingDetail";
 import {
   AllClear,
   CLEARED_GROUP,
@@ -26,13 +26,13 @@ import {
   listStops,
   pickSelected,
 } from "../ui/Palette/FindingsList";
-import { ConnectorsButton, Footer } from "../ui/Palette/Footer";
-import { Rail, SettingsButton, type RailItem } from "../ui/Palette/Rail";
+import { Footer, ScanStatus } from "../ui/Palette/Footer";
+import { SettingsButton, TraceButton, ViewButton, type ControlItem } from "../ui/Palette/Controls";
 import { Header } from "../ui/Palette/Header";
 import { NowVisual } from "../ui/Palette/NowVisual";
 import { PaletteShell } from "../ui/Palette/PaletteShell";
 import { ScenariosSheet } from "../ui/Palette/ScenariosSheet";
-import { ShortcutSheet } from "../ui/Palette/ShortcutSheet";
+import { ShortcutIntro, ShortcutSheet } from "../ui/Palette/ShortcutSheet";
 import { StatusStrip } from "../ui/Palette/StatusStrip";
 import { Timeline } from "../ui/Palette/Timeline";
 import { Toast } from "../ui/Palette/Toast";
@@ -42,10 +42,11 @@ import { FINDINGS, endpointSamples, liveSamples, nowSamples, onboardingSample, s
 import { isSetupScreen, type OnboardingState } from "../lib/onboarding";
 import { DetailHint, ListHint, TimelineHint } from "../ui/Palette/FooterHint";
 import { ApproveIcon, CheckNowIcon, SealIcon, RemindIcon, TraceIcon } from "../ui/icons";
-import { PrimaryButton, SetupScreen } from "../ui/Onboarding/SetupScreen";
+import { SetupScreen } from "../ui/Onboarding/SetupScreen";
 import { replayNote } from "../ui/replay";
 import { EndpointPreviewProvider, ModelDemoPreviewProvider, type EndpointStatus } from "../lib/endpoint";
-import { ModelChip } from "../ui/Palette/ModelChip";
+import { SettingsDialog, type SettingsTab } from "../ui/Palette/SettingsDialog";
+import { SyncButton } from "../ui/Palette/SyncButton";
 import { PreviewLayers, Tip } from "../ui/layers";
 import { Settings } from "lucide-react";
 import { MotionFreeze, type Freeze } from "../ui/motion";
@@ -201,19 +202,28 @@ type FrameProps = {
   trace?: boolean | "finding";
   /** An open finding's sidebar folded to a strip (left out: as the app does it, folded once approved). */
   sidebarFolded?: boolean;
-  sheet?: "keys" | "scenarios";
+  sheet?: "keys" | "keysIntro" | "scenarios";
+  /** The Settings dialog, open on this tab. */
+  settings?: SettingsTab;
+  /** Step 3: the "Agent working" fold open, and the plain seal in place of the animation. */
+  agentOpen?: boolean;
+  sealFallback?: boolean;
+  /** The sync button's tooltip held open. */
+  syncTip?: boolean;
   /** Shows the selected row's click buttons as if the pointer were on it. */
   holdHover?: boolean;
   /** A first-run onboarding step: its setup screen, or the first check. */
   onboarding?: OnboardingState;
   /** Draw the setup screens as the desktop app would (the welcome's ⌘⇧Space link). */
   desktop?: boolean;
+  /** The summon key shown on the welcome (⌥Space unless set). */
+  hotkey?: string[];
   endpoint?: EndpointStatus;
   modelDemo?: ModelDemo;
   /** Where an open finding was opened from (the rail shows that view as current). */
   detailFrom?: "list" | "timeline";
-  /** The icon rail: one item held hovered or with its tooltip open, or the View or Settings menu open. */
-  rail?: { hover?: RailItem; tip?: RailItem; view?: boolean; settings?: boolean };
+  /** View, Filter, Trace and Settings: one held hovered or with its tooltip open, or the Settings menu open. */
+  controls?: { hover?: ControlItem; tip?: ControlItem; settings?: boolean };
   /** The top bar's search: drawn as if focused (open, typing), or closed with its tooltip held open. */
   search?: { focused?: boolean; tip?: boolean };
   /** "Checked and left alone" opened (it is closed by default, and opens by itself for a search that matches inside). */
@@ -249,14 +259,19 @@ function PaletteFrame({
   holdHover = false,
   onboarding,
   desktop = false,
+  hotkey = ["⌥", "Space"],
   endpoint,
   modelDemo,
   detailFrom = "list",
-  rail,
+  controls,
   search,
   group = false,
   filters = [],
   filterMenu = false,
+  settings,
+  agentOpen = false,
+  sealFallback = false,
+  syncTip,
 }: FrameProps) {
   const setup = onboarding && isSetupScreen(onboarding.step);
   const shellRef = useRef<HTMLDivElement>(null);
@@ -287,7 +302,7 @@ function PaletteFrame({
 
   let main: React.ReactNode;
   if (setup) {
-    main = <SetupScreen onboarding={onboarding} hotkey={["⌥", "Space"]} onHotkey={noop} mouse={mouse} desktop={desktop} />;
+    main = <SetupScreen onboarding={onboarding} hotkey={hotkey} onHotkey={noop} mouse={mouse} desktop={desktop} agentOpen={agentOpen} sealFallback={sealFallback} />;
   } else if (inDetail) {
     main = (
       <FindingDetail
@@ -371,16 +386,42 @@ function PaletteFrame({
           className="palette-enter"
           header={
             <Header
+              bare={!!setup}
               crumbs={
                 setup
                   ? []
-                  : [
-                      (inDetail ? detailFrom : view) === "timeline" ? copy.rail.timeline : copy.rail.list,
-                      ...(inDetail ? [openItem.merchant] : []),
-                    ]
+                  : inDetail
+                    ? [{ label: detailFrom === "timeline" ? copy.controls.timeline : copy.controls.list, onClick: noop }, { label: openItem.merchant }]
+                    : [{ label: view === "timeline" ? copy.controls.timeline : copy.controls.list }]
+              }
+              onHome={inDetail ? { label: detailFrom === "timeline" ? copy.controls.timeline : copy.controls.list, run: noop } : undefined}
+              controls={
+                setup ? undefined : inDetail ? (
+                  openFinding && <FindingActions actions={findingActions(openFinding, shownScan, editing)} mouse={mouse} sidebarOpen={sidebarShown} onCommand={noop} />
+                ) : (
+                  <>
+                    <FilterButton
+                      options={filterOptions(everyRow, filters)}
+                      active={filters}
+                      onToggle={noop}
+                      onClear={noop}
+                      open={filterMenu}
+                      onOpenChange={noop}
+                      onSettings={noop}
+                      mouse={mouse}
+                      away={view === "timeline"}
+                      preview={{ hover: controls?.hover === "filter", tip: controls?.tip === "filter" }}
+                    />
+                    <ViewButton
+                      current={view === "timeline" ? "timeline" : "list"}
+                      onToggle={noop}
+                      preview={{ hover: controls?.hover === "view", tip: controls?.tip === "view" }}
+                    />
+                  </>
+                )
               }
               search={
-                setup ? undefined : (
+                setup || inDetail ? undefined : (
                   <SearchField
                     value={query}
                     onChange={noop}
@@ -395,61 +436,29 @@ function PaletteFrame({
               }
             />
           }
-          rail={
-            setup ? undefined : (
-              <Rail
-                view={inDetail ? "detail" : view === "timeline" ? "timeline" : "list"}
-                from={detailFrom}
-                traceOpen={!!trace}
-                onList={noop}
-                onTimeline={noop}
-                onTrace={noop}
-                viewOpen={rail?.view ?? false}
-                onViewOpenChange={noop}
-                mouse={mouse}
-                preview={rail}
-                filter={
-                  <FilterButton
-                    options={filterOptions(everyRow, filters)}
-                    active={filters}
-                    onToggle={noop}
-                    onClear={noop}
-                    open={filterMenu}
-                    onOpenChange={noop}
-                    mouse={mouse}
-                    away={(inDetail ? detailFrom : view) === "timeline"}
-                    preview={{ hover: rail?.hover === "filter", tip: rail?.tip === "filter" }}
-                  />
-                }
-                settings={
-                  <SettingsButton
-                    hotkey={["⌥", "Space"]}
-                    mouse={mouse}
-                    onKeys={noop}
-                    open={rail?.settings ?? false}
-                    onOpenChange={noop}
-                    hover={rail?.hover === "settings"}
-                    tip={rail?.tip === "settings"}
-                  />
-                }
-              />
-            )
-          }
           replay={replayNote(shownScan)}
-          banner={
-            onboarding?.step === "first-scan" ? (
-              <>
-                <span className="font-semibold text-text">Your first check.</span> It reads everything, so it takes a little while. You can hide me, I'll keep going.
-              </>
-            ) : undefined
-          }
           footer={
+            setup ? undefined : (
             <Footer
               onScenarios={noop}
+              sync={<SyncButton onSync={noop} tip={syncTip} />}
+              trace={<TraceButton pressed={!!trace} onClick={noop} hover={controls?.hover === "trace"} tip={controls?.tip === "trace"} />}
+              settings={
+                <SettingsButton
+                  hotkey={["⌥", "Space"]}
+                  mouse={mouse}
+                  onKeys={noop}
+                  onConnectors={noop}
+                  onModels={noop}
+                  onAllSettings={noop}
+                  open={controls?.settings ?? false}
+                  onOpenChange={noop}
+                  hover={controls?.hover === "settings"}
+                  tip={controls?.tip === "settings"}
+                />
+              }
               right={
-                setup ? (
-                  <PrimaryButton onboarding={onboarding} mouse={mouse} />
-                ) : inDetail && editing ? undefined : inDetail ? (
+                inDetail && editing ? undefined : inDetail ? (
                   <DetailHint
                     pane={pane}
                     stop={stops[stopAt]}
@@ -467,11 +476,25 @@ function PaletteFrame({
                 ) : undefined
               }
             />
+            )
           }
           overlay={
             <>
               <Toast />
               <ShortcutSheet open={sheet === "keys"} onClose={noop} />
+              <ShortcutIntro open={sheet === "keysIntro"} mouse={mouse} onClose={noop} onAll={noop} />
+              <SettingsDialog
+                tab={settings}
+                onTab={noop}
+                onClose={noop}
+                mouse={mouse}
+                hotkey={["⌥", "Space"]}
+                onHotkey={noop}
+                filterOptions={filterOptions(everyRow, filters)}
+                activeFilters={filters}
+                onToggleFilter={noop}
+                onClearFilters={noop}
+              />
               <ScenariosSheet open={sheet === "scenarios"} onReset={noop} mouse={mouse} onClose={noop} onCheck={noop} />
             </>
           }
@@ -577,10 +600,11 @@ const SECTIONS = [
   ["filters", "Filters"],
   ["finding", "Finding"],
   ["timeline", "Timeline"],
-  ["rail", "Icon rail"],
+  ["controls", "Controls"],
   ["motion", "Motion"],
   ["states", "Scan states"],
   ["overlays", "Overlays"],
+  ["settings", "Settings"],
   ["model", "Model endpoint"],
   ["now", "Now mark"],
   ["connections", "Connections"],
@@ -648,25 +672,58 @@ export function Gallery() {
 
           <main className="flex min-w-0 flex-col gap-16">
             <Section id="onboarding" title="Onboarding">
-              <Shot title="1. Welcome" note="What Life does and the key that opens it; Enter gets started">
+              <Shot title="1. Welcome, waiting for the key" note="Logo and name only: no status, lines or bottom bar. Get started is locked until the summon key is pressed; ⌘↵ or Skip gets past it if no key works">
                 <PaletteFrame scan={s.idle} live="none" onboarding={o({ step: "welcome" })} />
               </Shot>
-              <Shot title="1. Welcome, desktop app" note="The quiet link for when another app already has ⌥Space">
+              <Shot title="1. Welcome, desktop app" note="The quiet link for when another app already has ⌥Space. Switching asks for the new key">
                 <PaletteFrame scan={s.idle} live="none" desktop onboarding={o({ step: "welcome" })} />
               </Shot>
-              <Shot title="2. Connect your data, nothing yet" note="Four demo connectors, four more not in this demo; Enter connects the next">
+              <Shot title="1. Welcome, on ⌘⇧Space" note="The link goes back to ⌥Space, so a key another app has taken is never a dead end">
+                <PaletteFrame scan={s.idle} live="none" desktop hotkey={["⌘", "⇧", "Space"]} onboarding={o({ step: "welcome" })} />
+              </Shot>
+              <Shot title="1. Welcome, key pressed" note="The line changes to the confirmation and the Onboarding CTA unlocks, with nothing moving">
+                <PaletteFrame scan={s.idle} live="none" onboarding={o({ step: "welcome", summoned: true })} />
+              </Shot>
+              <Shot title="1. Welcome, key pressed, mouse mode" note="The CTA shows its icon instead of the key cap">
+                <PaletteFrame scan={s.idle} live="none" mouse onboarding={o({ step: "welcome", summoned: true })} />
+              </Shot>
+              <Shot title="2. Connect your data, nothing yet" note="Larger heading and body, more room around the two columns. Enter connects the next">
                 <PaletteFrame scan={s.idle} live="none" onboarding={o({ step: "connect" })} />
               </Shot>
-              <Shot title="2. Connect your data, part way" note="Bank and Email in, Documents reading; mouse mode">
+              <Shot title="2. Connect your data, part way" note="Bank and Email in, Documents reading: the other + buttons are disabled until it finishes, and the CTA waits too. Mouse mode">
                 <PaletteFrame scan={s.idle} live="connecting" mouse onboarding={o({ step: "connect", connected: ["bank", "email"], connecting: "documents" })} />
               </Shot>
               <Shot title="2. Connect your data, calendar signed out" note="All four in, calendar sign-in expiry switched on; ⌘↵ runs the check">
                 <PaletteFrame scan={s.idle} live="connectedReconnect" onboarding={o({ step: "connect", connected: ["bank", "email", "documents", "calendar"] })} />
               </Shot>
-              <Shot title="3. First check" note="The real checking screen, with the first-check note">
-                <PaletteFrame scan={s.scanningEmpty} live="syncing" onboarding={o({ step: "first-scan" })} />
+              <Shot title="3. First check, running" note="The live seal on a transparent background follows the pointer anywhere in the window. The fold is closed and shows how far along it is; View findings is locked until the check ends">
+                <PaletteFrame scan={s.scanning} live="syncing" onboarding={o({ step: "first-scan", connected: ["bank", "email", "documents", "calendar"] })} />
               </Shot>
-              <Shot title="4. First palette, with the hint" note="Shows once (life.hintSeen); Got it or the first approve dismisses it">
+              <Shot title="3. First check, Seal is on it, open" note="T or a click. The steps open over the empty space below, so the seal and button stay put">
+                <PaletteFrame scan={s.scanning} live="syncing" agentOpen onboarding={o({ step: "first-scan", connected: ["bank", "email", "documents", "calendar"] })} />
+              </Shot>
+              <Shot title="3. First check, done" note="View findings unlocks; it waits for the press instead of jumping away">
+                <PaletteFrame scan={s.done} onboarding={o({ step: "first-scan", connected: ["bank", "email", "documents", "calendar"] })} />
+              </Shot>
+              <Shot title="3. First check, done, steps open, mouse mode" note="Seal is done, with a tick and 100%">
+                <PaletteFrame scan={s.done} mouse agentOpen onboarding={o({ step: "first-scan", connected: ["bank", "email", "documents", "calendar"] })} />
+              </Shot>
+              <Shot title="3. First check, on saved answers" note="The replay notice stays on the bare screen, so saved answers are always labelled">
+                <PaletteFrame scan={s.replayForced} endpoint={endpointSamples.forced} onboarding={o({ step: "first-scan", connected: ["bank", "email", "documents", "calendar"] })} />
+              </Shot>
+              <Shot title="3. First check, didn't finish" note="Try again, or carry on: this step can't trap anyone">
+                <PaletteFrame scan={s.error} live="error" agentOpen onboarding={o({ step: "first-scan", connected: ["bank", "email", "documents", "calendar"] })} />
+              </Shot>
+              <Shot title="3. If the animation can't load" note="The plain seal takes its place at the same size">
+                <PaletteFrame scan={s.scanning} live="syncing" sealFallback onboarding={o({ step: "first-scan", connected: ["bank", "email", "documents", "calendar"] })} />
+              </Shot>
+              <Shot title="Then: the short shortcuts dialog" note="Shows once as the findings open. Enter closes it, ? swaps it for every shortcut">
+                <PaletteFrame scan={s.done} sheet="keysIntro" />
+              </Shot>
+              <Shot title="The short shortcuts dialog, mouse mode">
+                <PaletteFrame scan={s.done} mouse sheet="keysIntro" />
+              </Shot>
+              <Shot title="First palette, with the hint" note="Only for installs from before onboarding (life.hintSeen); the dialog above replaces it for everyone else">
                 <PaletteFrame scan={s.done} hint />
               </Shot>
             </Section>
@@ -744,17 +801,17 @@ export function Gallery() {
               <Shot title="Timeline, no matches">
                 <PaletteFrame scan={s.done} view="timeline" query="plumber" search={{ focused: true }} />
               </Shot>
-              <Shot title="Finding, with a search held" note="Life / Timeline / IronWorks Fitness beside the open field; / or a click goes back to the timeline">
+              <Shot title="Finding, with a search held" note="Seal / Timeline / IronWorks Fitness beside the open field; / or a click goes back to the timeline">
                 <PaletteFrame scan={s.done} view="detail" selected="f-ironworks" detailFrom="timeline" query="iron" />
               </Shot>
             </Section>
 
             <Section id="filters" title="Filters">
-              <Shot title="Filter icon, with its tooltip" note="Under View on the rail. F or a click opens the menu">
-                <PaletteFrame scan={s.done} rail={{ tip: "filter" }} />
+              <Shot title="Filter icon, with its tooltip" note="At the right of the heading row, beside View. F or a click opens the menu">
+                <PaletteFrame scan={s.done} controls={{ tip: "filter" }} />
               </Shot>
-              <Shot title="Hovering Filter" note="Hover lifts it, like every rail icon">
-                <PaletteFrame scan={s.done} mouse rail={{ hover: "filter" }} />
+              <Shot title="Hovering Filter" note="Hover lifts it, like every icon button">
+                <PaletteFrame scan={s.done} mouse controls={{ hover: "filter" }} />
               </Shot>
               <Shot title="Filter menu, keyboard" note="Only filters that match something here. 1 to 9 tick a row (the menu stays open), ⌫ clears, F or Esc closes. The grey number is how many rows each one matches on its own">
                 <PaletteFrame scan={s.done} filterMenu filters={["kind:price_increase"]} />
@@ -765,7 +822,7 @@ export function Gallery() {
               <Shot title="One filter" note="Not sure: the findings the agent isn't sure of and the cases it couldn't decide. The heading counts what's left; ⌫ takes the filter off">
                 <PaletteFrame scan={s.done} filters={["unsure"]} />
               </Shot>
-              <Shot title="Two filters" note="Two kinds show rows of either kind. The rail's Filter icon carries the count">
+              <Shot title="Two filters" note="Two kinds show rows of either kind. The Filter icon carries the count">
                 <PaletteFrame scan={s.done} filters={["kind:price_increase", "kind:trial_converted"]} />
               </Shot>
               <Shot title="Two filters, mouse mode" note="Each chip's × takes it off; Clear all takes them all off">
@@ -784,7 +841,7 @@ export function Gallery() {
                 <PaletteFrame scan={dismissedTop} filters={["kind:duplicate_subscription"]} selected={top.id} />
               </Shot>
               <Shot title="On the timeline" note="Filters are for the findings list: the icon is dimmed here, and F or a click goes back to the list with the menu open">
-                <PaletteFrame scan={s.done} view="timeline" filters={["unsure"]} rail={{ tip: "filter" }} />
+                <PaletteFrame scan={s.done} view="timeline" filters={["unsure"]} controls={{ tip: "filter" }} />
               </Shot>
             </Section>
 
@@ -902,30 +959,48 @@ export function Gallery() {
               </Shot>
             </Section>
 
-            <Section id="rail" title="Icon rail">
-              <Shot title="View button and breadcrumb" note="The View button shows the current view's icon; the top bar says it in words (Life / Findings). Tooltip: V">
-                <PaletteFrame scan={s.done} rail={{ tip: "view" }} />
+            <Section id="controls" title="Controls">
+              <Shot title="Search, Filter and View" note="At the top right, with their keys in their tooltips. View is one click (or V) between the list and the timeline; its icon is the view you're on">
+                <PaletteFrame scan={s.done} controls={{ tip: "view" }} />
               </Shot>
-              <Shot title="View menu, on the list" note="V or a click. The current view is ticked, the other shows its key (⌘↵); arrows and Enter pick, V or Esc closes">
-                <PaletteFrame scan={s.done} rail={{ view: true }} />
+              <Shot title="View on the timeline, mouse mode" note="The icon shows the timeline; a click goes back to the list">
+                <PaletteFrame scan={s.done} view="timeline" mouse controls={{ tip: "view" }} />
               </Shot>
-              <Shot title="View menu on the timeline, mouse mode" note="Life / Timeline in the top bar; no key caps in mouse mode">
-                <PaletteFrame scan={s.done} view="timeline" mouse rail={{ view: true }} />
+              <Shot title="An open finding" note="Its actions take the top right. The sidebar runs the full height with a dotted zig-zag edge">
+                <PaletteFrame scan={s.done} view="detail" selected="f-skylink" detailFrom="timeline" />
               </Shot>
-              <Shot title="Finding opened from the timeline" note="Life / Timeline / Skylink Internet; in the View menu, Timeline is ticked and Esc goes back to it">
-                <PaletteFrame scan={s.done} view="detail" selected="f-skylink" detailFrom="timeline" rail={{ view: true }} />
+              <Shot title="An open finding, mouse mode" note="Approve shows its icon instead of its key cap; the icon buttons look the same in both modes">
+                <PaletteFrame scan={s.done} view="detail" selected="f-skylink" mouse />
               </Shot>
-              <Shot title="Hovering View" note="Hover lifts a rail icon">
-                <PaletteFrame scan={s.done} view="timeline" mouse rail={{ hover: "view" }} />
+              <Shot title="An open finding, sidebar collapsed" note="The rest of the app takes the full width, and the sidebar icon is the last icon in the top bar (T still opens the trace)">
+                <PaletteFrame scan={s.done} view="detail" selected="f-skylink" sidebarFolded />
               </Shot>
-              <Shot title="Trace open" note="T or the Trace icon; the icon stays lit while the drawer is open, and the drawer never covers the rail">
-                <PaletteFrame scan={s.done} trace rail={{ tip: "trace" }} />
+              <Shot title="Hovering View" note="Hover lifts an icon button">
+                <PaletteFrame scan={s.done} view="timeline" mouse controls={{ hover: "view" }} />
               </Shot>
-              <Shot title="Settings menu" note="The cog or ⌘,; ? works with it open, ⌘, or Esc closes it">
-                <PaletteFrame scan={s.done} rail={{ settings: true }} />
+              <Shot title="Trace in the top bar" note="Bottom left: the cog, Sync, Trace, then the status and date. Tooltip: T">
+                <PaletteFrame scan={s.done} controls={{ tip: "trace" }} />
+              </Shot>
+              <Shot title="Trace open" note="T or the Trace icon; the icon stays lit while the drawer is open">
+                <PaletteFrame scan={s.done} trace />
+              </Shot>
+              <Shot title="Settings cog" note="The bottom left corner. Tooltip: ⌘,">
+                <PaletteFrame scan={s.done} controls={{ tip: "settings" }} />
+              </Shot>
+              <Shot title="Settings menu" note="The cog or ⌘,. Shortcuts, then Connectors, Models and Hide, then All settings">
+                <PaletteFrame scan={s.done} controls={{ settings: true }} />
               </Shot>
               <Shot title="Settings menu, mouse mode" note="No key caps on the rows">
-                <PaletteFrame scan={s.done} mouse rail={{ settings: true }} />
+                <PaletteFrame scan={s.done} mouse controls={{ settings: true }} />
+              </Shot>
+              <Shot title="Settings menu, calendar signed out" note="A red dot on the cog; the Connectors row says what to fix">
+                <PaletteFrame scan={s.done} live="reconnect" controls={{ settings: true }} />
+              </Shot>
+              <Shot title="Settings menu, endpoint offline" note="A red dot on the cog; the Models row says why">
+                <PaletteFrame scan={s.replayOffline} endpoint={endpointSamples.offline} controls={{ settings: true }} />
+              </Shot>
+              <Shot title="Settings menu, saved answers chosen" note="An info dot on the cog">
+                <PaletteFrame scan={s.replayForced} endpoint={endpointSamples.forced} modelDemo={{ ...DEMO_OFF, saved: true }} controls={{ settings: true }} />
               </Shot>
             </Section>
 
@@ -1012,6 +1087,51 @@ export function Gallery() {
               </Shot>
             </Section>
 
+            <Section id="settings" title="Settings">
+              <Shot title="Connectors" note="Every menu's last row opens this dialog on its tab. J/K move between tabs, numbers work the rows">
+                <PaletteFrame scan={s.done} settings="connectors" />
+              </Shot>
+              <Shot title="Connectors, mouse mode" note="Each whole row is its switch">
+                <PaletteFrame scan={s.done} mouse settings="connectors" />
+              </Shot>
+              <Shot title="Connectors, a source off" note="Applies on the next sync, so the footer offers Sync to apply">
+                <PaletteFrame scan={{ ...s.done, checkedSources: ["bank", "email", "documents", "calendar"] }} live="sourceOff" settings="connectors" />
+              </Shot>
+              <Shot title="Connectors, last source on" note="Its switch is locked: a check needs something to read">
+                <PaletteFrame scan={{ ...s.done, checkedSources: ["bank"] }} live="lastSource" settings="connectors" />
+              </Shot>
+              <Shot title="Connectors, calendar signed out" note="Reconnect takes the place of its switch">
+                <PaletteFrame scan={s.done} live="reconnect" settings="connectors" />
+              </Shot>
+              <Shot title="Connectors, check running" note="Switches rest until it finishes">
+                <PaletteFrame scan={s.scanning} live="syncing" settings="connectors" />
+              </Shot>
+              <Shot title="Models" note="The endpoint, saved answers, and what each model does">
+                <PaletteFrame scan={s.done} settings="models" />
+              </Shot>
+              <Shot title="Models, endpoint offline">
+                <PaletteFrame scan={s.replayOffline} endpoint={endpointSamples.offline} settings="models" />
+              </Shot>
+              <Shot title="Models, launch flag holds saved answers on">
+                <PaletteFrame scan={s.replayFlag} endpoint={endpointSamples.flag} modelDemo={{ ...DEMO_OFF, byFlag: true }} settings="models" />
+              </Shot>
+              <Shot title="View" note="Where the palette opens when summoned">
+                <PaletteFrame scan={s.done} settings="view" />
+              </Shot>
+              <Shot title="Filters" note="Every filter with what it means and how many rows it matches">
+                <PaletteFrame scan={s.done} filters={["kind:price_increase"]} settings="filters" />
+              </Shot>
+              <Shot title="Filters, nothing to filter yet">
+                <PaletteFrame scan={s.idle} live="none" settings="filters" />
+              </Shot>
+              <Shot title="General" note="The summon key and the background check">
+                <PaletteFrame scan={s.done} settings="general" />
+              </Shot>
+              <Shot title="General, mouse mode">
+                <PaletteFrame scan={s.done} mouse settings="general" />
+              </Shot>
+            </Section>
+
             <Section id="model" title="Model endpoint">
               <Shot title="Saved answers chosen" note="Demo panel M; the footer chip says so too">
                 <PaletteFrame scan={s.replayForced} endpoint={endpointSamples.forced} />
@@ -1040,11 +1160,11 @@ export function Gallery() {
               <Shot title="No saved answers to fall back on">
                 <PaletteFrame scan={s.noSaved} endpoint={endpointSamples.offline} />
               </Shot>
-              <Shot title="Model chip (footer)" note="Hidden while live; click it for the menu" height={380}>
+              <Shot title="The cog's dot, by endpoint state" note="Nothing while live; info for slow or saved answers; red when it can't answer" height={380}>
                 <Strip>
                   {(
                     [
-                      ["Live: no chip", endpointSamples.live],
+                      ["Live", endpointSamples.live],
                       ["Slow", endpointSamples.slow],
                       ["Offline", endpointSamples.offline],
                       ["Key not accepted", endpointSamples.key_rejected],
@@ -1057,43 +1177,11 @@ export function Gallery() {
                     <Preview key={label} scan={s.done} live="ok" endpoint={endpoint}>
                       <Labelled label={label}>
                         <div className="flex h-7 items-center">
-                          <ModelChip />
+                          <SettingsButton hotkey={["⌥", "Space"]} mouse={false} onKeys={noop} onConnectors={noop} onModels={noop} onAllSettings={noop} />
                         </div>
                       </Labelled>
                     </Preview>
                   ))}
-                </Strip>
-              </Shot>
-              <Shot title="Model chip menu" note="Offline (Try live again, Use saved answers only), saved answers chosen, launch flag" height={780}>
-                <Strip>
-                  <div className="flex flex-col">
-                    {(
-                      [
-                        [endpointSamples.offline, DEMO_OFF],
-                        [endpointSamples.forced, { ...DEMO_OFF, saved: true }],
-                        [endpointSamples.flag, { ...DEMO_OFF, byFlag: true }],
-                      ] as const
-                    ).map(([endpoint, demo], i) => (
-                      <Preview key={i} scan={s.done} live="ok" endpoint={endpoint} modelDemo={demo}>
-                        <div className="relative mt-[210px] h-8 w-[300px]">
-                          <ModelChip defaultOpen />
-                        </div>
-                      </Preview>
-                    ))}
-                  </div>
-                </Strip>
-              </Shot>
-              <Shot title="Connectors menu with the model endpoint" note="Live, and offline" height={300}>
-                <Strip>
-                  <div className="flex gap-8">
-                    {[endpointSamples.live, endpointSamples.offline].map((endpoint, i) => (
-                      <Preview key={i} scan={s.done} live="ok" endpoint={endpoint}>
-                        <div className="relative mt-[230px] h-8 w-[320px]">
-                          <ConnectorsButton defaultOpen />
-                        </div>
-                      </Preview>
-                    ))}
-                  </div>
                 </Strip>
               </Shot>
               <Shot title="Demo panel, saved answers on">
@@ -1155,40 +1243,10 @@ export function Gallery() {
                   ))}
                 </Strip>
               </Shot>
-              <Shot title="Connectors button (footer)" note="Count, info colour while busy or retrying, red with a number when a source needs attention" height={330}>
-                <Strip>
-                  {(
-                    [
-                      ["Not connected", "none"],
-                      ["Connecting, syncing", "syncing"],
-                      ["All up to date", "ok"],
-                      ["Bank retrying", "retrying"],
-                      ["Calendar reconnect", "reconnect"],
-                      ["Email error", "error"],
-                      ["Documents slow", "slow"],
-                    ] as const
-                  ).map(([label, live]) => (
-                    <Preview key={label} scan={s.done} live={live}>
-                      <Labelled label={label}>
-                        <ConnectorsButton />
-                      </Labelled>
-                    </Preview>
-                  ))}
-                </Strip>
-              </Shot>
-              <Shot title="Connectors menu, calendar signed out" height={290}>
-                <Strip>
-                  <Preview scan={s.done} live="reconnect">
-                    <div className="relative mt-[230px] h-8">
-                      <ConnectorsButton defaultOpen />
-                    </div>
-                  </Preview>
-                </Strip>
-              </Shot>
             </Section>
 
             <Section id="header" title="Top bar">
-              <Shot title="Status in the top bar" height={300}>
+              <Shot title="Status in the bottom bar" height={300}>
                 <Strip>
                   {(
                     [
@@ -1201,14 +1259,49 @@ export function Gallery() {
                   ).map(([label, scan]) => (
                     <Preview key={label} scan={scan} live="ok">
                       <Labelled label={label}>
-                        <Header />
+                        <ScanStatus />
                       </Labelled>
                     </Preview>
                   ))}
                 </Strip>
               </Shot>
+              <Shot title="Breadcrumb links, in a finding" note="Seal and Findings go back. Approve, then icon buttons for Edit and Remind me, take the place of Search, Filter and View. Not a leak is in the sidebar heading">
+                <PaletteFrame scan={s.done} view="detail" selected="f-skylink" />
+              </Shot>
+              <Shot title="Breadcrumb from the timeline" note="The link says where it goes: Timeline">
+                <PaletteFrame scan={s.done} view="detail" selected="f-skylink" detailFrom="timeline" />
+              </Shot>
+              <Shot title="Search open, top right">
+                <PaletteFrame scan={s.done} search={{ focused: true }} />
+              </Shot>
+              <Shot title="Sync, with its tooltip" note="One press syncs everything (R)">
+                <PaletteFrame scan={s.done} syncTip />
+              </Shot>
+              <Shot title="Sync while a check runs" note="It spins and rests">
+                <PaletteFrame scan={s.scanning} live="syncing" syncTip />
+              </Shot>
             </Section>
             <Section id="parts" title="Parts">
+              <Shot title="Type scale" note="Hero and lead are onboarding's larger steps" height={330}>
+                <Strip>
+                  {(
+                    [
+                      ["hero 34", "heading text-hero font-semibold"],
+                      ["lead 18", "text-lead"],
+                      ["heading 18", "heading text-heading font-semibold"],
+                      ["title 16", "heading text-title font-semibold"],
+                      ["body 14", "text-body"],
+                      ["small 13", "text-small"],
+                      ["meta 12", "text-meta"],
+                      ["label 11", "label"],
+                    ] as const
+                  ).map(([label, type]) => (
+                    <Labelled key={label} label={label}>
+                      <p className={type}>Find the pesky leaks</p>
+                    </Labelled>
+                  ))}
+                </Strip>
+              </Shot>
               <Shot title="Tooltips" note="On hover (and keyboard focus where a control takes it), with the control's key when it has one" height={150}>
                 <Strip>
                   <div className="flex h-[100px] items-end gap-48 px-12">

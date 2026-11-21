@@ -4,6 +4,7 @@ import type { FindingTraceLine } from "../finding-trace";
 import { copy } from "../../copy";
 import { KeyButton } from "../Kbd";
 import { CloseIcon } from "../icons";
+import { useScrollFade } from "../motion";
 
 // The agent's log, in plain words: what it read, what it checked, what it
 // found and what went wrong. It makes the wait legible and the agent
@@ -64,6 +65,7 @@ export function TraceDrawer({
   onClose: () => void;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
+  useScrollFade(scroller);
   const showFinding = scope === "finding" && !!finding;
   const shown = showFinding ? finding.lines : lines;
   // Follow new lines as they arrive (the whole check's, while it runs).
@@ -74,9 +76,17 @@ export function TraceDrawer({
   return (
     <section
       aria-label={copy.trace.title}
-      className="drawer-in absolute inset-x-0 bottom-0 z-10 flex h-(--trace-height) flex-col border-t border-hairline bg-surface/95 backdrop-blur"
+      className="drawer-in pointer-events-none absolute inset-x-0 bottom-0 z-10 flex h-(--trace-height) flex-col"
     >
-      <div className="flex h-9 shrink-0 items-center gap-3 px-4">
+      {/* Room above the line, matching the room below it. Text scrolling underneath fades out here
+          rather than running into the line, and can still be clicked. */}
+      <div className="h-5 shrink-0 bg-linear-to-b from-transparent to-bg to-60%" aria-hidden="true" />
+      <div className="pointer-events-auto flex min-h-0 flex-1 flex-col bg-bg">
+      {/* The same zig-zag line as under an open finding's heading. */}
+      <div className="stitch-x mx-4 shrink-0" aria-hidden="true" />
+      {/* The same room around it as the draft below that line has. */}
+      <div className="flex min-h-0 flex-1 flex-col px-5 pt-5 pb-6.5">
+      <div className="flex h-8 shrink-0 items-center gap-3">
         <span className="text-meta font-medium">{copy.trace.title}</span>
         {finding && (
           // Which trace: this finding's, or the whole check's.
@@ -98,13 +108,16 @@ export function TraceDrawer({
         )}
         <span className="flex-1" />
         {/* Like every button: Esc's key cap in keyboard mode, an X with the mouse. */}
-        <KeyButton keys={["Esc"]} label={copy.trace.close} icon={<CloseIcon />} mouse={mouse || editing} onClick={onClose} />
+        {/* The padding cancels the button's negative margin, so its edge sits on the section's. */}
+        <span className="pr-1.5">
+          <KeyButton keys={["Esc"]} label={copy.trace.close} icon={<CloseIcon />} mouse={mouse || editing} onClick={onClose} />
+        </span>
       </div>
-      <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto px-4 pb-3">
+      <div ref={scroller} className="scroll-fade mt-1.5 min-h-0 flex-1 overflow-y-auto">
         {shown.length ? <TraceLines lines={shown} /> : <p className="text-faint">{copy.trace.nothingYet}</p>}
-        <p className="mt-3 border-t border-hairline pt-2 text-meta text-faint">
-          {showFinding ? copy.trace.finding.footnote : copy.trace.privacy}
-        </p>
+        <p className="mt-3 text-meta text-faint">{showFinding ? copy.trace.finding.footnote : copy.trace.privacy}</p>
+      </div>
+      </div>
       </div>
     </section>
   );

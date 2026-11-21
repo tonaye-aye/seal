@@ -1,19 +1,20 @@
 // First-run onboarding. It starts from an empty account and ends in the same
 // connected, checked state the app has after any launch. Three steps:
 //
-//   welcome     what Life does, and the key that opens it
+//   welcome     what Seal does, and pressing the key that opens it
 //   connect     connect the four demo sources one at a time (real reads over the seed data)
-//   first-scan  the first real check
+//   first-scan  the first real check, then "View findings"
 //
-// Then "done": the usual palette, with a short hint the first time (see Palette.tsx).
+// Then "done": the usual palette, with a short shortcuts dialog the first time (see Palette.tsx).
 //
 // Where it got to is kept in localStorage and put back after a restart or
 // reload. React reads it like the other stores.
 
 import { useSyncExternalStore } from "react";
 import type { ConnectorId } from "../connectors/types";
-import { connectOne, forgetConnections, getConnectors } from "../connectors/live";
-import { setHideOnBlur } from "./native";
+import { connectOne, forgetConnection, forgetConnections, getConnectors } from "../connectors/live";
+import { onSummonProved, setHideOnBlur, setSummonTest } from "./native";
+import { resetPreferences } from "./preferences";
 import { getScan, resetScan, setScanSources, startScan, subscribeScan } from "./scan-store";
 
 export type Step = "welcome" | "connect" | "first-scan" | "done";
@@ -26,10 +27,12 @@ export type OnboardingState = {
   connected: ConnectorId[];
   /** The source being connected right now (not saved). */
   connecting?: ConnectorId;
+  /** Step 1: the user has pressed the summon key, so Get started unlocks. */
+  summoned?: boolean;
 };
 
 const KEY = "life.onboarding";
-type Saved = { v: 3; step: Step; connected: ConnectorId[] };
+type Saved = { v: 3; step: Step; connected: ConnectorId[]; summoned?: boolean };
 
 /** Steps from the longer onboarding with a practice round (v2). Its practice steps resume at connect. */
 const V2_STEPS: Record<string, Step> = {
@@ -50,13 +53,13 @@ function fresh(): OnboardingState {
 
 function load(): OnboardingState {
   try {
-    const raw = JSON.parse(localStorage.getItem(KEY) ?? "null") as { v?: number; step?: string; connected?: ConnectorId[] } | null;
+    const raw = JSON.parse(localStorage.getItem(KEY) ?? "null") as { v?: number; step?: string; connected?: ConnectorId[]; summoned?: boolean } | null;
     if (raw?.v === 3 || raw?.v === 2) {
       const step = raw.v === 3 ? (raw.step as Step) : V2_STEPS[raw.step ?? ""];
       if (!step) return fresh();
       // The practice round never connected real sources, so a save from it starts the real connect empty.
       const connected = raw.v === 2 && step === "connect" && raw.step !== "connect" ? [] : (raw.connected ?? []);
-      return { step, connected: connected.filter((id) => SOURCES.includes(id)) };
+      return { step, connected: connected.filter((id) => SOURCES.includes(id)), summoned: raw.summoned === true };
     }
     // The first version's save: finished stays finished, anything else starts over.
     if (raw?.v === 1) return raw.step === "done" ? { ...fresh(), step: "done" } : fresh();
@@ -74,12 +77,13 @@ const listeners = new Set<() => void>();
 function set(change: Partial<OnboardingState>) {
   state = { ...state, ...change };
   try {
-    const saved: Saved = { v: 3, step: state.step, connected: state.connected };
+    const saved: Saved = { v: 3, step: state.step, connected: state.connected, summoned: state.summoned };
     localStorage.setItem(KEY, JSON.stringify(saved));
   } catch {
     // Storage can be unavailable; onboarding then lasts until the app quits.
   }
   syncHideOnBlur();
+  syncSummonTest();
   setScanSources(state.connected);
   for (const listener of listeners) listener();
 }
@@ -95,6 +99,19 @@ function syncHideOnBlur() {
   setHideOnBlur(want);
 }
 syncHideOnBlur();
+
+// Step 1 waits for the summon key: until it's pressed, the key doesn't hide
+// the app (src-tauri/src/palette.rs). After that it works as usual.
+let summonArmed: boolean | undefined;
+function syncSummonTest() {
+  const want = state.step === "welcome" && !state.summoned;
+  if (want === summonArmed) return;
+  summonArmed = want;
+  setSummonTest(want);
+}
+syncSummonTest();
+onSummonProved(() => proveSummon());
+
 // Every check reads only the sources connected during setup (all four for installs from before onboarding).
 setScanSources(state.connected);
 
@@ -115,9 +132,24 @@ export function onboardingDone(): boolean {
   return state.step === "done";
 }
 
-/** Screens that replace the palette's views (the first check runs in the real palette). */
+/** Screens that replace the palette's views: all three onboarding steps. */
 export function isSetupScreen(step: Step): boolean {
-  return step === "welcome" || step === "connect";
+  return step !== "done";
+}
+
+/** The sources switched on. An install from before onboarding has none saved, and reads all four. */
+export function enabledSources(): ConnectorId[] {
+  return state.connected.length ? state.connected : SOURCES;
+}
+
+/** Step 1: the summon key was pressed, so Get started unlocks. */
+export function proveSummon(): void {
+  if (state.step === "welcome" && !state.summoned) set({ summoned: true });
+}
+
+/** Step 1: the key changed (Use ⌘⇧Space instead), so it has to be pressed again. */
+export function retestSummon(): void {
+  if (state.step === "welcome") set({ summoned: false });
 }
 
 // ---------- Starting and resuming ----------
@@ -148,7 +180,20 @@ export function next(): void {
       // Enter presses the next source's +; once all four are in, it runs the check.
       if (SOURCES.every((id) => state.connected.includes(id))) return runFirstCheck();
       return void connectNext();
+    case "first-scan": {
+      // View findings once the check is done; Try again if it didn't finish.
+      const phase = getScan().phase;
+      if (phase === "done") return finishOnboarding();
+      if (phase === "error") void startScan();
+      return;
+    }
   }
+}
+
+/** Leaves step 3 for the findings. Waits for the check to end, however it ended. */
+export function finishOnboarding(): void {
+  const phase = getScan().phase;
+  if (state.step === "first-scan" && (phase === "done" || phase === "error")) set({ step: "done" });
 }
 
 /** "Run my first check" (⌘↵): needs at least one connected source. */
@@ -169,13 +214,26 @@ export async function connectNext(which?: ConnectorId): Promise<void> {
   set({ connecting: undefined, connected: [...state.connected, id] });
 }
 
-/** Connects a source after setup (the Connectors menu), then checks again so its findings show. */
-export async function connectLater(id: ConnectorId): Promise<void> {
-  if (state.connecting || state.connected.includes(id)) return;
+/**
+ * A source's switch (the Connectors menu and Settings). On reads it straight
+ * away; off forgets it. Either way the findings only change on the next check.
+ * The last source can't be turned off, since a check needs something to read.
+ */
+export async function setSourceEnabled(id: ConnectorId, on: boolean): Promise<void> {
+  const scan = getScan();
+  if (state.connecting || scan.phase === "scanning" || scan.refreshing) return;
+  const current = enabledSources();
+  if (on === current.includes(id)) return;
+  if (!on) {
+    if (current.length === 1) return;
+    set({ connected: current.filter((s) => s !== id) });
+    forgetConnection(id);
+    return;
+  }
   set({ connecting: id });
   await connectOne(id);
-  set({ connecting: undefined, connected: [...state.connected, id] });
-  void startScan();
+  // In the usual order, so the same sources always ask the models the same questions.
+  set({ connecting: undefined, connected: SOURCES.filter((s) => s === id || current.includes(s)) });
 }
 
 /** Connects one failed source again (its row's Reconnect). */
@@ -188,12 +246,10 @@ export async function retrySource(id: ConnectorId): Promise<void> {
   set({ connecting: undefined });
 }
 
-// The first real check: once it finishes (or if one starts some other way,
-// e.g. the footer's Reconnect), onboarding is done.
+// A check that starts during the connect step is the first check. Step 3 then
+// waits for its button (View findings), so it never jumps away by itself.
 subscribeScan(() => {
-  const phase = getScan().phase;
-  if (state.step === "connect" && phase === "scanning") set({ step: "first-scan", connecting: undefined });
-  if (state.step === "first-scan" && (phase === "done" || phase === "error")) set({ step: "done" });
+  if (state.step === "connect" && getScan().phase === "scanning") set({ step: "first-scan", connecting: undefined });
 });
 
 // ---------- Reset (for rehearsing the demo) ----------
@@ -212,6 +268,7 @@ export async function resetOnboarding(): Promise<boolean> {
     // Nothing to clear.
   }
   forgetConnections();
+  resetPreferences();
   state = fresh();
   set({});
   return true;

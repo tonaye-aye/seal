@@ -173,6 +173,18 @@ export function forgetConnections(): void {
   setState({ statuses: {}, slowReads: undefined });
 }
 
+/** Forgets one source's state, once its switch is turned off. */
+export function forgetConnection(id: ConnectorId): void {
+  const statuses = { ...state.statuses };
+  delete statuses[id];
+  setState({ statuses });
+}
+
+/** True when the calendar's sign-in has expired. */
+export function calendarNeedsReconnect(): boolean {
+  return state.statuses.calendar?.state === "needs_reconnect";
+}
+
 /** Signs the calendar back in. The caller then runs the check again. */
 export async function reconnectCalendar(): Promise<void> {
   const c = await getConnectors();

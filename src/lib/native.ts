@@ -70,12 +70,28 @@ export function onPaletteVisibility(handler: () => void): () => void {
 }
 
 /**
- * Switches the summon hotkey to Cmd+Shift+Space (when another app already
- * has Option+Space) and remembers the choice. Returns the new key labels.
+ * Chooses the summon hotkey: Cmd+Shift+Space (`fallback`, for when another app
+ * already has Option+Space) or Option+Space, and remembers the choice. Returns
+ * the labels of the key that actually registered.
  */
-export async function switchToFallbackHotkey(): Promise<string[]> {
-  if (!isTauri()) return ["⌘", "⇧", "Space"];
-  return invoke<string[]>("use_fallback_hotkey");
+export async function chooseHotkey(fallback: boolean): Promise<string[]> {
+  if (!isTauri()) return fallback ? ["⌘", "⇧", "Space"] : ["⌥", "Space"];
+  return invoke<string[]>("use_fallback_hotkey", { fallback });
+}
+
+/**
+ * Onboarding's step 1: while armed, the summon hotkey doesn't hide the app.
+ * The next press proves the user knows it, then the hotkey works as usual.
+ */
+export function setSummonTest(armed: boolean): void {
+  if (isTauri()) void invoke("set_summon_test", { armed });
+}
+
+/** Runs `handler` when the summon hotkey is pressed during that test. Returns an unsubscribe. */
+export function onSummonProved(handler: () => void): () => void {
+  if (!isTauri()) return () => {};
+  const unlisten = listen("palette:summon-proved", handler);
+  return () => void unlisten.then((stop) => stop());
 }
 
 /** Shows the palette without the hotkey (first run, so the welcome is waiting). */

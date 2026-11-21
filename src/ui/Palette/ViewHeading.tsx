@@ -2,15 +2,14 @@
 // sits outside the scrolling area, so it stays pinned while the rows scroll
 // under it. Search lives in the top bar (SearchField.tsx); while it holds a
 // search, the title says how many rows match.
-// Which view you are in shows on the icon rail (Rail.tsx), so the heading has no icon of its own.
 
 export function ViewHeading({
   title,
   eyebrow,
   children,
   action,
-  actions,
   below,
+  divider = false,
 }: {
   title: string;
   /** A small line above the title (an open finding's business and chips). */
@@ -21,13 +20,12 @@ export function ViewHeading({
   action?: React.ReactNode;
   /** Under the title and its line (the findings list's filter chips). */
   below?: React.ReactNode;
-  /** A row of buttons under everything else (an open finding's Approve, Remind me, Not a leak). */
-  actions?: React.ReactNode;
+  /** A dotted zig-zag line under it, inset to match the content (an open finding: it separates the actions from the draft). */
+  divider?: boolean;
 }) {
   return (
-    // The hairline marks the pinned edge the rows scroll under.
-    <div className="shrink-0 border-b border-hairline">
-      <div className="flex items-start gap-3 px-4 pt-3 pb-2.5">
+    <div className="shrink-0">
+      <div className="flex items-start gap-3 px-4 py-6.5">
         <div className="min-w-0 flex-1">
           {eyebrow && <div className="mb-1 flex items-center gap-2 text-meta whitespace-nowrap">{eyebrow}</div>}
           <h1 className="heading text-heading font-semibold">{title}</h1>
@@ -37,8 +35,7 @@ export function ViewHeading({
         </div>
         {action && <div className="mt-1 shrink-0">{action}</div>}
       </div>
-      {/* The whole width, under the amounts too, so a button can sit at the right end. */}
-      {actions && <div className="-mt-0.5 px-4 pb-2.5">{actions}</div>}
+      {divider && <div className="stitch-x mx-4" aria-hidden="true" />}
     </div>
   );
 }

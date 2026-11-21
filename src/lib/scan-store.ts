@@ -16,7 +16,8 @@ import { discardSaved, saveDraft } from "../agent/draft.ts";
 import { copy } from "../copy.ts";
 import type { Corpus } from "../agent/corpus.ts";
 import { rank, runScan, type AgentEvent, type Cleared, type Finding, type ScanResult, type Stage } from "../agent/pipeline.ts";
-import { getConnectors, markNeedsReconnect, setConnectorStatus } from "../connectors/live.ts";
+import { calendarNeedsReconnect, getConnectors, markNeedsReconnect, reconnectCalendar, setConnectorStatus } from "../connectors/live.ts";
+import { getPreferences } from "./preferences.ts";
 import { ConnectorError } from "../connectors/runtime.ts";
 import { reminderEvent, type Reminder } from "./reminders.ts";
 import { shortDate } from "../ui/format.ts";
@@ -72,6 +73,8 @@ export type ScanState = {
    */
   replay?: { why: EndpointState | "lost"; detail?: string; stage?: Stage };
   trace: TraceLine[];
+  /** The sources the latest check read, so a changed switch can say it hasn't applied yet. */
+  checkedSources?: ConnectorId[];
   /** Maya's choices, kept by finding id so they survive a re-scan. */
   decisions: Record<string, Decision>;
   /** Draft ids saved in the mailbox, by finding id (for undo). */
@@ -161,6 +164,26 @@ export function setScanSources(ids: ConnectorId[] | undefined): void {
   scanSources = ids && ids.length ? ids : undefined;
 }
 
+const ALL_SOURCES: ConnectorId[] = ["bank", "email", "documents", "calendar"];
+
+/** True when the sources switched on differ from the ones the latest check read. */
+export function sourcesChanged(on: ConnectorId[], s: ScanState = state): boolean {
+  const checked = s.checkedSources;
+  if (!checked) return false;
+  return checked.length !== on.length || checked.some((id) => !on.includes(id));
+}
+
+/**
+ * Sync everything: reads every connected source and runs the whole check (R,
+ * the top bar's button, the Connectors menu). Signs the calendar back in first
+ * if it needs it.
+ */
+export async function syncEverything(): Promise<void> {
+  if (state.phase === "scanning" || state.refreshing) return;
+  if (calendarNeedsReconnect()) await reconnectCalendar();
+  await startScan();
+}
+
 /**
  * Forgets every result and decision, and removes any drafts this session
  * saved (Reset onboarding). Does nothing while a check is running, since a
@@ -194,6 +217,7 @@ export async function resetScan(): Promise<boolean> {
     usedReplay: false,
     replay: undefined,
     trace: [],
+    checkedSources: undefined,
     decisions: {},
     saved: {},
     edits: {},
@@ -327,6 +351,8 @@ function sentence(text: string): string {
  */
 export async function startScan({ background = false } = {}): Promise<void> {
   if (state.phase === "scanning" || state.refreshing) return;
+  // Noted before either kind of check starts, so a switch flipped later shows as waiting.
+  set({ checkedSources: scanSources ?? ALL_SOURCES });
   if (background && state.phase === "done") {
     return runBackground();
   }
@@ -608,7 +634,8 @@ export const BACKGROUND_EVERY_MS = 30 * 60 * 1000;
  */
 export function startBackgroundChecks(isHidden: () => boolean, everyMs = BACKGROUND_EVERY_MS): () => void {
   const timer = setInterval(() => {
-    if (isHidden() && state.phase === "done") void startScan({ background: true });
+    // Settings can turn the timed check off.
+    if (isHidden() && state.phase === "done" && getPreferences().backgroundChecks) void startScan({ background: true });
   }, everyMs);
   return () => clearInterval(timer);
 }

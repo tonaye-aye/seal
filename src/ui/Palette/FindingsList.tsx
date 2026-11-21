@@ -13,7 +13,7 @@ import { ApproveIcon, DismissIcon, SealIcon, RemindIcon } from "../icons";
 import { sealTarget } from "../seal";
 import { Kbd } from "../Kbd";
 import { CountUp } from "../CountUp";
-import { useFlip, useGlide } from "../motion";
+import { useFlip, useGlide, useScrollFade } from "../motion";
 import { TraceLines } from "./Trace";
 import { ViewHeading } from "./ViewHeading";
 import { FilterChips } from "./Filters";
@@ -170,6 +170,7 @@ export function Headline({
   let line: string | undefined;
   if (findings.length === 0) line = scanning ? copy.list.findingsAppear : copy.list.allClearLine;
   else if (open.length === 0) line = copy.list.allDealtWithLine;
+  else line = copy.list.needAttentionLine;
 
   return (
     <ViewHeading title={title}>
@@ -418,6 +419,7 @@ export function FindingsList({
 }) {
   const live = useLive();
   const listRef = useRef<HTMLDivElement>(null);
+  useScrollFade(listRef);
   const rowsRef = useRef<HTMLDivElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
   // Rows slide to their new places when one is decided or undone. Searching,
@@ -517,7 +519,7 @@ export function FindingsList({
         filters={filters}
         chips={<FilterChips active={filters} mouse={mouse} onRemove={onRemoveFilter} onClear={onClearFilters} />}
       />
-      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto pb-2">
+      <div ref={listRef} className="scroll-fade min-h-0 flex-1 overflow-y-auto pb-2">
         {showHint && findings.length + approved.length > 0 && <FirstRunHint onDismiss={onDismissHint} />}
         {scan.phase === "error" && (
           <p className="mx-3 mb-2 rounded-lg border border-danger/25 bg-danger/[0.07] px-3.5 py-2 text-small text-muted">
@@ -622,7 +624,7 @@ export function Scanning({ scan }: { scan: ScanState }) {
 }
 
 /** A loading skeleton while document reads are taking a long time. */
-function SlowDocuments() {
+export function SlowDocuments() {
   const { slowReads } = useLive();
   if (!slowReads) return null;
   return (
