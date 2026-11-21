@@ -10,6 +10,7 @@ import { parseCents } from "../lib/money.ts";
 import { withDecision, type ScanState } from "../lib/scan-store.ts";
 import { SOON_DAYS, daysUntil, shortDate } from "./format.ts";
 import { copy } from "../copy.ts";
+import { chosenRoute, readyLabel } from "./fix-route.ts";
 import { expectation, linkCharge, norm } from "./next-steps.ts";
 
 export type TimelineTone =
@@ -45,6 +46,8 @@ export type TimelineEntry = {
   clearedId?: string;
   /** An approved finding with nothing to send: its chip says "Handled". */
   handled?: boolean;
+  /** Approved on a call, chat or online route: its chip, like "Ready to call". */
+  ready?: string;
   tone: TimelineTone;
 };
 
@@ -101,7 +104,10 @@ export function buildTimeline(scan: ScanState): TimelineEntry[] {
         return;
       }
       const full = { ...entry, side, tone, findingId: finding.id, title: finding.title } as TimelineEntry;
-      if (finding.status === "approved" && !finding.draft) full.handled = true;
+      if (finding.status === "approved") {
+        full.ready = readyLabel(finding, scan);
+        if (!finding.draft && !full.ready) full.handled = true;
+      }
       byFindingDay.set(slot, full);
       entries.push(full);
       return;
@@ -198,13 +204,22 @@ export function buildTimeline(scan: ScanState): TimelineEntry[] {
   const DID = copy.timeline.did;
   for (const f of findings) {
     if (f.status === "new") continue;
+    const ready = readyLabel(f, scan);
+    const route = chosenRoute(f, scan);
     entries.push({
       key: `decision:${f.id}`,
       date: today,
       side: "past",
       who: f.merchant,
-      what: f.status === "approved" ? (f.draft ? draftedTo(f.draft.to.name, f.merchant) : copy.next.handled) : DID[f.status],
-      detail: f.status !== "approved" ? f.title : f.draft ? copy.timeline.readyToSend(expectation(f, scan)) : handledDetail(f, scan),
+      what: f.status !== "approved" ? DID[f.status] : ready ? route!.label : f.draft ? draftedTo(f.draft.to.name, f.merchant) : copy.next.handled,
+      detail:
+        f.status !== "approved"
+          ? f.title
+          : ready
+            ? copy.timeline.readyRoute(ready, expectation(f, scan))
+            : f.draft
+              ? copy.timeline.readyToSend(expectation(f, scan))
+              : handledDetail(f, scan),
       at: scan.decidedAt[f.id],
       findingId: f.id,
       tone: "agent",
@@ -277,7 +292,7 @@ function titleOnce(entries: TimelineEntry[], expected = new Map<string, string |
     const kept = keeper.get(e.findingId!) === e;
     const expect = expected.get(e.findingId!);
     if (kept && e.side === "future" && expect) {
-      e.detail = e.handled ? copy.next.thenExpect(expect) : copy.timeline.onceSent(expect);
+      e.detail = e.handled ? copy.next.thenExpect(expect) : e.ready ? copy.timeline.onceDone(expect) : copy.timeline.onceSent(expect);
       continue;
     }
     // A calendar line still says where it came from.

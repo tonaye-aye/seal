@@ -1,11 +1,14 @@
-import { Bell } from "lucide-react";
+import { Bell, ExternalLink } from "lucide-react";
 import type { Finding } from "../../agent/pipeline";
 import { now } from "../../lib/clock";
-import { localDate } from "../../lib/dates";
+import { addDays, localDate } from "../../lib/dates";
+import type { Escalation } from "../../agent/routes";
 import { useScan, type ScanState } from "../../lib/scan-store";
 import { copy } from "../../copy";
 import { expectation } from "../next-steps";
 import { sealNote, sealTarget, sealTip, type SealTarget } from "../seal";
+import { chosenRoute } from "../fix-route";
+import { SampleChip } from "./RoutePanel";
 import { KeyButton } from "../Kbd";
 import { EditIcon, RemoveReminderIcon, SealIcon } from "../icons";
 import { Tip } from "../layers";
@@ -30,6 +33,8 @@ type Line = {
   editable?: boolean;
   /** The step Maya takes now: Seal the leak's button sits on this line, left of its dot. */
   seal?: boolean;
+  /** Where to go if the business says no: this line gets a button to open it. */
+  escalate?: Escalation;
 };
 
 /** The timeline's lines, in order: what's done, what Maya does next, then what's coming by date. */
@@ -40,7 +45,12 @@ export function nextLines(finding: Finding, scan: ScanState): Line[] {
   const lines: Line[] = [];
   const dated: Line[] = [];
 
-  if (approved) {
+  const route = chosenRoute(finding, scan);
+  const other = route && route.kind !== "email" ? route : undefined;
+  if (approved && route && route.kind !== "email") {
+    // A call, chat or online step: nothing was saved, so it says which way was approved.
+    lines.push({ key: "approved", date: today, done: true, title: copy.routes.chosen[route.kind], aside: `${route.provider}, ${route.label}` });
+  } else if (approved) {
     // The draft itself is hidden once approved: this line says what was saved, and a pencil (on hover) edits it.
     const draft = finding.draft;
     lines.push(
@@ -56,17 +66,22 @@ export function nextLines(finding: Finding, scan: ScanState): Line[] {
   const expect = approved ? expectation(finding, scan) : undefined;
   if (approved) {
     // Sending the draft (or the step Maya takes herself), and what Seal the leak opens for it.
-    const target = sealTarget(finding, scan.corpus);
-    lines.push({ key: "send", title: finding.draft ? copy.next.sendIt : finding.action.summary, detail: target && sealNote(target), seal: !!target });
+    const target = sealTarget(finding, scan.corpus, scan);
+    const title = other && other.kind !== "email" ? copy.routes.doIt[other.kind] : finding.draft ? copy.next.sendIt : finding.action.summary;
+    lines.push({ key: "send", title, detail: target && sealNote(target), seal: !!target });
+    // If the business says no: a dated next step, only where somewhere can actually take it.
+    const body = finding.fix?.escalation;
+    if (body) dated.push({ key: "escalate", date: addDays(today, body.afterDays), title: copy.routes.escalate.title(body.shortName), detail: body.whenToUse, escalate: body });
   }
   if (finding.deadline) {
     // The deadline itself; once approved, what to expect by then.
     dated.push({ key: "deadline", date: finding.deadline.date, title: finding.deadline.label, detail: expect && copy.next.thenExpect(expect) });
   }
+  // An expectation with no deadline to hang it on (a refund, a credit) follows the step,
+  // ahead of the dated lines, so "If they say no" reads as what comes after it.
+  if (expect && !finding.deadline) lines.push({ key: "expect", title: copy.next.thenExpect(expect) });
   dated.sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""));
   lines.push(...dated);
-  // An expectation with no deadline to hang it on (a refund, a credit) comes last.
-  if (expect && !finding.deadline) lines.push({ key: "expect", title: copy.next.thenExpect(expect) });
   return lines;
 }
 
@@ -81,18 +96,21 @@ export function NextSteps({
   onSeal,
   onEdit,
   onRemoveReminder,
+  onEscalate,
 }: {
   finding: Finding;
   mouse: boolean;
   onSeal: () => void;
   onEdit: () => void;
+  /** O, or the button on the "If they say no" line. */
+  onEscalate: () => void;
   /** The notice's Remove reminder (L again does the same): out of the calendar, and Remind me comes back. */
   onRemoveReminder: () => void;
 }) {
   const scan = useScan();
   const reminder = scan.reminders[finding.id];
   const lines = nextLines(finding, scan);
-  const target = finding.status === "approved" ? sealTarget(finding, scan.corpus) : undefined;
+  const target = finding.status === "approved" ? sealTarget(finding, scan.corpus, scan) : undefined;
   // The date column widens to hold the button, so every dot stays on one rail.
   const wide = !!target && lines.some((l) => l.seal);
   return (
@@ -119,6 +137,7 @@ export function NextSteps({
             mouse={mouse}
             onSeal={onSeal}
             onEdit={onEdit}
+            onEscalate={onEscalate}
           />
         ))}
       </ol>
@@ -136,6 +155,7 @@ function NextLine({
   mouse,
   onSeal,
   onEdit,
+  onEscalate,
 }: {
   line: Line;
   showDate: boolean;
@@ -148,6 +168,7 @@ function NextLine({
   mouse: boolean;
   onSeal: () => void;
   onEdit: () => void;
+  onEscalate: () => void;
 }) {
   const days = line.date && !line.done ? daysUntil(line.date) : undefined;
   const tone = line.date && !line.done ? urgency(line.date) : "none";
@@ -211,6 +232,23 @@ function NextLine({
         </span>
         {line.detail && <span className="mt-0.5 block text-meta text-faint">{line.detail}</span>}
       </span>
+      {line.escalate && (
+        <span className="flex shrink-0 items-center gap-2 text-meta">
+          {!line.escalate.real && <SampleChip />}
+          <Tip content={line.escalate.real ? copy.routes.escalate.realTip(line.escalate.shortName) : copy.routes.escalate.sampleTip(line.escalate.shortName)}>
+            <span className="inline-flex">
+              <KeyButton
+                keys={["O"]}
+                label={copy.routes.escalate.open(line.escalate.shortName)}
+                icon={<ExternalLink size={14} strokeWidth={1.75} aria-hidden="true" />}
+                tone="muted"
+                mouse={mouse}
+                onClick={onEscalate}
+              />
+            </span>
+          </Tip>
+        </span>
+      )}
       {days !== undefined && (
         <span className={`inline-flex h-5 shrink-0 items-center rounded-full px-2 figure text-label ${soon ? "bg-amber-glow text-amber" : "text-faint"}`}>
           {copy.dates.days(days)}

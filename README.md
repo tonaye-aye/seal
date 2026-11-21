@@ -51,8 +51,11 @@ Press **⌥Space** to bring it up (or **⌘⇧Space** if ⌥Space is taken). The
 | --- | --- |
 | `J` / `K` | Next / previous finding |
 | `↵` | Open the evidence and the draft |
-| `A` | Approve: save the draft to Drafts (nothing is sent) |
-| `S` | Seal the leak, once approved: opens Mail with the draft filled in (you send it) |
+| `1`-`4` | In a finding: choose how to fix it (email, call, chat or online) |
+| `Y` | Copy the prepared script, opener, figures or draft |
+| `A` | Approve the chosen way (only Email saves a draft, and nothing is sent) |
+| `S` | Seal the leak, once approved: opens Mail with the draft filled in, or a labelled sample page for a call, chat or online step |
+| `O` | If they say no: opens the real complaint body's form, or a labelled sample |
 | `E` / `D` / `L` | Edit the draft (takes an approval back) / Not a leak / Remind me (a calendar reminder) |
 | `⌘Z` | Undo |
 | `⌘↵` | Timeline: what's coming |
@@ -65,7 +68,8 @@ Press **⌥Space** to bring it up (or **⌘⇧Space** if ⌥Space is taken). The
 | `?` | All shortcuts |
 | `Esc` | Back, then close |
 
-Every row and button shows its key, and everything works with the mouse too.
+Every row and button shows its key, and everything works with the mouse too. The businesses' phone numbers and links are
+samples: the app shows them but never dials or opens them.
 
 ## Seed data
 

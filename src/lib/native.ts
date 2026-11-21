@@ -144,9 +144,10 @@ export function onWindowFocus(handler: (focused: boolean) => void): () => void {
 
 
 /**
- * Opens Mail ("mailto:..."), a call ("tel:...") or the Calendar app
- * ("calendar") for Seal the leak. False when it couldn't: in a plain browser
- * there is no native shell, so nothing opens (the preview says so).
+ * Opens Mail ("mailto:..."), the Calendar app ("calendar") or a real complaint
+ * body's page. The Rust side refuses anything else, phone links included. False
+ * when it couldn't: in a plain browser there is no native shell, so nothing
+ * opens (the preview says so).
  */
 export async function openExternal(target: string): Promise<boolean> {
   if (!isTauri()) return false;
@@ -155,5 +156,31 @@ export async function openExternal(target: string): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+/** Puts text on the clipboard. False when the webview refused. */
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    // Older webviews: copy from a hidden box, then hand focus back.
+    const active = document.activeElement as HTMLElement | null;
+    const box = document.createElement("textarea");
+    box.value = text;
+    box.style.position = "fixed";
+    box.style.opacity = "0";
+    document.body.appendChild(box);
+    box.select();
+    let copied = false;
+    try {
+      copied = document.execCommand("copy");
+    } catch {
+      copied = false;
+    }
+    box.remove();
+    active?.focus({ preventScroll: true });
+    return copied;
   }
 }

@@ -352,7 +352,9 @@ export function routeCheck(text: string, allowed: string, routes: FixRoute[], to
 function shortReason(text: string, pick: FixRoute): string {
   const sentence = firstSentence(text.trim());
   const tooLong = sentence.split(/\s+/).length > MAX_REASON_WORDS;
-  return tooLong || /\bfirst\b.*\broute\b|\broute\b.*\bfirst\b/i.test(sentence) ? (pick.note ?? copy.agent.routeFallback(pick.label)) : sentence;
+  // The claim check can't verify "tomorrow" or "next week", so a reason that leans on one isn't used.
+  const relativeDate = /\b(?:today|tonight|tomorrow|yesterday|(?:this|next|last) (?:week|month|year))\b/i.test(sentence);
+  return tooLong || relativeDate || /\bfirst\b.*\broute\b|\broute\b.*\bfirst\b/i.test(sentence) ? (pick.note ?? copy.agent.routeFallback(pick.label)) : sentence;
 }
 
 // ---------- Asking the model ----------

@@ -7,7 +7,9 @@ import type { Corpus } from "../agent/corpus";
 import type { ProposedDraft } from "../agent/draft";
 import { merchantKey } from "../agent/merchants";
 import type { Cleared, Finding, ScanResult } from "../agent/pipeline";
+import type { Escalation, FixPlan, FixRoute } from "../agent/routes";
 import type { Figure } from "../agent/verify";
+import { routePage } from "../ui/fix-route";
 import { createConnectors, syncAll, type ConnectorStatus } from "../connectors/index";
 import type { LiveState } from "../connectors/live";
 import { viteSeedSource } from "../connectors/source.vite";
@@ -304,7 +306,121 @@ function base(corpus: Corpus | undefined): ScanState {
     edits: {},
     decidedAt: {},
     reminders: {},
+    routes: {},
     undo: [],
+  };
+}
+
+// ---------- Ways to fix a finding ----------
+
+const route = (r: Partial<FixRoute> & Pick<FixRoute, "id" | "kind" | "provider" | "label">): FixRoute => ({
+  canDo: [],
+  requiredFor: [],
+  immediate: false,
+  keepsRecord: false,
+  acceptsFiles: false,
+  needs: [],
+  steps: [],
+  sample: true,
+  ...r,
+});
+
+const TIO: Escalation = {
+  id: "tio",
+  name: "Telecommunications Industry Ombudsman",
+  shortName: "TIO",
+  real: true,
+  phone: "1800 062 058",
+  hours: "Mon-Fri 8am-8pm AEST",
+  href: "https://www.tio.com.au/complaints",
+  afterDays: 14,
+  whenToUse: "Free and independent. Use it if your provider hasn't fixed the problem after you've asked.",
+};
+
+const skylinkPlan: FixPlan = {
+  routes: [
+    route({ id: "skylink_email", kind: "email", provider: "Skylink Internet", label: "Email billing", address: "billing@skylink.example", keepsRecord: true, replyDays: 3 }),
+    route({ id: "skylink_chat", kind: "chat", provider: "Skylink Internet", label: "Chat with Skye", href: "https://skylink.example/help/chat", hours: "Every day, 7am-10pm", waitMinutes: 2, needs: ["Your account number"], note: "Chat can log a dispute but can't credit an account itself." }),
+    route({ id: "skylink_call", kind: "call", provider: "Skylink Internet", label: "Call billing", phone: "1300 000 000", hours: "Mon-Fri 8am-8pm", waitMinutes: 18, needs: ["Your account number", "The name on the account"] }),
+  ],
+  recommendedId: "skylink_email",
+  reason: "Billing disputes sent in writing are logged against the account.",
+  chosenBy: "model",
+  callScript: {
+    opening: "Hi, I'm calling about the price on our Skylink internet plan.",
+    points: ["Our 2025 agreement promised $79.00 a month for 24 months.", "We've been charged $99.00 since October.", "That's $40.00 overcharged so far."],
+    ask: "Can you put the plan back to $79.00 and credit the $40.00?",
+    ifNo: "Ask for a reference number, then send the written request by email.",
+  },
+  chatOpener: "Our 2025 agreement promised $79.00 a month for 24 months, but we've been charged $99.00 since October. Please put the plan back to $79.00 and credit the $40.00.",
+  haveReady: [
+    { label: "Promised price", value: "$79.00" },
+    { label: "Price now", value: "$99.00" },
+    { label: "Overcharged so far", value: "$40.00" },
+  ],
+  escalation: TIO,
+  grounded: true,
+  problems: [],
+  attempts: [],
+  ms: 4200,
+};
+
+const redgumPlan: FixPlan = {
+  routes: [
+    route({
+      id: "redgum_read",
+      kind: "online",
+      provider: "Redgum Energy",
+      label: "Submit a meter read",
+      href: "https://redgumenergy.example/account/meter-read",
+      acceptsFiles: true,
+      needs: ["Your account number", "A photo of the meter"],
+      steps: ["Sign in to your Redgum account.", "Choose Submit a meter read.", "Enter the reading and date, then add the photo.", "Submit, and keep the confirmation."],
+      article: { title: "How we correct an estimated bill", body: "Send an actual reading with a photo and we review it first, then issue a corrected bill." },
+    }),
+    route({ id: "redgum_email", kind: "email", provider: "Redgum Energy", label: "Email billing", address: "bills@redgumenergy.example", acceptsFiles: true, replyDays: 5 }),
+    route({ id: "redgum_call", kind: "call", provider: "Redgum Energy", label: "Call billing", phone: "1300 975 707", hours: "Mon-Fri 8am-6pm", waitMinutes: 12 }),
+  ],
+  recommendedId: "redgum_read",
+  reason: "Reads with a photo are reviewed first and a corrected bill follows.",
+  chosenBy: "model",
+  haveReady: [
+    { label: "Actual reading", value: "47,006 kWh" },
+    { label: "Read on", value: "30 Oct 2026" },
+    { label: "Estimated reading", value: "47,570 kWh" },
+  ],
+  grounded: true,
+  problems: [],
+  attempts: [],
+  ms: 3800,
+};
+
+/** The route switcher's states: the same samples with fix plans added. */
+export function routeSamples(done: ScanState) {
+  const withPlans = (plans: Record<string, FixPlan>, change: Partial<ScanState> = {}): ScanState => {
+    const add = (f: Finding) => (plans[f.id] ? { ...f, fix: plans[f.id] } : f);
+    return { ...done, findings: done.findings.map(add), result: done.result && { ...done.result, findings: done.result.findings.map(add) }, ...change };
+  };
+  const plans = { "f-skylink": skylinkPlan, "f-redgum": redgumPlan };
+  const approved = (id: string, routeId: string) => ({ decisions: { [id]: "approved" as const }, decidedAt: { [id]: Date.now() - 60_000 }, routes: { [id]: routeId } });
+  const script = skylinkPlan.callScript!;
+  return {
+    email: withPlans(plans),
+    call: withPlans(plans, { routes: { "f-skylink": "skylink_call" } }),
+    chat: withPlans(plans, { routes: { "f-skylink": "skylink_chat" } }),
+    noScript: withPlans({ "f-skylink": { ...skylinkPlan, callScript: undefined, chatOpener: undefined, chosenBy: "default" } }, { routes: { "f-skylink": "skylink_call" } }),
+    unchecked: withPlans(
+      { "f-skylink": { ...skylinkPlan, callScript: { ...script, points: [...script.points, "We were promised a $20.00 credit."] }, grounded: false, problems: ["$20.00 isn't in the evidence"] } },
+      { routes: { "f-skylink": "skylink_call" } },
+    ),
+    approvedEmail: withPlans(plans, approved("f-skylink", "skylink_email")),
+    approvedCall: withPlans(plans, approved("f-skylink", "skylink_call")),
+    approvedOnline: withPlans(plans, approved("f-redgum", "redgum_read")),
+    approvedSampleBody: withPlans(
+      { "f-skylink": { ...skylinkPlan, escalation: { ...TIO, id: "harbour_disputes", name: "Harbour Bank card disputes", shortName: "Harbour Bank", real: false, href: "https://harbourbank.example/help/card-disputes", whenToUse: "If a business won't return a duplicate card payment, your bank can look into disputing that charge." } } },
+      approved("f-skylink", "skylink_call"),
+    ),
+    samplePage: routePage(redgumPlan.routes[0]),
   };
 }
 

@@ -263,6 +263,7 @@ export async function resetOnboarding(): Promise<boolean> {
   if (!(await resetScan())) return false;
   try {
     localStorage.removeItem("life.decisions");
+    localStorage.removeItem("life.routes");
     localStorage.removeItem("life.hintSeen");
   } catch {
     // Nothing to clear.

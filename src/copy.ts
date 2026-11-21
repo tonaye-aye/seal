@@ -216,7 +216,8 @@ export const copy = {
     seal: "Seal the leak",
     sealTip: {
       email: (to: string) => `Opens Mail with the draft to ${to}, ready to send`,
-      phone: (number: string) => `Calls ${number}`,
+      /** Made-up contact details: a labelled stand-in, never a real number or link. */
+      sample: (provider: string) => `Shows ${provider}'s sample page. Nothing is dialled or opened`,
       calendar: "Opens Calendar",
       bank: (account: string) => `Do it in your bank's app (${account})`,
     },
@@ -347,7 +348,7 @@ export const copy = {
     /** What Seal the leak does, under "Saved in Drafts" or "Marked as handled". */
     seal: {
       email: "Seal the leak opens it in Mail, ready to send. Nothing goes until you do.",
-      phone: (number: string) => `Seal the leak calls them on ${number}.`,
+      sample: { call: "Seal the leak shows the sample number. Nothing is dialled.", chat: "Seal the leak shows a sample of their chat page.", online: "Seal the leak shows a sample of their page.", email: "" },
       calendar: (date?: string) => (date ? `Seal the leak opens Calendar: look at ${date}.` : "Seal the leak opens Calendar."),
       bank: (account: string) => `Do it in your bank's app, on the ${account} account.`,
     },
@@ -364,6 +365,50 @@ export const copy = {
       refund: (amount: string) => `a ${amount} refund`,
       replyBefore: (until: string) => `a reply before the quote ends on ${until}`,
       credit: (amount: string) => `a credit of about ${amount} on your next bill`,
+    },
+  },
+
+  // ---------- Ways to fix a finding ----------
+  routes: {
+    label: "Ways to fix this",
+    best: "Best way",
+    /** The tooltip on a route, and what it's called in the switcher. */
+    tip: (provider: string, label: string) => `${provider}: ${label}`,
+    ready: { call: "Ready to call", chat: "Ready to chat", online: "Ready to do" },
+    /** The first line of the Next timeline once a route other than Email is approved. */
+    chosen: { call: "Call approved", chat: "Chat approved", online: "Online step approved" },
+    /** The line Maya acts on next. */
+    doIt: { call: "Make the call", chat: "Start the chat", online: "Do it online" },
+    approveTip: { email: "Approve the draft", call: "Approve this call. Nothing is dialled", chat: "Approve this chat. Nothing is sent", online: "Approve this step. Nothing is changed" },
+    sample: "Sample",
+    sampleTip: "A made-up contact for this demo, so Seal won't dial or open it.",
+    wait: (minutes: number) => `About ${minutes} min wait`,
+    replies: (days: number) => `Replies in about ${plural(days, "business day")}`,
+    sayThis: "Say this",
+    ask: "Ask",
+    ifNo: "If they say no",
+    haveReady: "Have ready",
+    steps: "Steps",
+    pasteThis: "Paste this into the chat",
+    noScript: "No script this time: the model couldn't write one that passed the check. The number and figures are still right.",
+    noOpener: "No opener this time: the model couldn't write one that passed the check. The figures below are still right.",
+    checkFirst: "Check before using",
+    copy: "Copy",
+    openSample: "Show sample",
+    /** The stand-in page for a fictional business. */
+    samplePage: {
+      title: "Sample page",
+      why: (provider: string) => `These ${provider} details are made up for this demo, so Seal shows this instead of dialling or opening anything.`,
+      contact: "Contact",
+      hours: "Hours",
+      close: "Close",
+    },
+    /** The dated line on the Next timeline. */
+    escalate: {
+      title: (body: string) => `If they say no: ${body}`,
+      open: (body: string) => `Open ${body}`,
+      realTip: (body: string) => `Opens ${body}'s complaint form in your browser`,
+      sampleTip: (body: string) => `Shows ${body}'s sample page`,
     },
   },
 
@@ -416,8 +461,11 @@ export const copy = {
     savedDraft: "Saved a draft",
     /** Today's line for an approved finding, with what to expect once it's sent. */
     readyToSend: (expect?: string) => (expect ? `Ready to send. Then expect ${expect}.` : "Ready to send. Nothing was sent."),
+    /** The same line when the fix is a call, chat or online step. */
+    readyRoute: (ready: string, expect?: string) => (expect ? `${ready}. Then expect ${expect}.` : `${ready}. Nothing was sent.`),
     /** A coming line of an approved finding, instead of its title. */
     onceSent: (expect: string) => `Once sent, expect ${expect}`,
+    onceDone: (expect: string) => `Once done, expect ${expect}`,
     /** Remind me (L). */
     reminder: "Reminder in your calendar",
     addedReminder: (date: string) => `Added a reminder for ${date}`,
@@ -609,9 +657,19 @@ export const copy = {
     /** Edit on an approved finding. */
     reopened: "Approval taken back: change the draft, then approve it again.",
     /** Seal the leak, when the app it opens couldn't be opened. */
-    sealPreview: "Seal the leak opens Mail, a call or Calendar in the desktop app. This browser preview can't.",
+    sealPreview: "This opens in the desktop app. This browser preview can't.",
     sealFailed: "Couldn't open it. Try again, or do it from the app yourself.",
     sealBank: (account: string) => `Open your bank's app and do it there, on the ${account} account.`,
+    /** Approving a route that isn't Email: nothing is saved or sent. */
+    routeReady: {
+      email: (provider: string) => `Saved to Drafts for ${provider}.`,
+      call: (provider: string) => `Ready to call ${provider}. Your script stays here.`,
+      chat: (provider: string) => `Ready to chat with ${provider}. Y copies the opener.`,
+      online: (provider: string) => `Ready to do on ${provider}. Your steps stay here.`,
+    },
+    copied: "Copied. Paste it where you need it.",
+    copyFailed: "Couldn't copy that. Select the text and copy it yourself.",
+    nothingToCopy: "Nothing prepared to copy on this route.",
     dismissed: (merchant: string) => `Marked ${merchant} as not a leak.`,
     undoneDraft: (merchant?: string) => `Undone: the draft for ${merchant} was removed from Drafts.`,
     undone: (merchant?: string) => `Undone: ${merchant} is back in the list.`,
@@ -629,7 +687,7 @@ export const copy = {
     undo: "Undo",
     dismiss: "Dismiss",
     /** What each decision is called in the undo list. */
-    decision: { approved: "Saved to Drafts", snoozed: "Snoozed", dismissed: "Not a leak", new: "", handled: "Marked as handled", reminder: "Reminder added" },
+    decision: { approved: "Saved to Drafts", route: "Route approved", snoozed: "Snoozed", dismissed: "Not a leak", new: "", handled: "Marked as handled", reminder: "Reminder added" },
   },
 
   // ---------- Onboarding ----------
@@ -775,10 +833,13 @@ export const copy = {
           [["↵"], "Open evidence and draft"],
           [["Space"], "Open or close a group, or preview evidence"],
           [["C"], "Checked by code (in a finding)"],
-          [["A"], "Approve: save the draft to Drafts"],
+          [["1", "4"], "Choose how to fix it (in a finding)"],
+          [["Y"], "Copy the script, opener or draft"],
+          [["A"], "Approve the chosen way (Email saves a draft)"],
           [["E"], "Edit the draft (takes an approval back)"],
           [["⌘", "⇧", "⌫"], "Revert your edits and stop editing (while editing)"],
-          [["S"], "Seal the leak: open the fix in Mail (once approved)"],
+          [["S"], "Seal the leak: open the fix (once approved)"],
+          [["O"], "If they say no: open where to go next"],
           [["D"], "Not a leak"],
           [["L"], "Remind me: add it to your calendar (in a finding, L again removes it)"],
           [["F"], "Filter"],
@@ -804,7 +865,7 @@ export const copy = {
         ],
       },
     ] as { title: string; keys: [string[], string][] }[],
-    footnote: "Nothing is ever sent. Approving saves a draft you send yourself.",
+    footnote: "Nothing is ever sent, dialled or changed. You do the last step yourself.",
     /** The short version, shown once when onboarding ends. */
     intro: {
       title: "A few keys to get around",

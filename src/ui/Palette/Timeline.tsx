@@ -122,7 +122,7 @@ export function TimelineLine({
             <span className="min-w-0 truncate text-meta text-faint">{entry.what}</span>
           </span>
           {tone === "done" && (
-            <span className="shrink-0 text-meta text-positive">{entry.handled ? copy.shared.decided.handled : copy.shared.decided.approved}</span>
+            <span className="shrink-0 text-meta text-positive">{entry.ready ?? (entry.handled ? copy.shared.decided.handled : copy.shared.decided.approved)}</span>
           )}
           <span className={`figure w-22 shrink-0 text-right ${tone === "agent" ? "text-label text-faint" : `text-body ${quiet ? "text-muted" : "text-text"}`}`}>
             {tone === "agent" ? ago(entry.at) : entry.amountCents !== undefined ? formatAUD(entry.amountCents) : ""}
