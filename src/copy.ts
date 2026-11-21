@@ -721,6 +721,36 @@ export const copy = {
     decision: { rewrite: "Rewrote the draft", approved: "Saved to Drafts", route: "Route approved", snoozed: "Snoozed", dismissed: "Not a leak", new: "", handled: "Marked as handled", reminder: "Reminder added" },
   },
 
+  // ---------- What Seal remembers after "Not a leak" ----------
+  rules: {
+    question: "Why isn't it a leak?",
+    reasons: { wanted: "We want this", sorted: "Already sorted", wrong: `${APP_NAME} got it wrong` },
+    youSaid: { wanted: "You said: we want this", sorted: "You said: already sorted", wrong: `You said: ${APP_NAME} got it wrong` },
+    /** On a dismissed finding with no reason yet. */
+    askLater: `Tell ${APP_NAME} why and it remembers, so a new problem here can still reach you.`,
+    remembered: (until: string) => `${APP_NAME} remembers. ${until}`,
+    /** What would bring a finding back. */
+    until: {
+      wantedAmount: (amount: string) => `It comes back if the ${amount} charge changes.`,
+      wantedSeveral: "It comes back if a regular charge changes.",
+      sortedPrice: (amount: string) => `It comes back if it charges ${amount} or more again.`,
+      sortedBoth: "It comes back if both charges carry on.",
+      chargesAgain: "It comes back if it charges again.",
+      wrong: "It comes back only for a different kind of problem.",
+    },
+    cameBack: "Came back",
+    /** Why a finding set aside is showing again. */
+    back: {
+      newProblem: (kind: string) => `This is a different kind of problem now: ${kind}.`,
+      amountChanged: (from: string, to: string, date: string) => `You wanted this at ${from}, but it charged ${to} on ${date}.`,
+      chargedAgain: (amount: string, date: string) => `It charged ${amount} on ${date}, after you set this aside.`,
+      bankUnread: `${APP_NAME} couldn't read the bank this time, so it can't tell this is still fine.`,
+      noBaseline: `The bank couldn't be read when you answered, so ${APP_NAME} is showing this again to be safe.`,
+    },
+    /** The footer hint on a dismissed finding. */
+    hint: "Say why",
+  },
+
   // ---------- Onboarding ----------
   onboarding: {
     step: (n: number) => `Step ${n} of 3`,
@@ -787,7 +817,7 @@ export const copy = {
   // ---------- The Settings dialog ----------
   settings: {
     title: "Settings",
-    tabs: { connectors: "Connectors", models: "Models", view: "View", filters: "Filters", general: "General" },
+    tabs: { connectors: "Connectors", models: "Models", view: "View", filters: "Filters", remembered: "Remembered", general: "General" },
     /** The last row of each menu, which opens this dialog on its tab. */
     menu: {
       connectors: "Connector settings",
@@ -841,6 +871,14 @@ export const copy = {
         warranty_claim: "A paid repair a warranty may handle",
       } satisfies Record<"soon" | "unsure" | FindingKind, string>,
     },
+    remembered: {
+      intro: "What you told me about findings that aren't leaks. Only I use these: they never go to a model.",
+      emptyTitle: "Nothing remembered yet",
+      emptyBody: "Press [D] on a finding, then tell me why it isn't a leak. Your answer shows up here.",
+      remove: (merchant: string) => `Forget what you said about ${merchant}`,
+      removed: (merchant: string) => `Forgotten. ${merchant} is back in the list.`,
+      footer: "Forgetting one brings its finding back straight away.",
+    },
     general: {
       intro: "How you reach me, and when I work in the background.",
       summon: "Summon key",
@@ -874,6 +912,7 @@ export const copy = {
           [["S"], "Seal the leak: open the fix (once approved)"],
           [["O"], "If they say no: open where to go next"],
           [["D"], "Not a leak"],
+          [["1", "3"], `Then say why, so ${APP_NAME} remembers`],
           [["L"], "Remind me: add it to your calendar (in a finding, L again removes it)"],
           [["F"], "Filter"],
           [["⌫"], "Remove the last filter"],
@@ -1048,6 +1087,9 @@ export const copy = {
     /** The end of a check. */
     done: (ms: number) => `Done in ${secs(ms)} s. Nothing was sent or changed.`,
     checkedAgain: (ms: number) => `Checked again in ${secs(ms)} s. Nothing was sent or changed.`,
+    /** One line when something Maya told Seal applied to this check. */
+    remembered: (kept: number, back: string[]) =>
+      [kept ? `Left ${plural(kept, "finding", "findings")} alone, as you said` : "", back.length ? `Brought back ${back.join(", ")}` : ""].filter(Boolean).join(". "),
     backgroundStart: "Checking again in the background",
     backgroundNoEndpoint: "The model endpoint isn't available, so the last results stay. The next background check will try again.",
     backgroundFailed: (error: string) => `The background check didn't finish: ${error}`,

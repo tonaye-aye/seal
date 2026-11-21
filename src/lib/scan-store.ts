@@ -21,6 +21,8 @@ import { calendarNeedsReconnect, getConnectors, markNeedsReconnect, reconnectCal
 import { getPreferences } from "./preferences.ts";
 import { ConnectorError } from "../connectors/runtime.ts";
 import { reminderEvent, type Reminder } from "./reminders.ts";
+import { newRule, returnedFindings, type CameBack, type Rule, type RuleReason } from "./rules.ts";
+import { ruleUntil } from "../ui/rule-words.ts";
 import { shortDate } from "../ui/format.ts";
 import { chosenRoute, usesEmail } from "../ui/fix-route.ts";
 import type { ConnectorId } from "../connectors/types.ts";
@@ -39,13 +41,21 @@ export type TraceLine = {
   tone: "info" | "good" | "warn" | "bad";
 };
 
-export type Toast = { id: number; text: string; undoable: boolean };
+export type Toast = {
+  id: number;
+  text: string;
+  undoable: boolean;
+  /** The finding this toast is asking "why isn't it a leak?" about. It holds keys 1, 2 and 3 while it shows. */
+  ask?: string;
+};
 
 type UndoEntry = {
   /** A decision (approve, not a leak), a reminder Maya added, or a verb's rewrite. Decisions when absent. */
   kind?: "decision" | "reminder" | "rewrite";
   findingId: string;
   before: Decision;
+  /** The remembered rule this decision replaced, put back by undo. */
+  ruleBefore?: Rule;
   /** The draft being saved for this approval: resolves to its id, or undefined if saving failed. */
   saving?: Promise<string | undefined>;
   label: string;
@@ -94,6 +104,10 @@ export type ScanState = {
   rewrites: Record<string, DraftVersions>;
   /** The verb being written right now, by finding id. */
   rewriting: Record<string, Verb>;
+  /** What Seal remembers about each finding marked "Not a leak", by finding id. */
+  rules: Record<string, Rule>;
+  /** Findings set aside that this check shows again, and why. Worked out from `rules`, never saved. */
+  returned: Record<string, CameBack>;
   undo: UndoEntry[];
   toast?: Toast;
 };
@@ -182,6 +196,25 @@ function persistRewrites(rewrites: Record<string, DraftVersions>) {
   }
 }
 
+const RULES_KEY = "life.rules";
+
+function loadRules(): Record<string, Rule> {
+  try {
+    const raw = JSON.parse(localStorage.getItem(RULES_KEY) ?? "null") as { v?: number; rules?: Record<string, Rule> } | null;
+    return raw?.v === 1 && raw.rules ? raw.rules : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistRules(rules: Record<string, Rule>) {
+  try {
+    localStorage.setItem(RULES_KEY, JSON.stringify({ v: 1, rules }));
+  } catch {
+    // Storage can be unavailable; rules then last until the app quits.
+  }
+}
+
 /** True until the first scan after launch has put the reminders back in the calendar (the stand-in calendar lives in memory). */
 let remindersPending = Object.keys(loadReminders()).length > 0;
 
@@ -198,6 +231,8 @@ let state: ScanState = {
   routes: loadRoutes(),
   rewrites: loadRewrites(),
   rewriting: {},
+  rules: loadRules(),
+  returned: {},
   undo: [],
 };
 const listeners = new Set<() => void>();
@@ -276,6 +311,8 @@ export async function resetScan(): Promise<boolean> {
     routes: {},
     rewrites: {},
     rewriting: {},
+    rules: {},
+    returned: {},
     undo: [],
     toast: undefined,
   });
@@ -285,10 +322,15 @@ export async function resetScan(): Promise<boolean> {
 
 function set(change: Partial<ScanState>) {
   state = { ...state, ...change };
+  // Which findings have come back follows from the findings, the bank data and the rules.
+  if ("findings" in change || "corpus" in change || "rules" in change) {
+    state = { ...state, returned: returnedFindings(state.findings, state.rules, state.corpus) };
+  }
   if (("decisions" in change || "edits" in change || "saved" in change || "decidedAt" in change)) persist(state);
   if ("reminders" in change) persistReminders(state.reminders);
   if ("routes" in change) persistRoutes(state.routes);
   if ("rewrites" in change) persistRewrites(state.rewrites);
+  if ("rules" in change) persistRules(state.rules);
   for (const listener of listeners) listener();
 }
 
@@ -330,8 +372,11 @@ const connectorState: Partial<Record<string, string>> = {};
 
 /** True while the scan running now is a background one: its findings wait until it finishes. */
 let quiet = false;
+/** What a background check read. It replaces the data on screen along with the findings, at the end. */
+let quietCorpus: Corpus | undefined;
 
 function onEvent(event: AgentEvent) {
+  if (quiet && event.type === "corpus") quietCorpus = event.corpus;
   // A background check keeps the last results on screen: only the connector
   // chips and the trace follow along.
   if (quiet && (event.type === "corpus" || event.type === "finding" || event.type === "draft" || event.type === "routes" || event.type === "cleared" || event.type === "progress")) return;
@@ -412,6 +457,15 @@ function sentence(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+/** One plain trace line when something Maya told Seal applied to this check. */
+function noteRules(findings: Finding[], corpus: Corpus | undefined) {
+  const applied = findings.filter((f) => state.rules[f.id]?.reason && state.decisions[f.id] === "dismissed");
+  if (!applied.length) return;
+  const back = returnedFindings(applied, state.rules, corpus);
+  const names = applied.filter((f) => back[f.id]).map((f) => f.merchant);
+  set({ trace: trace(copy.trace.remembered(applied.length - names.length, names), names.length ? "warn" : "info") });
+}
+
 // ---------- Running ----------
 
 /**
@@ -473,6 +527,7 @@ export async function startScan({ background = false } = {}): Promise<void> {
     if (state.replay && result.findings.length === 0 && result.cleared.length === 0 && result.undecided.length > 0) {
       throw new Error(noSavedAnswers(endpoint));
     }
+    noteRules(result.findings, state.corpus);
     set({
       phase: "done",
       finishedAt: Date.now(),
@@ -499,6 +554,7 @@ export async function startScan({ background = false } = {}): Promise<void> {
 /** The timer's check: the last results stay put until the new ones are all in. */
 async function runBackground(): Promise<void> {
   quiet = true;
+  quietCorpus = undefined;
   set({ refreshing: true, startedAt: Date.now(), trace: [] });
   set({ trace: trace(copy.trace.backgroundStart) });
   try {
@@ -517,12 +573,16 @@ async function runBackground(): Promise<void> {
       return;
     }
     const { result } = outcome;
+    // The rules need this check's bank rows, or they could never see a new charge.
+    const corpus = quietCorpus ?? state.corpus;
+    noteRules(result.findings, corpus);
     set({
       refreshing: false,
       finishedAt: Date.now(),
       stage: undefined,
       progress: undefined,
       result,
+      corpus,
       findings: result.findings,
       cleared: result.cleared,
       undecided: result.undecided,
@@ -722,9 +782,15 @@ export function startBackgroundChecks(isHidden: () => boolean, everyMs = BACKGRO
 
 // ---------- What the UI shows ----------
 
+/** Where a finding stands now. One she set aside that has come back needs her again. */
+export function statusOf(findingId: string, s: ScanState = state): Decision {
+  const decision = s.decisions[findingId] ?? "new";
+  return decision === "dismissed" && s.returned[findingId] ? "new" : decision;
+}
+
 /** A finding with Maya's decision applied. */
 export function withDecision(f: Finding, s: ScanState = state): Finding {
-  const status = s.decisions[f.id] ?? "new";
+  const status = statusOf(f.id, s);
   const body = s.edits[f.id];
   // The version on screen (Seal's, or a verb's rewrite), then Maya's own edits on top.
   const draft = shownDraft(f.draft, s.rewrites[f.id], status === "approved");
@@ -747,9 +813,9 @@ export function rankedFindings(s: ScanState): Finding[] {
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 export const TOAST_MS = 5_000;
 
-function showToast(text: string, undoable: boolean) {
+function showToast(text: string, undoable: boolean, ask?: string) {
   clearTimeout(toastTimer);
-  const toast = { id: nextId++, text, undoable };
+  const toast: Toast = { id: nextId++, text, undoable, ask };
   set({ toast });
   toastTimer = setTimeout(() => {
     if (state.toast?.id === toast.id) set({ toast: undefined });
@@ -761,12 +827,19 @@ export function dismissToast(): void {
   set({ toast: undefined });
 }
 
-function decide(findingId: string, status: Decision, entry: Omit<UndoEntry, "findingId" | "before">) {
+/**
+ * Records a decision. `rule` is what a new "Not a leak" remembers. Any other
+ * decision ends the old rule, and undo puts it back.
+ */
+function decide(findingId: string, status: Decision, entry: Omit<UndoEntry, "findingId" | "before" | "ruleBefore">, rule?: Rule) {
   const before = state.decisions[findingId] ?? "new";
+  const ruleBefore = state.rules[findingId];
+  const { [findingId]: _old, ...rules } = state.rules;
   set({
     decisions: { ...state.decisions, [findingId]: status },
     decidedAt: { ...state.decidedAt, [findingId]: Date.now() },
-    undo: [...state.undo, { findingId, before, ...entry }],
+    rules: rule ? { ...rules, [findingId]: rule } : rules,
+    undo: [...state.undo, { findingId, before, ruleBefore, ...entry }],
   });
 }
 
@@ -776,7 +849,7 @@ function decide(findingId: string, status: Decision, entry: Omit<UndoEntry, "fin
  */
 export async function approve(findingId: string): Promise<void> {
   const finding = state.findings.find((f) => f.id === findingId);
-  if (!finding || (state.decisions[findingId] ?? "new") !== "new") return;
+  if (!finding || statusOf(findingId) !== "new") return;
   // Approving takes the version on screen: a rewrite still being written is ignored.
   cancelRewrite(findingId);
   const shown = withDecision(finding);
@@ -808,9 +881,13 @@ export async function approve(findingId: string): Promise<void> {
       return saved.id;
     })
     .catch((error: unknown) => {
+      // Back to how it was, including a finding that had come back after being set aside.
+      const entry = state.undo.find((u) => u.saving === saving);
       const decisions = { ...state.decisions };
-      delete decisions[findingId];
-      set({ decisions, undo: state.undo.filter((u) => u.saving !== saving) });
+      if (entry && entry.before !== "new") decisions[findingId] = entry.before;
+      else delete decisions[findingId];
+      const rules = entry?.ruleBefore ? { ...state.rules, [findingId]: entry.ruleBefore } : state.rules;
+      set({ decisions, rules, undo: state.undo.filter((u) => u.saving !== saving) });
       showToast(copy.toasts.couldntSave(error instanceof Error ? error.message : String(error)), false);
       return undefined;
     });
@@ -819,12 +896,53 @@ export async function approve(findingId: string): Promise<void> {
   await saving;
 }
 
+/**
+ * Not a leak: done at once. The toast then asks why, and ignoring it is fine.
+ * What the bank shows now is noted either way, so a reason added later still
+ * compares against this moment.
+ */
 export function dismiss(findingId: string): void {
-  if ((state.decisions[findingId] ?? "new") !== "new") return;
+  if (statusOf(findingId) !== "new") return;
   cancelRewrite(findingId);
   const f = state.findings.find((x) => x.id === findingId);
-  decide(findingId, "dismissed", { label: copy.toasts.decision.dismissed });
-  showToast(copy.toasts.dismissed(f?.merchant ?? copy.toasts.it), true);
+  decide(findingId, "dismissed", { label: copy.toasts.decision.dismissed }, f && newRule(f, state.corpus, Date.now()));
+  showToast(copy.toasts.dismissed(f?.merchant ?? copy.toasts.it), true, f && findingId);
+}
+
+/** Maya says why it isn't a leak (keys 1-3, from the toast or the dismissed finding). */
+export function rememberWhy(findingId: string, reason: RuleReason): void {
+  if (statusOf(findingId) !== "dismissed") return;
+  const finding = state.findings.find((f) => f.id === findingId);
+  // A dismissal saved before rules existed has no record yet, so it starts from this check.
+  const rule = state.rules[findingId] ?? (finding && newRule(finding, state.corpus, Date.now()));
+  if (!rule) return;
+  // The case on screen is the one she's answering about, even if a later check named its kind differently.
+  const next: Rule = { ...rule, reason, kind: finding?.kind ?? rule.kind };
+  set({ rules: { ...state.rules, [findingId]: next } });
+  // Undo in the toast takes back the newest action, so it's only offered when that is this dismissal.
+  const top = state.undo[state.undo.length - 1];
+  const undoable = top?.findingId === findingId && (top.kind ?? "decision") === "decision";
+  showToast(copy.rules.remembered(ruleUntil(next)), undoable);
+}
+
+/** Deletes a remembered rule (Settings): its finding comes back straight away. */
+export function forgetRule(findingId: string): void {
+  if (!state.rules[findingId]) return;
+  const { [findingId]: _gone, ...rules } = state.rules;
+  const change: Partial<ScanState> = { rules };
+  if (state.decisions[findingId] === "dismissed") {
+    const { [findingId]: _decision, ...decisions } = state.decisions;
+    const { [findingId]: _when, ...decidedAt } = state.decidedAt;
+    change.decisions = decisions;
+    change.decidedAt = decidedAt;
+    // Nothing is left for ⌘Z to take back on this finding.
+    change.undo = state.undo.filter((u) => u.findingId !== findingId || (u.kind ?? "decision") !== "decision");
+  }
+  if (state.toast?.ask === findingId) {
+    clearTimeout(toastTimer);
+    change.toast = undefined;
+  }
+  set(change);
 }
 
 /** Puts back the most recent decision (and removes its saved draft, if any), or removes the last reminder. */
@@ -890,7 +1008,9 @@ async function revert(entry: UndoEntry): Promise<string | undefined> {
     delete decisions[entry.findingId];
     delete decidedAt[entry.findingId];
   } else decisions[entry.findingId] = entry.before;
-  set({ decisions, decidedAt });
+  // The dismissal and its rule go together, as one step.
+  const { [entry.findingId]: _rule, ...rules } = state.rules;
+  set({ decisions, decidedAt, rules: entry.ruleBefore ? { ...rules, [entry.findingId]: entry.ruleBefore } : rules });
   return savedId;
 }
 
@@ -902,7 +1022,7 @@ const adding = new Set<string>();
 /** Why a reminder can't be added for this finding right now, or undefined if it can. */
 export function cannotRemind(findingId: string, s: ScanState = state): string | undefined {
   if (s.result?.notConnected?.includes("calendar")) return copy.toasts.reminderNoCalendar;
-  const status = s.decisions[findingId] ?? "new";
+  const status = statusOf(findingId, s);
   if (status !== "new" && status !== "approved") return copy.toasts.reminderNotNow;
   return undefined;
 }
@@ -966,7 +1086,7 @@ export async function cancelReminder(findingId: string): Promise<void> {
 
 /** Picks a way of fixing a finding (1-4). Fixed once approved: ⌘Z first to change it. */
 export function chooseRoute(findingId: string, routeId: string): void {
-  if ((state.decisions[findingId] ?? "new") !== "new" || state.routes[findingId] === routeId) return;
+  if (statusOf(findingId) !== "new" || state.routes[findingId] === routeId) return;
   set({ routes: { ...state.routes, [findingId]: routeId } });
 }
 
@@ -994,7 +1114,7 @@ export function cannotRewrite(findingId: string, s: ScanState = state): string |
   const finding = s.findings.find((f) => f.id === findingId);
   if (!finding?.draft) return copy.verbs.noDraft;
   if (s.phase === "scanning" || !s.corpus) return copy.verbs.waitForCheck;
-  if ((s.decisions[findingId] ?? "new") !== "new") return copy.verbs.alreadyDecided;
+  if (statusOf(findingId, s) !== "new") return copy.verbs.alreadyDecided;
   if (!usesEmail(withDecision(finding, s), s)) return copy.verbs.emailOnly;
   if (s.edits[findingId] !== undefined) return copy.verbs.revertFirst;
   return undefined;
@@ -1083,7 +1203,7 @@ async function writeRewrite(finding: Finding, verb: Verb): Promise<void> {
     const offline = outcome.why === "no_saved";
     return showToast(offline ? (session.lost() ? copy.verbs.unreachable(name) : copy.verbs.notOffline(name)) : copy.verbs.failed(name), false);
   }
-  if (sameDraft && (state.decisions[id] ?? "new") === "new" && state.edits[id] === undefined) {
+  if (sameDraft && statusOf(id) === "new" && state.edits[id] === undefined) {
     putOnScreen(id, state.rewrites[id], verb);
   }
 }

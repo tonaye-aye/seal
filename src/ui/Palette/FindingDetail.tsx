@@ -6,8 +6,10 @@ import type { Cleared, Finding } from "../../agent/pipeline";
 import type { FixRoute } from "../../agent/routes";
 import { getConnectors } from "../../connectors/live";
 import { formatAUD } from "../../lib/money";
-import { cannotRemind, resetEdit, setEdit, useScan, type ScanState } from "../../lib/scan-store";
+import { cannotRemind, rememberWhy, resetEdit, setEdit, useScan, type ScanState } from "../../lib/scan-store";
 import { evidenceDate, lookupEvidence, type EvidenceView } from "../evidence";
+import { cameBackLine } from "../rule-words";
+import { SetAsideNote } from "./RuleChoices";
 import { daysUntil, figureValue, isUnsure, shortDate, urgency } from "../format";
 import { copy } from "../../copy";
 import {
@@ -1050,6 +1052,14 @@ export function FindingDetail({
           </div>
         )}
 
+        {/* Set aside earlier, and something changed: say what, in figures from the bank. */}
+        {finding?.status === "new" && scan.returned[finding.id] && (
+          <div className="mx-4 mt-2 rounded-md border border-info/25 bg-info/8 px-3 py-1.5 text-meta">
+            <span className="mr-1.5 font-semibold text-info">{copy.rules.cameBack}</span>
+            <span className="text-muted">{cameBackLine(scan.returned[finding.id])}</span>
+          </div>
+        )}
+
         {/* With the trace drawer open over the bottom, the draft gets the same room underneath (and the
             editor scrolls clear of it when focused), so nothing is stuck behind the drawer. */}
         <div
@@ -1059,6 +1069,7 @@ export function FindingDetail({
         >
           {finding ? (
             <div className={`rounded-lg p-3 ${pane === "draft" && !mouse ? "pane-focus" : ""}`}>
+              {finding.status === "dismissed" && <SetAsideNote rule={scan.rules[finding.id]} onChoose={(reason) => rememberWhy(finding.id, reason)} />}
               {/* Approved, or put off with a reminder: what happens next, as a small timeline. */}
               {(finding.status === "approved" || reminder) && <NextSteps
                   finding={finding}

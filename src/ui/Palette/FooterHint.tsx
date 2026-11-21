@@ -54,6 +54,7 @@ export function DetailHint({
   panelOpen,
   twoPanes,
   detailsOpen,
+  canSayWhy = false,
   mouse,
   onToggle,
   onPane,
@@ -67,6 +68,8 @@ export function DetailHint({
   twoPanes: boolean;
   /** The draft's Details are open (undefined: there are none). On the draft side, Enter opens or folds them. */
   detailsOpen?: boolean;
+  /** Marked "Not a leak": keys 1 to 3 say why. */
+  canSayWhy?: boolean;
   mouse: boolean;
   onToggle: () => void;
   onPane: () => void;
@@ -75,6 +78,7 @@ export function DetailHint({
   const enter = stop && "evidence" in stop ? copy.actions.preview : panelOpen ? copy.actions.close : copy.actions.open;
   return (
     <>
+      {canSayWhy && <KeyHint keys={["1", "3"]} label={copy.rules.hint} />}
       <KeyHint keys={["J", "K"]} label={pane === "draft" ? copy.actions.scroll : copy.actions.evidence} />
       {pane !== "draft" && stop && <KeyButton keys={["↵"]} label={enter} icon={<OpenIcon />} tone="faint" onClick={onToggle} />}
       {pane === "draft" && detailsOpen !== undefined && (

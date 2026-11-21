@@ -1,6 +1,6 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as Switch from "@radix-ui/react-switch";
-import { Cpu, ListFilter, Plug, RefreshCw, SlidersHorizontal, X } from "lucide-react";
+import { Bookmark, Cpu, ListFilter, Plug, RefreshCw, SlidersHorizontal, Trash2, X } from "lucide-react";
 import type { ConnectorStatus } from "../../connectors";
 import { useLive } from "../../connectors/live";
 import type { ConnectorId } from "../../connectors/types";
@@ -9,14 +9,17 @@ import { MODELS } from "../../lib/llm";
 import { chooseHotkey } from "../../lib/native";
 import { SOURCES, setSourceEnabled } from "../../lib/onboarding";
 import { setPreference, usePreferences, type StartView } from "../../lib/preferences";
-import { sourcesChanged, syncEverything, useScan } from "../../lib/scan-store";
+import { rememberedRules, type CameBack, type Rule } from "../../lib/rules";
+import { forgetRule, sourcesChanged, syncEverything, useScan } from "../../lib/scan-store";
 import { copy, plural } from "../../copy";
 import type { FilterId, FilterOption } from "../filters";
 import { clockTime } from "../format";
 import { CloseIcon, ListIcon } from "../icons";
 import { Kbd, KeyButton } from "../Kbd";
+import { KeyText } from "../KeyText";
 import { useScrollFade } from "../motion";
-import { Sheet, SheetDescription, SheetTitle, SwitchLook } from "../layers";
+import { cameBackLine, ruleUntil } from "../rule-words";
+import { Sheet, SheetDescription, SheetTitle, SwitchLook, Tip } from "../layers";
 import { ConnectorBody, MORE_ROWS, SOURCE_ROWS } from "../Onboarding/ConnectorList";
 import { endpointDot, endpointText, MODEL_ROLES } from "./model-status";
 import { pillButton, stateText, useTick } from "./StatusStrip";
@@ -26,7 +29,7 @@ import { ago } from "./Timeline";
 // tab, so "I want more than this menu offers" always lands in the same place.
 // J/K move between tabs, the numbers on the rows work them, Esc closes.
 
-export type SettingsTab = "connectors" | "models" | "view" | "filters" | "general";
+export type SettingsTab = "connectors" | "models" | "view" | "filters" | "remembered" | "general";
 
 const S = copy.settings;
 const TABS: { id: SettingsTab; icon: React.ReactNode }[] = [
@@ -34,6 +37,7 @@ const TABS: { id: SettingsTab; icon: React.ReactNode }[] = [
   { id: "models", icon: <Cpu size={14} strokeWidth={1.75} aria-hidden="true" /> },
   { id: "view", icon: <ListIcon /> },
   { id: "filters", icon: <ListFilter size={14} strokeWidth={1.75} aria-hidden="true" /> },
+  { id: "remembered", icon: <Bookmark size={14} strokeWidth={1.75} aria-hidden="true" /> },
   { id: "general", icon: <SlidersHorizontal size={14} strokeWidth={1.75} aria-hidden="true" /> },
 ];
 const INTROS: Record<SettingsTab, string> = {
@@ -41,6 +45,7 @@ const INTROS: Record<SettingsTab, string> = {
   models: S.models.intro,
   view: S.view.intro,
   filters: S.filters.intro,
+  remembered: S.remembered.intro,
   general: S.general.intro,
 };
 const START_VIEWS: StartView[] = ["list", "timeline", "last"];
@@ -95,6 +100,14 @@ export function SettingsDialog({
   const savedLocked = demo.byFlag || endpoint.state === "browser";
   const savedOn = demo.saved || savedLocked;
   const fallback = hotkey.join("") === "⌘⇧Space";
+  const remembered = rememberedRules(scan.rules);
+  // The business just forgotten, for the footer's confirmation (cleared on leaving the tab).
+  const [forgotten, setForgotten] = useState<string>();
+  useEffect(() => setForgotten(undefined), [tab]);
+  function forget(rule: Rule) {
+    forgetRule(rule.findingId);
+    setForgotten(rule.merchant);
+  }
 
   function pressSource(id: ConnectorId) {
     if (live.statuses[id]?.state === "needs_reconnect") void syncEverything();
@@ -119,6 +132,7 @@ export function SettingsDialog({
     models: [flipSaved],
     view: START_VIEWS.map((startView) => () => setPreference({ startView })),
     filters: filterOptions.slice(0, 9).map((o) => () => onToggleFilter(o.id)),
+    remembered: remembered.slice(0, 9).map((r) => () => forget(r)),
     general: [() => chooseKey(false), () => chooseKey(true), flipBackground],
   };
 
@@ -157,7 +171,13 @@ export function SettingsDialog({
           : S.connectors.upToDate
       : shown === "models"
         ? copy.model.savedNote
-        : undefined;
+        : shown === "remembered"
+          ? forgotten
+            ? S.remembered.removed(forgotten)
+            : remembered.length
+              ? S.remembered.footer
+              : undefined
+          : undefined;
 
   return (
     <Sheet
@@ -307,6 +327,22 @@ export function SettingsDialog({
               ))
             ))}
 
+          {shown === "remembered" &&
+            (remembered.length === 0 ? (
+              <div className="grid flex-1 place-items-center pb-6 text-center">
+                <div>
+                  <p className="text-body font-semibold text-text">{S.remembered.emptyTitle}</p>
+                  <p className="mt-1 max-w-[340px] text-meta text-muted">
+                    <KeyText text={S.remembered.emptyBody} />
+                  </p>
+                </div>
+              </div>
+            ) : (
+              remembered.map((rule, i) => (
+                <RememberedRow key={rule.findingId} rule={rule} back={scan.returned[rule.findingId]} index={i} mouse={mouse} onForget={() => forget(rule)} />
+              ))
+            ))}
+
           {shown === "general" && (
             <>
               <div role="radiogroup" aria-label={S.general.summon} className="flex flex-col gap-1.5">
@@ -372,6 +408,36 @@ export function SettingsDialog({
         </footer>
       </section>
     </Sheet>
+  );
+}
+
+/** One thing Maya told Seal: what she said, what would bring it back (or why it has), and a way to forget it. */
+function RememberedRow({ rule, back, index, mouse, onForget }: { rule: Rule; back?: CameBack; index: number; mouse: boolean; onForget: () => void }) {
+  const label = S.remembered.remove(rule.merchant);
+  return (
+    <div className={`${ROW} shrink-0`}>
+      {!mouse && index < 9 && <Kbd keys={[String(index + 1)]} />}
+      <span className="min-w-0 flex-1">
+        <span className="flex items-baseline gap-2">
+          <span className="min-w-0 truncate text-body text-text">{rule.merchant}</span>
+          <span className="shrink-0 text-meta text-muted">{rule.reason && copy.rules.youSaid[rule.reason]}</span>
+          {back && <span className="ml-auto shrink-0 text-meta text-info">{copy.rules.cameBack}</span>}
+        </span>
+        <span className="mt-0.5 block text-meta text-muted">{back ? cameBackLine(back) : ruleUntil(rule)}</span>
+      </span>
+      <Tip content={label}>
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label={label}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={onForget}
+          className="press grid size-6 shrink-0 cursor-pointer place-items-center rounded-md text-muted hover:bg-hairline hover:text-text"
+        >
+          <Trash2 size={14} strokeWidth={1.75} aria-hidden="true" />
+        </button>
+      </Tip>
+    </div>
   );
 }
 
