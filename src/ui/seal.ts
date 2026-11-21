@@ -8,6 +8,7 @@ import { notify, type ScanState } from "../lib/scan-store";
 import { lookupEvidence } from "./evidence";
 import { chosenRoute } from "./fix-route";
 import { shortDate } from "./format";
+import { hasAttachmentWork, mailAttachments, mailBody, type MailAttachments } from "./mail-attachments";
 
 // "Seal the leak": where the approved fix goes next, worked out by code from
 // the route Maya chose (no model). In order:
@@ -19,7 +20,7 @@ import { shortDate } from "./format";
 // ever dialled: each one only opens the app or page where Maya does it.
 
 export type SealTarget =
-  | { kind: "email"; href: string; to: string }
+  | { kind: "email"; href: string; to: string; attachments: MailAttachments }
   | { kind: "sample"; route: FixRoute }
   | { kind: "calendar"; date?: string }
   | { kind: "bank"; account: string };
@@ -29,9 +30,11 @@ export function sealTarget(finding: Finding, corpus: Corpus | undefined, scan: P
   if (route && route.kind !== "email") return { kind: "sample", route };
   const draft = finding.draft;
   if (draft?.to.address) {
-    // A mailto link carries the recipient, subject and body; Mail opens a new message with them.
-    const query = `subject=${encodeURIComponent(draft.subject)}&body=${encodeURIComponent(draft.body)}`;
-    return { kind: "email", href: `mailto:${draft.to.address}?${query}`, to: draft.to.name };
+    // A mailto link carries the recipient, subject and body, but no files. Seal's
+    // window hides as Mail opens, so anything Maya must add is noted above the draft.
+    const attachments = mailAttachments(draft, finding.evidence, corpus);
+    const query = `subject=${encodeURIComponent(draft.subject)}&body=${encodeURIComponent(mailBody(draft.body, attachments))}`;
+    return { kind: "email", href: `mailto:${draft.to.address}?${query}`, to: draft.to.name, attachments };
   }
   const relied = finding.evidence.filter((e) => e.cited).map((e) => lookupEvidence(corpus, e.id, e.kind));
   if (relied.some((v) => v.kind === "event")) return { kind: "calendar", date: finding.deadline?.date };
@@ -42,7 +45,7 @@ export function sealTarget(finding: Finding, corpus: Corpus | undefined, scan: P
 
 /** The line in the Next block saying what Seal the leak does. */
 export function sealNote(t: SealTarget): string {
-  if (t.kind === "email") return copy.next.seal.email;
+  if (t.kind === "email") return hasAttachmentWork(t.attachments) ? copy.next.seal.emailWithFiles : copy.next.seal.email;
   if (t.kind === "sample") return copy.next.seal.sample[t.route.kind];
   if (t.kind === "calendar") return copy.next.seal.calendar(t.date ? shortDate(t.date) : undefined);
   return copy.next.seal.bank(t.account);
@@ -50,7 +53,7 @@ export function sealNote(t: SealTarget): string {
 
 /** The tooltip on the Seal the leak button. */
 export function sealTip(t: SealTarget): string {
-  if (t.kind === "email") return copy.actions.sealTip.email(t.to);
+  if (t.kind === "email") return hasAttachmentWork(t.attachments) ? copy.actions.sealTip.emailWithFiles(t.to) : copy.actions.sealTip.email(t.to);
   if (t.kind === "sample") return copy.actions.sealTip.sample(t.route.provider);
   if (t.kind === "calendar") return copy.actions.sealTip.calendar;
   return copy.actions.sealTip.bank(t.account);
