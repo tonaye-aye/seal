@@ -278,7 +278,7 @@ let quiet = false;
 function onEvent(event: AgentEvent) {
   // A background check keeps the last results on screen: only the connector
   // chips and the trace follow along.
-  if (quiet && (event.type === "corpus" || event.type === "finding" || event.type === "draft" || event.type === "cleared" || event.type === "progress")) return;
+  if (quiet && (event.type === "corpus" || event.type === "finding" || event.type === "draft" || event.type === "routes" || event.type === "cleared" || event.type === "progress")) return;
   switch (event.type) {
     case "connector": {
       const before = connectorState[event.status.id];
@@ -330,6 +330,19 @@ function onEvent(event: AgentEvent) {
         ),
       });
       return;
+    case "routes": {
+      const merchant = state.findings.find((f) => f.id === event.findingId)?.merchant ?? "";
+      const best = event.plan.routes.find((r) => r.id === event.plan.recommendedId)?.label ?? "";
+      set({
+        findings: state.findings.map((f) => (f.id === event.findingId ? { ...f, fix: event.plan } : f)),
+        usedReplay: state.usedReplay || event.plan.source === "cache",
+        trace: trace(
+          event.plan.grounded ? copy.trace.routed(merchant, best) : copy.trace.routedUnchecked(merchant, best),
+          event.plan.grounded ? "good" : "warn",
+        ),
+      });
+      return;
+    }
     case "cleared":
       set({ cleared: [...state.cleared, event.cleared], trace: trace(copy.trace.looksFine(event.cleared.merchant, event.cleared.why), "good") });
       return;

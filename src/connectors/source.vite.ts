@@ -16,6 +16,8 @@ const text = import.meta.glob<string>(
     "/seed/calendar/events.json",
     "/seed/connectors/manifest.json",
     "/seed/persona.json",
+    // The offline help directory: how each business can be reached.
+    "/seed/help/*.json",
   ],
   { query: "?raw", import: "default", eager: true },
 );

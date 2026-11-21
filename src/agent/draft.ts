@@ -103,21 +103,24 @@ function withoutIds(text: string): string {
   return text.replace(INTERNAL_ID, "").replace(/[ \t]{2,}/g, " ");
 }
 
+/** One figure's value as a person would read it. */
+export function figureValue(f: Figure): string {
+  const v = f.value;
+  switch (f.unit) {
+    case "cents": return formatAUD(v as number);
+    case "date": return longDate(v as string);
+    case "kwh": return `${(v as number).toLocaleString("en-AU")} kWh`;
+    case "cents_per_kwh": return `$${((v as number) / 100).toFixed(3)} per kWh`;
+    case "percent": return `${v}%`;
+    case "days": return `${v} days`;
+    case "yes_no": return v ? "yes" : "no";
+    default: return String(v);
+  }
+}
+
 /** One figure as a line a person can read. */
 function figureLine(f: Figure): string {
-  const v = f.value;
-  let shown: string;
-  switch (f.unit) {
-    case "cents": shown = formatAUD(v as number); break;
-    case "date": shown = longDate(v as string); break;
-    case "kwh": shown = `${(v as number).toLocaleString("en-AU")} kWh`; break;
-    case "cents_per_kwh": shown = `$${((v as number) / 100).toFixed(3)} per kWh`; break;
-    case "percent": shown = `${v}%`; break;
-    case "days": shown = `${v} days`; break;
-    case "yes_no": shown = v ? "yes" : "no"; break;
-    default: shown = String(v);
-  }
-  return `- ${f.label}: ${shown}`;
+  return `- ${f.label}: ${figureValue(f)}`;
 }
 
 /** Everything the drafter may quote, ids removed and dates written out. */
@@ -292,7 +295,7 @@ const ACTION_WORDS: Record<ActionKind, string> = {
  * check catches wrong facts, not wrong reasoning, so the reasoning that a
  * small model got wrong in testing is spelled out here.
  */
-const KIND_GUIDANCE: Partial<Record<FindingKind, string>> = {
+export const KIND_GUIDANCE: Partial<Record<FindingKind, string>> = {
   duplicate_subscription:
     "Only the household can cancel a subscription billed through a platform such as an app store: say we are cancelling that copy ourselves before it renews. Ask the business to refund the duplicate charges, or to say how to claim them. Don't call it their error.",
   renewal_trap:

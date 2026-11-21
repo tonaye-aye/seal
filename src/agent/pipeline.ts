@@ -10,6 +10,7 @@
 //   5 verify figures       code     (verify.ts)
 //   6 judge each case      35B      (judge.ts)
 //   7 draft the fix        Flash, 35B fallback, claim check in code (draft.ts)
+//   8 plan the routes      code narrows, Flash picks and writes (routes.ts)
 //
 // Each case is drafted as soon as it is judged, so the first finding (with its
 // draft) can be shown while other cases are still being judged.
@@ -27,6 +28,7 @@ import { draftFinding, loadVoice, type ProposedDraft } from "./draft.ts";
 import { extractAll } from "./extract.ts";
 import { judgeCase, type ActionKind, type FindingKind, type Verdict } from "./judge.ts";
 import { retrieveExact } from "./retrieval.ts";
+import { loadHelp, planFix, type FixPlan } from "./routes.ts";
 import { verifyCase, type Figure, type VerifiedCase } from "./verify.ts";
 
 export type Finding = {
@@ -53,6 +55,8 @@ export type Finding = {
   judgedBy: { model: string; source: "live" | "cache"; ms: number };
   /** The message that fixes it, waiting for approval. Absent when there is nothing to ask for. */
   draft?: ProposedDraft;
+  /** The ways to fix it: the best route first, with what each one needs prepared. */
+  fix?: FixPlan;
 };
 
 /** A case the agent looked at and decided is fine, with the reason. */
@@ -69,6 +73,8 @@ export type AgentEvent =
   | { type: "finding"; finding: Finding; at: number }
   /** A finding's draft is ready (it arrives after the finding itself). */
   | { type: "draft"; findingId: string; draft: ProposedDraft; at: number }
+  /** A finding's ways to fix it are ready (they arrive after its draft). */
+  | { type: "routes"; findingId: string; plan: FixPlan; at: number }
   | { type: "cleared"; cleared: Cleared; at: number }
   | { type: "problem"; stage: Stage; message: string; at: number };
 
@@ -212,6 +218,7 @@ export async function runScan(
   stage("verify", "done", copy.trace.figuresChecked(verified.reduce((n, v) => n + v.figures.length, 0)));
 
   const voice = await loadVoice(connectors);
+  const help = await loadHelp(connectors);
   stage("judge", "start");
   stage("draft", "start", copy.trace.draftStart);
   let drafted = 0;
@@ -247,6 +254,13 @@ export async function runScan(
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             emit({ type: "problem", stage: "draft", message: copy.trace.couldntDraft(finding.merchant, message), at: at() });
+          }
+          // The ways to fix it. This never throws: without a model it still lists the routes.
+          const plan = await planFix(llm, finding, corpus, voice, help);
+          if (plan) {
+            finding.fix = plan;
+            usedReplay ||= plan.source === "cache";
+            emit({ type: "routes", findingId: finding.id, plan, at: at() });
           }
           emit({ type: "progress", stage: "draft", done: ++drafted, total: toDraft, label: finding.merchant, at: at() });
         }

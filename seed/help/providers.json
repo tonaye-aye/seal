@@ -1,0 +1,363 @@
+{
+  "note": "A bundled, offline help directory: how each business can be reached and what each channel can do. It describes businesses only, never a household or a problem. All businesses here are fictional. Phone numbers are from the ACMA's pool reserved for fiction, except the two Skylink and Wattle numbers already printed in their seed documents.",
+  "providers": [
+    {
+      "key": "skylink",
+      "name": "Skylink Internet",
+      "sector": "telecom",
+      "domain": "skylink.example",
+      "channels": [
+        {
+          "id": "skylink_email",
+          "kind": "email",
+          "label": "Email billing",
+          "address": "billing@skylink.example",
+          "canDo": ["dispute_price", "refund"],
+          "replyDays": 2,
+          "keepsRecord": true,
+          "acceptsFiles": true,
+          "needs": ["Account number"],
+          "note": "Billing disputes sent in writing are logged against the account.",
+          "articleId": "skylink-billing"
+        },
+        {
+          "id": "skylink_call",
+          "kind": "call",
+          "label": "Call billing",
+          "phone": "1300 000 000",
+          "hours": "Mon-Fri 8am-8pm",
+          "waitMinutes": 15,
+          "canDo": ["dispute_price", "refund", "cancel"],
+          "needs": ["Account number", "Name on the account"],
+          "note": "An agent can apply a credit during the call.",
+          "articleId": "skylink-billing"
+        },
+        {
+          "id": "skylink_chat",
+          "kind": "chat",
+          "label": "Chat with Skye",
+          "href": "https://skylink.example/help/chat",
+          "hours": "Bot any time, billing team Mon-Fri 8am-8pm",
+          "waitMinutes": 5,
+          "canDo": ["dispute_price"],
+          "keepsRecord": true,
+          "needs": ["Account number"],
+          "note": "The bot passes billing disputes to a person and emails a transcript.",
+          "articleId": "skylink-billing"
+        }
+      ]
+    },
+    {
+      "key": "apple",
+      "name": "Apple",
+      "sector": "platform",
+      "domain": "apple.example",
+      "channels": [
+        {
+          "id": "apple_subscriptions",
+          "kind": "online",
+          "label": "Cancel in Subscriptions",
+          "href": "https://apple.example/account/subscriptions",
+          "canDo": ["cancel"],
+          "immediate": true,
+          "needs": ["The Apple account that started the subscription"],
+          "steps": [
+            "On the iPhone or iPad, open Settings and tap your name.",
+            "Tap Subscriptions.",
+            "Choose the subscription, then tap Cancel Subscription."
+          ],
+          "note": "Takes effect straight away and stops the next renewal.",
+          "articleId": "apple-subscriptions"
+        },
+        {
+          "id": "apple_refund",
+          "kind": "online",
+          "label": "Request a refund",
+          "href": "https://apple.example/report-a-problem",
+          "canDo": ["refund"],
+          "needs": ["The Apple account that was charged"],
+          "steps": [
+            "Open Report a Problem and sign in.",
+            "Choose Request a refund.",
+            "Pick the reason and the charges, then submit."
+          ],
+          "note": "Charges billed by the store are refunded by the store.",
+          "articleId": "apple-refunds"
+        }
+      ]
+    },
+    {
+      "key": "streambox",
+      "name": "StreamBox",
+      "sector": "entertainment",
+      "domain": "streambox.example",
+      "channels": [
+        {
+          "id": "streambox_chat",
+          "kind": "chat",
+          "label": "Chat with StreamBox Help",
+          "href": "https://streambox.example/help/chat",
+          "hours": "Any time",
+          "waitMinutes": 3,
+          "canDo": ["refund"],
+          "keepsRecord": true,
+          "needs": ["Email on the account"],
+          "note": "Can credit charges StreamBox billed directly. Subscriptions billed by an app store are managed by that store.",
+          "articleId": "streambox-billing"
+        },
+        {
+          "id": "streambox_email",
+          "kind": "email",
+          "label": "Email support",
+          "address": "receipts@streambox.example",
+          "canDo": ["refund"],
+          "replyDays": 3,
+          "keepsRecord": true,
+          "needs": ["Email on the account"],
+          "articleId": "streambox-billing"
+        }
+      ]
+    },
+    {
+      "key": "ironworks",
+      "name": "IronWorks Fitness",
+      "sector": "fitness",
+      "domain": "ironworks.example",
+      "channels": [
+        {
+          "id": "ironworks_email",
+          "kind": "email",
+          "label": "Email memberships",
+          "address": "memberships@ironworks.example",
+          "canDo": ["cancel", "waive_fee"],
+          "requiredFor": ["cancel"],
+          "replyDays": 2,
+          "keepsRecord": true,
+          "needs": ["Member name"],
+          "note": "Cancellation notice must be given in writing to this address.",
+          "articleId": "ironworks-cancelling"
+        },
+        {
+          "id": "ironworks_call",
+          "kind": "call",
+          "label": "Call the club",
+          "phone": "(03) 5550 0186",
+          "hours": "Mon-Fri 6am-8pm, weekends 8am-2pm",
+          "waitMinutes": 3,
+          "canDo": ["waive_fee"],
+          "needs": ["Member name"],
+          "note": "The club manager can consider goodwill requests. A call does not count as cancellation notice.",
+          "articleId": "ironworks-cancelling"
+        }
+      ]
+    },
+    {
+      "key": "brightpage",
+      "name": "BrightPage Kids",
+      "sector": "education",
+      "domain": "brightpage.example",
+      "channels": [
+        {
+          "id": "brightpage_account",
+          "kind": "online",
+          "label": "Cancel in your account",
+          "href": "https://brightpage.example/account/subscription",
+          "canDo": ["cancel"],
+          "immediate": true,
+          "needs": ["BrightPage login"],
+          "steps": [
+            "Log in to BrightPage on the web.",
+            "Open Account, then Subscription.",
+            "Choose Cancel subscription and confirm."
+          ],
+          "note": "Takes effect straight away. Access continues until the paid period ends.",
+          "articleId": "brightpage-cancelling"
+        },
+        {
+          "id": "brightpage_chat",
+          "kind": "chat",
+          "label": "Chat with Page",
+          "href": "https://brightpage.example/help/chat",
+          "hours": "Bot any time, team Mon-Fri 9am-5pm",
+          "waitMinutes": 4,
+          "canDo": ["refund"],
+          "keepsRecord": true,
+          "needs": ["Email on the account"],
+          "note": "The bot passes refund requests to the support team.",
+          "articleId": "brightpage-refunds"
+        },
+        {
+          "id": "brightpage_email",
+          "kind": "email",
+          "label": "Email support",
+          "address": "hello@brightpage.example",
+          "canDo": ["refund"],
+          "replyDays": 3,
+          "keepsRecord": true,
+          "needs": ["Email on the account"],
+          "articleId": "brightpage-refunds"
+        }
+      ]
+    },
+    {
+      "key": "kestrel",
+      "name": "Kestrel Plumbing",
+      "sector": "trades",
+      "domain": "kestrelplumbing.example",
+      "channels": [
+        {
+          "id": "kestrel_call",
+          "kind": "call",
+          "label": "Call the office",
+          "phone": "(03) 5550 0142",
+          "hours": "Mon-Fri 7am-4pm",
+          "waitMinutes": 2,
+          "canDo": ["refund"],
+          "needs": ["Invoice number", "Both receipt numbers"],
+          "note": "A small office: the person who answers can look up and reverse a payment.",
+          "articleId": "kestrel-payments"
+        },
+        {
+          "id": "kestrel_email",
+          "kind": "email",
+          "label": "Email accounts",
+          "address": "accounts@kestrelplumbing.example",
+          "canDo": ["refund"],
+          "replyDays": 5,
+          "keepsRecord": true,
+          "acceptsFiles": true,
+          "needs": ["Invoice number", "Both receipt numbers"],
+          "note": "Checked once or twice a week.",
+          "articleId": "kestrel-payments"
+        }
+      ]
+    },
+    {
+      "key": "wattle",
+      "name": "Wattle Insurance",
+      "sector": "insurance",
+      "domain": "wattleinsurance.example",
+      "channels": [
+        {
+          "id": "wattle_call",
+          "kind": "call",
+          "label": "Call retention",
+          "phone": "1300 000 111",
+          "hours": "Mon-Fri 8am-6pm",
+          "waitMinutes": 10,
+          "canDo": ["retain", "cancel"],
+          "needs": ["Policy number", "The competing quote"],
+          "note": "Retention offers are made by the team on this line, during the call.",
+          "articleId": "wattle-renewals"
+        },
+        {
+          "id": "wattle_email",
+          "kind": "email",
+          "label": "Reply to the renewal",
+          "address": "renewals@wattleinsurance.example",
+          "canDo": ["retain"],
+          "replyDays": 3,
+          "keepsRecord": true,
+          "acceptsFiles": true,
+          "needs": ["Policy number"],
+          "note": "Requests are passed to the retention team, who usually phone back.",
+          "articleId": "wattle-renewals"
+        }
+      ]
+    },
+    {
+      "key": "banksia",
+      "name": "Banksia Direct",
+      "sector": "insurance",
+      "domain": "banksiadirect.example",
+      "channels": [
+        {
+          "id": "banksia_switch",
+          "kind": "online",
+          "label": "Switch to the quote",
+          "href": "https://banksiadirect.example/quote/resume",
+          "canDo": ["switch"],
+          "needs": ["Quote number"],
+          "steps": [
+            "Open your saved quote with its quote number.",
+            "Check the agreed value and excess match your current policy.",
+            "Choose a start date on the day your current policy ends.",
+            "Review the policy, then decide whether to pay and accept."
+          ],
+          "note": "Nothing is bought until the last step is confirmed.",
+          "articleId": "banksia-switching"
+        }
+      ]
+    },
+    {
+      "key": "redgum",
+      "name": "Redgum Energy",
+      "sector": "energy",
+      "domain": "redgumenergy.example",
+      "channels": [
+        {
+          "id": "redgum_read",
+          "kind": "online",
+          "label": "Submit a meter read",
+          "href": "https://redgumenergy.example/account/meter-read",
+          "canDo": ["correct_bill"],
+          "acceptsFiles": true,
+          "keepsRecord": true,
+          "replyDays": 2,
+          "needs": ["Account number", "Meter photo"],
+          "steps": [
+            "Log in to My Redgum and open Submit a meter read.",
+            "Enter the reading and the date it was taken.",
+            "Upload the meter photo.",
+            "Choose Review my last bill, then submit."
+          ],
+          "note": "Reads with a photo are reviewed first and a corrected bill follows.",
+          "articleId": "redgum-estimates"
+        },
+        {
+          "id": "redgum_email",
+          "kind": "email",
+          "label": "Email billing",
+          "address": "bills@redgumenergy.example",
+          "canDo": ["correct_bill"],
+          "replyDays": 5,
+          "keepsRecord": true,
+          "acceptsFiles": true,
+          "needs": ["Account number", "Meter photo"],
+          "articleId": "redgum-estimates"
+        },
+        {
+          "id": "redgum_call",
+          "kind": "call",
+          "label": "Call billing",
+          "phone": "1300 975 707",
+          "hours": "Mon-Fri 8:30am-5pm",
+          "waitMinutes": 20,
+          "canDo": ["correct_bill"],
+          "needs": ["Account number", "The meter reading and its date"],
+          "note": "An agent can log the reading, but a photo must still be sent separately.",
+          "articleId": "redgum-estimates"
+        }
+      ]
+    },
+    {
+      "key": "kookaburra",
+      "name": "Kookaburra Mobile",
+      "sector": "telecom",
+      "domain": "kookaburramobile.example",
+      "channels": [
+        {
+          "id": "kookaburra_call",
+          "kind": "call",
+          "label": "Call support",
+          "phone": "1300 975 709",
+          "hours": "Mon-Sat 8am-8pm",
+          "waitMinutes": 12,
+          "canDo": ["dispute_price", "cancel"],
+          "needs": ["Mobile number on the account"],
+          "articleId": "kookaburra-pricing"
+        }
+      ]
+    }
+  ]
+}

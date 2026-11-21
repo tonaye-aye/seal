@@ -85,6 +85,7 @@ realistic latency, paging and errors. The data covers:
 | `seed/calendar/` | Family, Maya and Ben calendars, some recurring |
 | `seed/connectors/manifest.json` | Connection state, latency, paging and opt-in failure scenarios |
 | `seed/persona.json` | The household and the agent's standing preferences (tone, sign-off, never act without approval) |
+| `seed/help/` | A hand-written help directory: each business's channels, short help articles and where to escalate. Merchants are fictional, with phone numbers from the ACMA's pool reserved for fiction where the seed doesn't already print one. Complaint bodies marked `real` are real |
 | `seed/eval/` | Ground truth for scoring. **Only the eval scripts read it.** The app never bundles or reads it. |
 
 `python3 seed/verify.py` checks that the data adds up (balances, cross-references, arithmetic).

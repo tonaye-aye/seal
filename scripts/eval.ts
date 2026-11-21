@@ -74,6 +74,39 @@ const MUST: Record<string, string[]> = {
 };
 const INTERNAL_ID = /\b(?:msg|doc|evt)_\d+|\b(?:JE|MC)-\d{5}\b/;
 
+// The route a sensible person would try first. Eval only: the app works this
+// out from what each business's channels can do.
+const BEST_ROUTE: Record<string, { kind: string; provider: string }> = {
+  L1: { kind: "email", provider: "Skylink Internet" },
+  L2: { kind: "online", provider: "Apple" },
+  L3: { kind: "email", provider: "IronWorks Fitness" },
+  L4: { kind: "online", provider: "BrightPage Kids" },
+  L5: { kind: "call", provider: "Kestrel Plumbing" },
+  L6: { kind: "call", provider: "Wattle Insurance" },
+  L7: { kind: "online", provider: "Redgum Energy" },
+};
+
+type RouteScore = { best: boolean; grounded: boolean; written: boolean; detail: string };
+
+function scoreRoute(leakId: string, finding: Finding | undefined): RouteScore {
+  const plan = finding?.fix;
+  if (!plan) return { best: false, grounded: false, written: false, detail: "no routes" };
+  const pick = plan.routes.find((r) => r.id === plan.recommendedId);
+  const want = BEST_ROUTE[leakId];
+  const best = pick?.kind === want?.kind && pick?.provider === want?.provider;
+  // Every call route needs a script and every chat route an opener.
+  const written = (!plan.routes.some((r) => r.kind === "call") || !!plan.callScript) && (!plan.routes.some((r) => r.kind === "chat") || !!plan.chatOpener);
+  const detail = [
+    `${pick?.provider}: ${pick?.label} (${plan.chosenBy})`,
+    `"${plan.reason}"`,
+    `routes ${plan.routes.map((r) => r.kind).join(", ")}`,
+    plan.escalation ? `then ${plan.escalation.shortName}` : "no escalation",
+    plan.grounded ? "words checked" : `NOT GROUNDED: ${plan.problems.join(" | ")}`,
+    written ? "" : "script missing",
+  ];
+  return { best, grounded: plan.grounded, written, detail: detail.filter(Boolean).join("; ") };
+}
+
 type DraftScore = { ok: boolean; grounded: boolean; missing: string[]; fallback: boolean; detail: string };
 
 function scoreDraft(leakId: string, finding: Finding | undefined): DraftScore {
@@ -101,14 +134,15 @@ function scoreDraft(leakId: string, finding: Finding | undefined): DraftScore {
   return { ok, grounded: d.grounded, missing, fallback, detail: parts.filter(Boolean).join("; ") };
 }
 
-type LeakScore = { id: string; flagged: boolean; kind: boolean; amount: boolean; deadline: boolean; citesEvidence: boolean; detail: string; draft: DraftScore };
+type LeakScore = { id: string; flagged: boolean; kind: boolean; amount: boolean; deadline: boolean; citesEvidence: boolean; detail: string; draft: DraftScore; route: RouteScore };
 
 function score(result: ScanResult) {
   const leaks: LeakScore[] = truth.leaks.map((leak) => {
     const expectedIds = new Set(Object.values(leak.evidence).flat());
     const finding = result.findings.find((f) => f.evidence.some((e) => expectedIds.has(e.id.split(":")[0])));
     const draft = scoreDraft(leak.id, finding);
-    if (!finding) return { id: leak.id, flagged: false, kind: false, amount: false, deadline: false, citesEvidence: false, detail: "not flagged", draft };
+    const route = scoreRoute(leak.id, finding);
+    if (!finding) return { id: leak.id, flagged: false, kind: false, amount: false, deadline: false, citesEvidence: false, detail: "not flagged", draft, route };
     const money = Object.entries(leak.amounts)
       .filter(([k, v]) => typeof v === "number" && !/count|charges|pct|tolerance|remaining/.test(k))
       .map(([, v]) => Math.round((v as number) * 100));
@@ -127,6 +161,7 @@ function score(result: ScanResult) {
       deadline,
       citesEvidence,
       draft,
+      route,
       detail: `${finding.title} [${finding.kind}, ${finding.confidence}] at stake ${headline.map((h) => `$${(h / 100).toFixed(2)}`).join("/")}, deadline ${finding.deadline?.date ?? "none"}`,
     };
   });
@@ -173,6 +208,10 @@ for (let run = 1; run <= repeat; run++) {
     console.log(`  ${all ? "ok  " : l.flagged ? "PART" : "MISS"} ${l.id}  ${marks.join(" ")}  ${verbose || !all ? l.detail : ""}`);
   }
   for (const l of s.leaks) console.log(`  ${l.draft.ok ? "ok  " : "FAIL"} ${l.id} draft  ${verbose || !l.draft.ok ? l.draft.detail : ""}`);
+  for (const l of s.leaks) {
+    const fine = l.route.best && l.route.grounded && l.route.written;
+    console.log(`  ${fine ? "ok  " : "FAIL"} ${l.id} route  ${verbose || !fine ? l.route.detail : ""}`);
+  }
   console.log(`  ${saveChecks.at(-1) ? "ok  " : "FAIL"} drafts saved to and discarded from the email connector (nothing sent)`);
   for (const d of s.decoyFlags) console.log(`  ${d.flagged ? "FAIL" : "ok  "} ${d.id}  ${d.flagged ? "flagged as a problem" : "cleared"}: ${d.why}`);
   for (const f of s.falseAlarms) console.log(`  FAIL false alarm: ${f.title}`);
@@ -204,6 +243,8 @@ console.log(`  amount       ${total((l) => l.amount)}/${out}`);
 console.log(`  deadline     ${total((l) => l.deadline)}/${out}`);
 console.log(`  citations    ${total((l) => l.citesEvidence)}/${out} cite expected evidence`);
 console.log(`  drafts       ${total((l) => l.draft.ok)}/${out} fully correct, ${total((l) => l.draft.grounded)}/${out} pass the claim check, ${total((l) => l.draft.fallback)} needed the 35B rewrite`);
+console.log(`  routes       ${total((l) => l.route.best)}/${out} best route, ${total((l) => l.route.grounded)}/${out} pass the check, ${total((l) => l.route.written)}/${out} have their scripts`);
 console.log(`  save/undo    ${saveChecks.filter(Boolean).length}/${saveChecks.length} runs`);
+const routesOk = total((l) => l.route.best && l.route.grounded && l.route.written) === out;
 process.exitCode =
-  total((l) => l.flagged) === out && decoysFlagged === 0 && falseAlarms === 0 && total((l) => l.draft.ok) === out && saveChecks.every(Boolean) ? 0 : 1;
+  total((l) => l.flagged) === out && decoysFlagged === 0 && falseAlarms === 0 && total((l) => l.draft.ok) === out && routesOk && saveChecks.every(Boolean) ? 0 : 1;

@@ -1,0 +1,59 @@
+{
+  "note": "Where to go if the business says no. Bodies marked real are real Australian organisations, checked on their official sites on verifiedOn. Harbour Bank is the household's fictional bank. A body is only offered for kinds of problem it can actually take: AFCA is left out because its rules generally exclude complaints about the level of a premium alone.",
+  "bodies": [
+    {
+      "id": "tio",
+      "name": "Telecommunications Industry Ombudsman",
+      "shortName": "TIO",
+      "real": true,
+      "sectors": ["telecom"],
+      "forKinds": ["price_increase"],
+      "phone": "1800 062 058",
+      "hours": "Mon-Fri 8am-8pm AEST",
+      "href": "https://www.tio.com.au/complaints",
+      "afterDays": 14,
+      "whenToUse": "Free and independent. Use it if your provider hasn't fixed the problem after you've asked.",
+      "verifiedOn": "2026-11-21"
+    },
+    {
+      "id": "ewov",
+      "name": "Energy and Water Ombudsman Victoria",
+      "shortName": "EWOV",
+      "real": true,
+      "sectors": ["energy"],
+      "forKinds": ["billing_error"],
+      "phone": "1800 500 509",
+      "hours": "Mon-Fri 8:30am-5pm",
+      "href": "https://www.ewov.com.au/start-a-complaint",
+      "afterDays": 14,
+      "whenToUse": "Free and independent. Use it if your energy company hasn't fixed the bill after you've asked.",
+      "verifiedOn": "2026-11-21"
+    },
+    {
+      "id": "harbour_disputes",
+      "name": "Harbour Bank card disputes",
+      "shortName": "Harbour Bank",
+      "real": false,
+      "forKinds": ["duplicate_payment"],
+      "needsCardCharge": true,
+      "phone": "1800 975 707",
+      "hours": "Any time",
+      "href": "https://harbourbank.example/help/card-disputes",
+      "afterDays": 14,
+      "whenToUse": "If a business won't return a duplicate card payment, your bank can look into disputing that charge."
+    },
+    {
+      "id": "cav",
+      "name": "Consumer Affairs Victoria",
+      "shortName": "Consumer Affairs",
+      "real": true,
+      "forKinds": ["duplicate_payment", "warranty_claim"],
+      "phone": "1300 55 81 81",
+      "hours": "Mon-Fri 9am-5pm",
+      "href": "https://www.consumer.vic.gov.au/contact-us/resolve-your-problem/general-complaint",
+      "afterDays": 14,
+      "whenToUse": "Use it if you've tried to sort the problem out with the business and couldn't.",
+      "verifiedOn": "2026-11-21"
+    }
+  ]
+}
