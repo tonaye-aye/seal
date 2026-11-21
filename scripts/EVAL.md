@@ -152,13 +152,44 @@ Code narrows the options, Flash picks among them and writes the call script and 
   asking StreamBox to cancel a subscription only Apple can cancel. Reading the scripts also found a veiled threat and a made-up
   "my husband", which the prompt now rules out; those two can't be caught by a pattern, so they still rely on reading the output.
 
+## Fully live reliability (22 Nov)
+
+Saved answers hid a real weakness: the 9B doesn't read a document the same way every time. No prompt changed in this fix, so
+saved answers still match.
+
+- **Redgum, $2.00 at high confidence:** the 9B returned the October bill's meter table in only 3 of 12 identical calls. Without it,
+  verify fell back to the July bill and worked out $2.00 instead of $174.14, with no warning. Over 5 live extractions Redgum was
+  right once, $2.00 three times and had no figures once.
+  *Response:* verify uses only the bill flagged as estimated and finds its readings by their sums, not their labels. If the bill
+  doesn't add up, it shows no overcharge, says so, and confidence can't be high. A bill missing its readings goes up the retry
+  path to the 35B, which returned the table in 12 of 12 calls.
+- **IronWorks, no figures:** one run labelled the renewal "charge date", which verify's label match missed.
+  *Response:* if nothing gives a future date, code rolls the agreement's yearly date forward.
+- **Skylink, no draft:** the judge called it a problem but chose action `none`.
+  *Response:* code picks the action from the kind of problem. A case the judge cleared against the facts stays a low-confidence
+  "Check" with no draft.
+
+| Five fully live runs after the fix (`--live --repeat 5`) | Result |
+| --- | --- |
+| Leaks flagged, right kind, cites evidence | 35/35 each |
+| Decoys flagged, other false alarms | 0/10, 0 |
+| **Amount / deadline** (before: 17/21, 20/21) | **35/35 / 35/35** |
+| Wrong amount at any confidence | **0** |
+| Drafts fully correct (before: 17/21) / pass the claim check | 33/35 / 35/35 |
+| Best route | 34/35 |
+| Time per scan | 106-136 s |
+
+The three misses: one Skylink draft said "24-month term" where the scorer looks for "24 months", one BrightPage draft gave totals but
+not the $14.99 price, and one Skylink route picked chat over the expected route. Five runs is a small sample, so read these as much
+better, not as proof it can't fail.
+
 ## Caveats
 
 - The detectors' keyword rules and verify's label matching were written while looking at this seed. They are
   general (no merchant names), but a broader test set would be needed before trusting them on real mail.
-- Verify finds facts by the labels the 9B gave them (e.g. "Promotional period duration"). Labels vary between
-  runs; a production version would fix them in the extraction schema.
-- Results above reuse saved extraction replies. A full `--live` run re-extracts every source (~21 s more).
+- Apart from a bill's meter readings, verify still finds facts by the labels the 9B gave them (e.g. "Promotional period
+  duration"). Labels vary between runs; a production version would fix them in the extraction schema.
+- Results above reuse saved extraction replies unless they say fully live.
 - The draft "key facts" list (`MUST` in `scripts/eval.ts`) is short and hand-picked from the spike. It checks a
   draft says what matters, not that it is well written; that was judged by reading the drafts (all 21 final
   drafts read as plain, polite and specific; one says "we have now cancelled" for something Maya has yet to do).
