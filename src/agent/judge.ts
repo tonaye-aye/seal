@@ -24,9 +24,10 @@ export type FindingKind =
   | "trial_converted"
   | "renewal_trap"
   | "renewal_price_creep"
-  | "billing_error";
+  | "billing_error"
+  | "warranty_claim";
 
-export type ActionKind = "cancel" | "request_refund" | "dispute_price" | "negotiate" | "correct_bill" | "none";
+export type ActionKind = "cancel" | "request_refund" | "dispute_price" | "negotiate" | "correct_bill" | "claim_warranty" | "none";
 
 export type Verdict = {
   isProblem: boolean;
@@ -44,6 +45,8 @@ export type Verdict = {
   ms: number;
 };
 
+// The choices every case except a warranty one gets. A warranty case has its
+// own short list, so these requests stay exactly as they were saved.
 const KINDS: FindingKind[] = [
   "price_increase",
   "duplicate_subscription",
@@ -64,9 +67,10 @@ const ACTION_FOR_KIND: Record<FindingKind, ActionKind> = {
   renewal_trap: "cancel",
   renewal_price_creep: "negotiate",
   billing_error: "correct_bill",
+  warranty_claim: "claim_warranty",
 };
 
-const VERDICT_SCHEMA: ReplySchema = {
+const verdictSchema = (kinds: FindingKind[], actions: ActionKind[]): ReplySchema => ({
   name: "verdict",
   schema: {
     type: "object",
@@ -74,16 +78,19 @@ const VERDICT_SCHEMA: ReplySchema = {
     required: ["is_problem", "kind", "title", "why", "action", "action_summary", "confidence", "cited_ids"],
     properties: {
       is_problem: { type: "boolean" },
-      kind: { type: "string", enum: [...KINDS, "none"] },
+      kind: { type: "string", enum: [...kinds, "none"] },
       title: { type: "string", description: "Up to 8 plain words for the household, e.g. 'StreamBox is paid twice'." },
       why: { type: "string", description: "One plain sentence, under 30 words: what is wrong (or why it is fine). No dollar amounts, no evidence ids." },
-      action: { type: "string", enum: ACTIONS },
+      action: { type: "string", enum: actions },
       action_summary: { type: "string", description: "One short sentence: what the household should do." },
       confidence: { type: "string", enum: ["high", "medium", "low"] },
       cited_ids: { type: "array", items: { type: "string" }, description: "2 to 6 evidence ids the decision rests on." },
     },
   },
-};
+});
+
+const VERDICT_SCHEMA = verdictSchema(KINDS, ACTIONS);
+const WARRANTY_SCHEMA = verdictSchema(["warranty_claim"], ["claim_warranty", "none"]);
 
 type RawVerdict = {
   is_problem: boolean;
@@ -97,6 +104,8 @@ type RawVerdict = {
 };
 
 const SYSTEM = `You review a Melbourne household's money admin for the Whitlock family (Maya, Ben, kids Ollie and Pia). Today is Thursday 19 November 2026. Currency is AUD. Code has already checked the numbers and dates; treat the VERIFIED FACTS as correct and never redo the arithmetic.`;
+
+const RULES = `Rules: base the decision on the VERIFIED FACTS and the evidence. "title", "why" and "action_summary" are read by the household: plain words, no dollar amounts (the app shows the checked figures) and no evidence ids (put those only in "cited_ids"). Cite only ids from the EVIDENCE list. Use "low" confidence if the evidence is thin or contradictory.`;
 
 const INSTRUCTIONS = `Decide whether the household should ACT on this case: is there a charge (past or about to happen) that is wrong, duplicated, unwanted or avoidable, so that a message, a cancellation or a decision would save money?
 
@@ -112,7 +121,16 @@ It does not need to be a proven error: an unwanted upcoming charge with a deadli
 
 NOT problems: a rise the contract allows and that was announced in advance and matches exactly; payments that look alike but carry different references or match separate requests. For these, set is_problem false and kind "none", and say in "why" what makes it fine.
 
-Rules: base the decision on the VERIFIED FACTS and the evidence. "title", "why" and "action_summary" are read by the household: plain words, no dollar amounts (the app shows the checked figures) and no evidence ids (put those only in "cited_ids"). Cite only ids from the EVIDENCE list. Use "low" confidence if the evidence is thin or contradictory.`;
+${RULES}`;
+
+/** Only for a case raised by a warranty, so every other case's request stays the same. */
+const WARRANTY_INSTRUCTIONS = `Decide whether the household should ACT on this case: is it about to pay for a repair that a warranty may handle at no charge, so that claiming the warranty first could avoid the charge?
+
+It is a problem (kind warranty_claim, action claim_warranty) when the VERIFIED FACTS show a paid repair is booked and the warranty can still be claimed. It does not need to be a proven entitlement: the business that gave the warranty decides the claim, so don't promise the outcome.
+
+NOT a problem: the warranty has already ended, or no paid repair is booked. For these, set is_problem false and kind "none", and say in "why" what makes it fine.
+
+${RULES}`;
 
 /** Evidence ids look like "msg_0024", "doc_001", "evt_004", "JE-00051". */
 const ID_PATTERN = /\b(?:msg|doc|evt)_\d+(?::\d{4}-\d{2}-\d{2})?\b|\b(?:JE|MC)-\d{5}\b/g;
@@ -213,6 +231,8 @@ export async function judgeCase(
   corpus: Corpus,
 ): Promise<Verdict> {
   const brief = judgeBrief(candidate, verified, evidence, extraction, corpus);
+  const isWarranty = candidate.signals.some((s) => s.kind === "warranty");
+  const instructions = isWarranty ? WARRANTY_INSTRUCTIONS : INSTRUCTIONS;
   let lastError: unknown;
   // Thinking can use a lot of tokens; a second try gets a larger budget
   // automatically (see llm.ts). One more try covers a bad JSON reply.
@@ -223,10 +243,10 @@ export async function judgeCase(
         think: true,
         maxTokens: 8000,
         temperature: attempt === 0 ? 0.1 : 0.3,
-        schema: VERDICT_SCHEMA,
+        schema: isWarranty ? WARRANTY_SCHEMA : VERDICT_SCHEMA,
         messages: [
           { role: "system", content: SYSTEM },
-          { role: "user", content: `${INSTRUCTIONS}\n\n${brief}` },
+          { role: "user", content: `${instructions}\n\n${brief}` },
         ],
       });
       const raw = r.json;

@@ -7,13 +7,13 @@
 // drafts may only use numbers that appear here (the claim check enforces it).
 
 import { now } from "../lib/clock.ts";
-import { addDays, addMonths, daysBetween, formatDate, localDate } from "../lib/dates.ts";
+import { addDays, addMonths, daysBetween, formatDate, localDate, toZonedIso, zonedInstant } from "../lib/dates.ts";
 import { formatAUD } from "../lib/money.ts";
 import type { Corpus } from "./corpus.ts";
 import type { Candidate, Signal } from "./detectors.ts";
 import { billReadings, type ExtractionResult, type SourceFacts } from "./extract.ts";
 import { amountIn, numberIn } from "./grounding.ts";
-import { distinctiveTokens, merchantKey } from "./merchants.ts";
+import { distinctiveTokens, merchantKey, serialNumbers } from "./merchants.ts";
 import type { CaseEvidence } from "./retrieval.ts";
 import type { Series } from "./series.ts";
 
@@ -56,15 +56,18 @@ export type VerifiedCase = {
 // ---------- Fact lookup ----------
 
 type Hit<T> = T & { source: string; facts: SourceFacts };
+type Readable = { key: string; text: string; business: string | null };
 
 /** The grounded facts of one case, with helpers to find them by label. */
 class CaseFacts {
   readonly sources: SourceFacts[];
   private readonly ownKeys: Set<string>;
   private readonly corpus: Corpus;
+  private readonly items: CaseEvidence["items"];
 
   constructor(evidence: CaseEvidence, extraction: ExtractionResult, candidate: Candidate, corpus: Corpus) {
     this.corpus = corpus;
+    this.items = evidence.items;
     this.sources = evidence.items
       .map((i) => extraction.facts.get(`${i.kind}:${i.id}`))
       .filter((f): f is SourceFacts => !!f);
@@ -72,7 +75,7 @@ class CaseFacts {
   }
 
   /** The business a source comes from, or null for the household's own mail. */
-  businessOf(f: SourceFacts): string | null {
+  businessOf(f: Pick<SourceFacts, "kind" | "id">): string | null {
     if (f.kind === "email") {
       const m = this.corpus.emails.find((e) => e.id === f.id);
       if (!m || m.labels.includes("SENT") || /whitlock/i.test(m.from.name)) return null;
@@ -116,6 +119,15 @@ class CaseFacts {
       return m ? `${m.subject}\n${m.body}` : "";
     }
     return this.corpus.documents.find((d) => d.id === id)?.text ?? "";
+  }
+
+  /** Every email and document in the case, read directly, so a failed extraction can't hide one. */
+  readable(): Readable[] {
+    return this.items.flatMap((i) =>
+      i.kind === "email" || i.kind === "doc"
+        ? [{ key: `${i.kind}:${i.id}`, text: this.text(`${i.kind}:${i.id}`), business: this.businessOf({ kind: i.kind, id: i.id }) }]
+        : [],
+    );
   }
 
   /** When a source was sent or saved ("YYYY-MM-DD"). */
@@ -659,6 +671,158 @@ function estimatedBill(b: Builder, signals: Signal[], facts: CaseFacts, corpus: 
   }
 }
 
+// ---------- Warranty ----------
+
+const MONTH_NAMES = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+
+/** "6 December 2026" to "2026-12-06". */
+function readDate(text: string): string | undefined {
+  const m = /^(\d{1,2})\s+([a-z]+)\s+(\d{4})$/i.exec(text.trim());
+  const month = m ? MONTH_NAMES.indexOf(m[2].toLowerCase()) : -1;
+  return m && month >= 0 ? `${m[3]}-${String(month + 1).padStart(2, "0")}-${m[1].padStart(2, "0")}` : undefined;
+}
+
+/** "10", "00", "am" to "10:00" on a 24-hour clock. */
+function clock24(hour: string, minute: string | undefined, meridiem: string): string {
+  const h = (Number(hour) % 12) + (meridiem.toLowerCase() === "pm" ? 12 : 0);
+  return `${String(h).padStart(2, "0")}:${minute ?? "00"}`;
+}
+
+/** "10:00" to "10:00 am", "14:30" to "2:30 pm". */
+function clockWords(time: string): string {
+  const [h, m] = time.split(":").map(Number);
+  return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "am" : "pm"}`;
+}
+
+/** The first match of a pattern in each source, with where it came from. */
+function readAll<T>(from: Readable[], pattern: RegExp, read: (m: RegExpExecArray) => T | undefined) {
+  return from.flatMap((s) => {
+    const m = pattern.exec(s.text);
+    const value = m ? read(m) : undefined;
+    return value === undefined ? [] : [{ value, source: s.key, business: s.business }];
+  });
+}
+
+const DATE_TEXT = String.raw`(\d{1,2}\s+[a-z]+\s+\d{4})`;
+
+/**
+ * A product under warranty with a paid repair booked. These facts are read
+ * straight from the source text by plain patterns, so every date and amount
+ * here is exact even if a model misreads the document.
+ */
+function warranty(b: Builder, facts: CaseFacts, candidate: Candidate, today: string) {
+  const sources = facts.readable();
+  const about = sources.filter((s) => /\bwarrant(?:y|ies)\b/i.test(s.text));
+  const nameFor = (key: string | null | undefined) => (key && candidate.names[candidate.keys.indexOf(key)]) || key || "The business";
+
+  const ends = readAll(about, new RegExp(String.raw`\bwarranty\b[^\n]{0,80}?\b(?:ends|ending|expires)\b(?:\s+on)?[\s:]+${DATE_TEXT}`, "i"), (m) => readDate(m[1]));
+  const endsOn = mostCommon(ends.map((e) => e.value));
+  if (!endsOn) {
+    b.warn("Couldn't find when the warranty ends.");
+    return;
+  }
+  if (new Set(ends.map((e) => e.value)).size > 1) b.warn("The sources give different warranty end dates.");
+  const giverKey = ends.find((e) => e.value === endsOn && e.business && candidate.keys.includes(e.business))?.business;
+  const giver = nameFor(giverKey);
+
+  const purchases = readAll(sources, new RegExp(String.raw`\bpurchase(?:d|\s+date)?[\s:]+${DATE_TEXT}`, "i"), (m) => readDate(m[1]));
+  const bought = mostCommon(purchases.map((p) => p.value));
+  const lengths = readAll(about, /\b(\d{1,2})[- ]months?\b/i, (m) => Number(m[1]));
+  const months = mostCommon(lengths.map((l) => l.value));
+  const serial = mostCommon(sources.flatMap((s) => serialNumbers(s.text)));
+
+  if (serial) {
+    b.figure({ id: "product_serial", label: "Serial number", value: serial, unit: "text", sources: sources.filter((s) => serialNumbers(s.text).includes(serial)).map((s) => s.key) });
+  }
+  if (bought) b.figure({ id: "purchase_date", label: "Bought on", value: bought, unit: "date", sources: purchases.filter((p) => p.value === bought).map((p) => p.source) });
+  if (months) b.figure({ id: "warranty_length", label: "Warranty length", value: `${months} months`, unit: "text", sources: lengths.filter((l) => l.value === months).map((l) => l.source) });
+  b.figure({
+    id: "warranty_ends",
+    label: "Warranty ends",
+    value: endsOn,
+    unit: "date",
+    sources: ends.filter((e) => e.value === endsOn).map((e) => e.source),
+    how: months && bought ? `${months} months from ${day(bought)}` : undefined,
+  });
+  if (bought && months && addMonths(bought, months) !== endsOn) b.warn("The warranty's length and end date don't agree.");
+
+  if (endsOn < today) {
+    b.note(`${giver}'s warranty ended on ${day(endsOn)}.`);
+    b.out.pointsToFine.push("The warranty has already ended.");
+    return;
+  }
+  const daysLeft = daysBetween(today, endsOn);
+  b.figure({ id: "warranty_days_left", label: "Left on the warranty", value: daysLeft, unit: "days", sources: ends.map((e) => e.source) });
+  b.note(`${giver}'s warranty${serial ? ` on serial ${serial}` : ""}${months && bought ? ` runs ${months} months from ${day(bought)} and` : ""} ends on ${day(endsOn)}, ${daysLeft} days from today.`);
+  b.deadline(endsOn, "Last day to claim");
+
+  // A paid repair booked with someone other than the business giving the warranty.
+  const others = sources.filter((s) => s.business && s.business !== giverKey);
+  const visits = readAll(
+    others,
+    new RegExp(String.raw`\bvisit\b[:\s]+(?:[a-z]+day,?\s+)?${DATE_TEXT}\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b`, "i"),
+    (m) => {
+      const date = readDate(m[1]);
+      return date ? { date, time: clock24(m[2], m[3], m[4]) } : undefined;
+    },
+  );
+  const visit = visits[0];
+  if (!visit) {
+    b.note("No paid repair is booked.");
+    b.out.pointsToFine.push("No paid repair is booked.");
+    return;
+  }
+  const bookingText = sources.find((s) => s.key === visit.source)?.text ?? "";
+  const repairer = nameFor(visit.business);
+  const price = /\b(?:price|cost|total)\b[:\s]+\$\s?(\d[\d,]*\.\d{2})/i.exec(bookingText);
+  const cents = price ? Math.round(Number(price[1].replace(/,/g, "")) * 100) : undefined;
+  const reference = /\bbooking(?:\s+(?:number|reference|ref))?[:\s]+([A-Z]{1,4}-\d{3,})\b/i.exec(bookingText)?.[1];
+
+  if (reference) b.figure({ id: "repair_reference", label: "Repair booking", value: reference, unit: "text", sources: [visit.source] });
+  b.figure({ id: "repair_visit", label: "Repair visit", value: visit.value.date, unit: "date", sources: [visit.source], how: `at ${clockWords(visit.value.time)}` });
+  if (cents === undefined) {
+    b.warn("The repair booking doesn't state a price.");
+  } else {
+    b.figure({ id: "repair_booked", label: "Repair price", value: cents, unit: "cents", sources: [visit.source] });
+    b.out.atStakeCents = cents;
+    b.out.pointsToProblem.push("A paid repair is booked while the warranty can still be claimed.");
+  }
+  b.note(`${repairer} has a repair booked for ${day(visit.value.date)} at ${clockWords(visit.value.time)}${cents !== undefined ? `, costing ${money(cents)}` : ""}${reference ? ` (booking ${reference})` : ""}.`);
+
+  const notAgent = /\b(?:not|aren'?t|isn'?t)\b[^.\n]{0,25}\bservice agent\b/i.test(bookingText);
+  const excluded = about.filter((s) => /\banyone other than\b[^.\n]{0,40}\bservice agent\b/i.test(s.text));
+  if (notAgent && excluded.length) {
+    b.figure({ id: "repair_outside_warranty", label: "Repairer is outside the warranty", value: true, unit: "yes_no", sources: [visit.source, ...excluded.map((s) => s.key)] });
+    b.note(`${repairer} says it isn't a ${giver} service agent, and the warranty doesn't include work by anyone else.`);
+  }
+
+  // Free cancellation ends a set number of hours before the visit, so the time of day matters.
+  const hours = /\bcancel\b[^.\n]{0,60}?\b(\d{1,3})\s+hours?\s+before\b/i.exec(bookingText);
+  if (hours) {
+    const at = toZonedIso(new Date(zonedInstant(visit.value.date, visit.value.time).getTime() - Number(hours[1]) * 3_600_000));
+    const [cancelDate, cancelTime] = [at.slice(0, 10), clockWords(at.slice(11, 16))];
+    b.figure({
+      id: "cancel_by",
+      label: "Cancel the repair by",
+      value: `${cancelTime} on ${longDay(cancelDate)}`,
+      unit: "text",
+      sources: [visit.source],
+      how: `${hours[1]} hours before the visit`,
+    });
+    if (cancelDate >= today) {
+      b.note(`The booking can be cancelled free of charge until ${cancelTime} on ${day(cancelDate)}.`);
+      b.deadline(cancelDate, `Cancel ${repairer} by ${cancelTime}`);
+    }
+  }
+}
+
+/** "2026-11-25" to "25 November 2026". */
+function longDay(date: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  const name = MONTH_NAMES[m - 1];
+  return `${d} ${name[0].toUpperCase()}${name.slice(1)} ${y}`;
+}
+
 // ---------- Entry point ----------
 
 export function verifyCase(
@@ -683,6 +847,7 @@ export function verifyCase(
     if (!dup) renewal(b, facts, candidate, today);
   }
   if (kinds.has("estimated_bill")) estimatedBill(b, candidate.signals.filter((s) => s.kind === "estimated_bill"), facts, corpus);
+  if (kinds.has("warranty")) warranty(b, facts, candidate, today);
 
   // Calendar reminders that already passed.
   for (const s of candidate.signals.filter((x) => x.kind === "deadline_event" && x.facts.passed)) {

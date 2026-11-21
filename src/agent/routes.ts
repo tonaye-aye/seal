@@ -32,7 +32,7 @@ import type { Finding } from "./pipeline.ts";
 
 // ---------- The help directory (seed/help) ----------
 
-export type Capability = "cancel" | "refund" | "dispute_price" | "waive_fee" | "retain" | "switch" | "correct_bill";
+export type Capability = "cancel" | "refund" | "dispute_price" | "waive_fee" | "retain" | "switch" | "correct_bill" | "claim_warranty";
 export type RouteKind = "email" | "call" | "chat" | "online";
 
 type Channel = {
@@ -154,6 +154,7 @@ const NEEDS: Record<FindingKind, Capability[]> = {
   renewal_trap: ["cancel", "waive_fee"],
   renewal_price_creep: ["retain", "switch"],
   billing_error: ["correct_bill"],
+  warranty_claim: ["claim_warranty", "cancel"],
 };
 
 /** Each job in plain words, for telling the model what a call or chat is for. */
@@ -165,6 +166,7 @@ const JOB_WORDS: Record<Capability, string> = {
   retain: "match or beat the other quote",
   switch: "switch to the other quote",
   correct_bill: "correct the bill using the actual reading",
+  claim_warranty: "take a warranty claim and arrange the repair",
 };
 
 /** The checked figures worth having in front of you, per kind of problem. */
@@ -176,6 +178,7 @@ const HAVE_READY: Record<FindingKind, string[]> = {
   renewal_trap: ["renewal_amount", "renews_on", "notice_deadline", "last_used"],
   renewal_price_creep: ["renewal_amount", "competitor_quote", "saving", "quote_valid_until"],
   billing_error: ["actual_reading", "actual_reading_date", "estimated_reading", "overcharge_estimate"],
+  warranty_claim: ["product_serial", "purchase_date", "warranty_ends", "repair_reference", "cancel_by"],
 };
 
 /** A deadline this close can only be met by something that takes effect at once. */

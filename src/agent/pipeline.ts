@@ -106,6 +106,7 @@ export function rank(findings: Finding[]): Finding[] {
 /** The kind of problem a case most likely is, from what raised it (used when the judge didn't say). */
 function kindFromSignals(candidate: Candidate): FindingKind {
   const kinds = new Set(candidate.signals.map((s) => s.kind));
+  if (kinds.has("warranty")) return "warranty_claim";
   if (kinds.has("duplicate_charges")) return "duplicate_subscription";
   if (kinds.has("duplicate_payment")) return "duplicate_payment";
   if (kinds.has("estimated_bill")) return "billing_error";

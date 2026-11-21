@@ -287,6 +287,7 @@ const ACTION_WORDS: Record<ActionKind, string> = {
   dispute_price: "dispute the price and ask for the agreed price to be restored and the difference credited",
   negotiate: "ask them to match or beat the cheaper offer, or say we will switch",
   correct_bill: "ask for the bill to be corrected and the difference credited",
+  claim_warranty: "lodge a warranty claim and ask them to arrange the repair",
   none: "ask them to look into it",
 };
 
@@ -302,6 +303,8 @@ export const KIND_GUIDANCE: Partial<Record<FindingKind, string>> = {
     "If a notice deadline has passed, say so plainly and ask for goodwill; don't claim a right we don't have.",
   renewal_price_creep: "Ask them to match the cheaper like-for-like quote, and say we will switch if they can't.",
   billing_error: "Ask for the bill to be reissued on the actual reading and the difference credited or refunded.",
+  warranty_claim:
+    "The claim goes only to the business that gave the warranty. Give the product, serial number, purchase date and fault, and ask for a repair under the warranty. Say \"we have a repair booked\" with the other business on the listed date, and that it must be cancelled by the listed time, so a reply before then would help. Don't call that booking a mistake, don't assume the claim will be accepted, and don't mention who pays for the other repair.",
 };
 
 function prompt(c: DraftCase, voice: Voice, figures: string, evidence: string, retryProblems: string[], canAttach: boolean): string {
@@ -339,7 +342,13 @@ export async function draftFinding(llm: LlmClient, c: DraftCase, corpus: Corpus,
   const business = found.filter((r) => !household.has(r.address.toLowerCase()));
   // Nobody reads a no-reply inbox: offer those only if there is nothing else.
   const replyable = business.filter((r) => !NO_REPLY.test(r.address));
-  const recipients = replyable.length ? replyable : business;
+  const anyone = replyable.length ? replyable : business;
+  // A warranty claim goes to whoever gave the warranty, never to the repairer.
+  const givers = c.kind === "warranty_claim"
+    ? anyone.filter((r) => corpus.emails.some((m) => m.from.address.toLowerCase() === r.address.toLowerCase() && /\bwarranty\b/i.test(`${m.subject}\n${m.body}`)))
+    : [];
+  const recipients = givers.length ? givers : anyone;
+  const addressed = givers.length ? { ...c, merchant: givers[0].name } : c;
   const figures = draftFigures(c);
   const allowed = `${figures}\n${evidence}`;
   const schema = draftSchema(recipients, attachable);
@@ -359,7 +368,7 @@ export async function draftFinding(llm: LlmClient, c: DraftCase, corpus: Corpus,
         schema,
         messages: [
           { role: "system", content: SYSTEM },
-          { role: "user", content: prompt(c, voice, figures, evidence, best?.attempt.problems ?? [], attachable.length > 0) },
+          { role: "user", content: prompt(addressed, voice, figures, evidence, best?.attempt.problems ?? [], attachable.length > 0) },
         ],
       });
       const raw = { ...r.json, body: withSignOff(r.json.body, voice.signOff) };

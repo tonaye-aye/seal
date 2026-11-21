@@ -15,6 +15,7 @@ import {
   isOpaqueDescriptor,
   merchantKey,
   references,
+  serialNumbers,
 } from "./merchants.ts";
 import { findSeries, isInternalTransfer, type Series } from "./series.ts";
 
@@ -31,6 +32,7 @@ export type SignalKind =
   | "price_notice" // the business announced a price change
   | "competitor_quote" // a quote from another provider
   | "estimated_bill" // a bill based on an estimated reading
+  | "warranty" // a business wrote about a product's warranty
   | "deadline_event"; // a calendar entry about cancelling or renewing
 
 type Fact = string | number | boolean | string[];
@@ -205,6 +207,7 @@ function opaqueDescriptors(series: Series[]): Signal[] {
 
 const TEXT_RULES: { kind: SignalKind; pattern: RegExp }[] = [
   // Order matters: the first rule that matches decides the kind.
+  { kind: "warranty", pattern: /\bwarrant(?:y|ies)\b/i },
   { kind: "competitor_quote", pattern: /\b(your|a) (\w+ )?quote\b|\bquote (number|valid)\b/i },
   {
     kind: "estimated_bill",
@@ -230,6 +233,35 @@ function householdAddresses(corpus: Corpus): Set<string> {
   return own;
 }
 
+/** The business an email is from, as a merchant key. */
+const senderKey = (m: Corpus["emails"][number]) =>
+  distinctiveTokens(m.from.name)[0] ?? merchantKey(m.from.address.split("@")[1] ?? "");
+
+/**
+ * A warranty notice and a repair booking come from two businesses, but both
+ * quote the product's serial number, so they are one case.
+ */
+function joinBySerial(signals: Signal[], corpus: Corpus, today: string): Signal[] {
+  const own = householdAddresses(corpus);
+  const recent = corpus.emails.filter(
+    (m) => !own.has(m.from.address) && daysBetween(m.date.slice(0, 10), today) <= RECENT_DAYS,
+  );
+  return signals.map((signal) => {
+    if (signal.kind !== "warranty") return signal;
+    const serials = new Set(
+      signal.evidence.flatMap((e) => {
+        const m = e.kind === "email" ? corpus.emails.find((x) => x.id === e.id) : undefined;
+        const d = e.kind === "doc" ? corpus.documents.find((x) => x.id === e.id) : undefined;
+        return serialNumbers(m ? `${m.subject}\n${m.body}` : (d?.text ?? ""));
+      }),
+    );
+    const others = recent
+      .filter((m) => serialNumbers(`${m.subject}\n${m.body}`).some((s) => serials.has(s)))
+      .map(senderKey);
+    return { ...signal, keys: [...new Set([...signal.keys, ...others])] };
+  });
+}
+
 function emailSignals(corpus: Corpus, today: string): Signal[] {
   const own = householdAddresses(corpus);
   const out: Signal[] = [];
@@ -237,7 +269,7 @@ function emailSignals(corpus: Corpus, today: string): Signal[] {
     if (own.has(m.from.address) || daysBetween(m.date.slice(0, 10), today) > RECENT_DAYS) continue;
     const kind = classify(`${m.subject}\n${m.body}`);
     if (!kind) continue;
-    const key = distinctiveTokens(m.from.name)[0] ?? merchantKey(m.from.address.split("@")[1] ?? "");
+    const key = senderKey(m);
     out.push({
       kind,
       summary: `${m.from.name}: "${m.subject}"${m.unread ? " (unread)" : ""}`,
@@ -397,15 +429,19 @@ export type DetectionResult = {
 export function detect(corpus: Corpus, today = localDate(now())): DetectionResult {
   const series = findSeries(corpus.transactions, corpus.accounts);
   const names = knownBusinesses(corpus, series);
-  const signals = [
-    ...priceChanges(series),
-    ...duplicateCharges(series, today),
-    ...duplicatePayments(corpus, series),
-    ...opaqueDescriptors(series),
-    ...emailSignals(corpus, today),
-    ...documentSignals(corpus, today),
-    ...calendarSignals(corpus, today, new Set(names.keys())),
-  ];
+  const signals = joinBySerial(
+    [
+      ...priceChanges(series),
+      ...duplicateCharges(series, today),
+      ...duplicatePayments(corpus, series),
+      ...opaqueDescriptors(series),
+      ...emailSignals(corpus, today),
+      ...documentSignals(corpus, today),
+      ...calendarSignals(corpus, today, new Set(names.keys())),
+    ],
+    corpus,
+    today,
+  );
   const candidates = groupSignals(signals, series, names);
   const placed = new Set(candidates.flatMap((c) => c.signals));
   return { candidates, series, unplaced: signals.filter((s) => !placed.has(s)) };
