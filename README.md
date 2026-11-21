@@ -135,8 +135,9 @@ Scored end to end against `seed/eval/ground_truth.json`:
 - **Drafts:** 8/8 grounded and complete.
 - **Best way to fix it:** 8/8.
 
-Those are from saved model answers. Over three fully live runs the totals were 24/24 leaks and 0/6 decoys. 23/24
-drafts had every key fact (all 24 passed the claim check), and 23/24 picked the best route.
+Those are from saved model answers. The final three fully live runs scored 24/24 on leaks, drafts and best route,
+with 0/6 decoys flagged. The three live runs before them scored 23/24 on drafts and on best route, so treat this
+as a small sample.
 
 - [`scripts/SPIKE.md`](scripts/SPIKE.md): what the endpoint supports and how each model did at each task,
   which decided who does what.
