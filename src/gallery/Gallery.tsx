@@ -32,13 +32,15 @@ import { Header } from "../ui/Palette/Header";
 import { NowVisual } from "../ui/Palette/NowVisual";
 import { PaletteShell } from "../ui/Palette/PaletteShell";
 import { ScenariosSheet } from "../ui/Palette/ScenariosSheet";
+import { SamplePageSheet } from "../ui/Palette/RoutePanel";
+import { usesEmail, type SamplePage } from "../ui/fix-route";
 import { ShortcutIntro, ShortcutSheet } from "../ui/Palette/ShortcutSheet";
 import { StatusStrip } from "../ui/Palette/StatusStrip";
 import { TIMELINE_ROW, Timeline, TimelineLine } from "../ui/Palette/Timeline";
 import { Toast } from "../ui/Palette/Toast";
 import { TraceDrawer } from "../ui/Palette/Trace";
 import { ViewHeading } from "../ui/Palette/ViewHeading";
-import { FINDINGS, endpointSamples, liveSamples, nowSamples, onboardingSample, sampleCorpus, scanSamples, type LiveSample } from "./fixtures";
+import { FINDINGS, endpointSamples, liveSamples, nowSamples, onboardingSample, routeSamples, sampleCorpus, scanSamples, type LiveSample } from "./fixtures";
 import { isSetupScreen, type OnboardingState } from "../lib/onboarding";
 import { DetailHint, ListHint, TimelineHint } from "../ui/Palette/FooterHint";
 import { ApproveIcon, CheckNowIcon, SealIcon, RemindIcon, TraceIcon } from "../ui/icons";
@@ -203,6 +205,8 @@ type FrameProps = {
   /** An open finding's sidebar folded to a strip (left out: as the app does it, folded once approved). */
   sidebarFolded?: boolean;
   sheet?: "keys" | "keysIntro" | "scenarios";
+  /** The labelled stand-in for a fictional business's page. */
+  samplePage?: SamplePage;
   /** The Settings dialog, open on this tab. */
   settings?: SettingsTab;
   /** Step 3: the "Agent working" fold open, and the plain seal in place of the animation. */
@@ -258,6 +262,7 @@ function PaletteFrame({
   trace = false,
   sidebarFolded,
   sheet,
+  samplePage,
   holdHover = false,
   onboarding,
   desktop = false,
@@ -300,7 +305,7 @@ function PaletteFrame({
   const stopAt = stop < 0 ? firstStop(stops) : Math.min(stop, stops.length - 1);
   const openFinding = openItem && "evidence" in openItem ? openItem : undefined;
   const hasDraftPanel = !!openFinding && findingHasDraftPanel(openFinding);
-  const hasDetails = hasDraftPanel && !!openFinding?.draft;
+  const hasDetails = hasDraftPanel && !!openFinding?.draft && usesEmail(openFinding, shownScan);
   // As in the app: the sidebar folds once a finding is approved, and then the keys are on the draft side.
   const sidebarShown = sidebarFolded !== undefined ? !sidebarFolded : openFinding?.status !== "approved";
   const pane: Pane = !sidebarShown && paneAsked === "evidence" ? "draft" : paneAsked;
@@ -327,6 +332,8 @@ function PaletteFrame({
         onStopEditing={noop}
         onFocusDraft={noop}
         onCommand={noop}
+        onPickRoute={noop}
+        onSample={noop}
         sidebarOpen={sidebarShown}
         onToggleSidebar={noop}
         traceOpen={!!trace}
@@ -490,6 +497,7 @@ function PaletteFrame({
             <>
               <Toast />
               <ShortcutSheet open={sheet === "keys"} onClose={noop} />
+              <SamplePageSheet page={samplePage} onClose={noop} />
               <ShortcutIntro open={sheet === "keysIntro"} mouse={mouse} onClose={noop} onAll={noop} />
               <SettingsDialog
                 tab={settings}
@@ -737,7 +745,7 @@ export function Gallery() {
     const swap = (f: Finding) => (f.id === id ? { ...f, ...change } : f);
     return { ...s.approved, findings: s.approved.findings.map(swap), result: s.approved.result && { ...s.approved.result, findings: s.approved.result.findings.map(swap) } };
   };
-  const sealPhone = approvedWith("f-skylink", { draft: undefined, action: { kind: "none", summary: "Call Skylink and ask them to restore the $79.00 price." } });
+  const r = routeSamples(s.done);
   const sealCalendar = approvedWith("f-ironworks", {
     draft: undefined,
     action: { kind: "none", summary: "Cancel at the front desk before 28 Nov." },
@@ -1032,8 +1040,41 @@ export function Gallery() {
               <Shot title="Approved, mouse mode" note="Plain buttons, each with its icon before the label (Seal the leak: a seal); hovering Seal the leak says where it goes">
                 <PaletteFrame scan={s.approved} view="detail" selected="f-skylink" mouse />
               </Shot>
-              <Shot title="Seal the leak: a call" note="Sample: no email draft, so the number in the evidence it relied on (Skylink's agreement, 1300 000 000) becomes a call">
-                <PaletteFrame scan={sealPhone} view="detail" selected="f-skylink" pane="draft" />
+              <Shot title="Routes: Email" note="Best way and why, then one tab per route on keys 1-4, recommended first. Email keeps the draft as it was; hovering it adds Copy (Y) beside Edit">
+                <PaletteFrame scan={r.email} view="detail" selected="f-skylink" pane="draft" />
+              </Shot>
+              <Shot title="Routes: Call" note="Number marked Sample (never dialled), hours and wait, Say this with Copy (Y), If they say no, and Have ready: what they'll ask for, then figures code checked. Edit leaves the heading, since there's no draft on this route">
+                <PaletteFrame scan={r.call} view="detail" selected="f-skylink" pane="draft" />
+              </Shot>
+              <Shot title="Routes: Chat" note="The opener to paste, with the link marked Sample: a click shows the sample page">
+                <PaletteFrame scan={r.chat} view="detail" selected="f-skylink" pane="draft" />
+              </Shot>
+              <Shot title="Routes: Online" note="Numbered steps from the directory, then the values to enter">
+                <PaletteFrame scan={r.email} view="detail" selected="f-redgum" pane="draft" />
+              </Shot>
+              <Shot title="Routes, mouse mode" note="Each tab's key cap becomes its kind's icon, in the same width, so nothing moves">
+                <PaletteFrame scan={r.call} view="detail" selected="f-skylink" pane="draft" mouse />
+              </Shot>
+              <Shot title="Route with no script" note="The model failed: contacts and figures come from code, so they still show">
+                <PaletteFrame scan={r.noScript} view="detail" selected="f-skylink" pane="draft" />
+              </Shot>
+              <Shot title="Script failed the check" note="A figure that isn't in the evidence: the same warning a draft gets">
+                <PaletteFrame scan={r.unchecked} view="detail" selected="f-skylink" pane="draft" />
+              </Shot>
+              <Shot title="Approved: Email, with where to go next" note="A dated If they say no line, 14 days on. O opens the real complaint form in the browser">
+                <PaletteFrame scan={r.approvedEmail} view="detail" selected="f-skylink" pane="draft" />
+              </Shot>
+              <Shot title="Approved: Call" note="No draft saved. The route is fixed (⌘Z to change it), the script stays under the timeline, and S shows the sample page rather than dialling">
+                <PaletteFrame scan={r.approvedCall} view="detail" selected="f-skylink" pane="draft" />
+              </Shot>
+              <Shot title="Approved: Online" note="The steps stay under the timeline while Maya does them">
+                <PaletteFrame scan={r.approvedOnline} view="detail" selected="f-redgum" pane="draft" />
+              </Shot>
+              <Shot title="If they say no: a sample body" note="A fictional bank is marked Sample, and O shows its sample page">
+                <PaletteFrame scan={r.approvedSampleBody} view="detail" selected="f-skylink" pane="draft" />
+              </Shot>
+              <Shot title="Sample page" note="S on a call, chat or online route. Fictional businesses are never dialled or opened">
+                <PaletteFrame scan={r.approvedOnline} view="detail" selected="f-redgum" pane="draft" samplePage={r.samplePage} />
               </Shot>
               <Shot title="Seal the leak: Calendar" note="Sample: no email or number, and a calendar event in the evidence (Ben's reminder), so it opens Calendar and names the date">
                 <PaletteFrame scan={sealCalendar} view="detail" selected="f-ironworks" pane="draft" />

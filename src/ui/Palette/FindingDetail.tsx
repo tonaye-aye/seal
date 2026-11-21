@@ -3,6 +3,7 @@ import * as Accordion from "@radix-ui/react-accordion";
 import { ChevronRight } from "lucide-react";
 import type { Corpus } from "../../agent/corpus";
 import type { Cleared, Finding } from "../../agent/pipeline";
+import type { FixRoute } from "../../agent/routes";
 import { getConnectors } from "../../connectors/live";
 import { formatAUD } from "../../lib/money";
 import { cannotRemind, resetEdit, setEdit, useScan, type ScanState } from "../../lib/scan-store";
@@ -29,6 +30,8 @@ import {
   UndoIcon,
 } from "../icons";
 import { NextSteps } from "./NextSteps";
+import { CopyIcon, RouteChooser, RoutePanel } from "./RoutePanel";
+import { chosenRoute, usesEmail } from "../fix-route";
 import { Kbd, KeyButton } from "../Kbd";
 import { iconButton } from "./Controls";
 import { dragByBar } from "./Header";
@@ -631,6 +634,7 @@ function Draft({
   onToggleDetails,
   onEdit,
   onStopEditing,
+  onCopy,
   scanning,
 }: {
   finding: Finding;
@@ -643,6 +647,8 @@ function Draft({
   /** Start editing (a click in the draft, or its hover Edit): the same as E. */
   onEdit: () => void;
   onStopEditing: () => void;
+  /** Y: copy the draft (only when the finding has routes). */
+  onCopy?: () => void;
   scanning: boolean;
 }) {
   const draft = finding.draft;
@@ -838,7 +844,8 @@ function Draft({
               </span>
             </p>
             <div className={`${UNDER_DRAFT} justify-end`}>
-              <span className="pr-1.5 opacity-0 transition-opacity duration-(--duration-fast) group-hover:opacity-100">
+              <span className="flex items-center gap-3 pr-1.5 opacity-0 transition-opacity duration-(--duration-fast) group-hover:opacity-100">
+                {onCopy && <KeyButton keys={["Y"]} label={copy.routes.copy} icon={<CopyIcon />} mouse={mouse} onClick={onCopy} />}
                 <KeyButton keys={["E"]} label={copy.actions.edit} icon={<EditIcon />} mouse={mouse} onClick={onEdit} />
               </span>
             </div>
@@ -908,6 +915,8 @@ export function FindingDetail({
   onOpenSource,
   onFocusDraft,
   onCommand,
+  onPickRoute,
+  onSample,
   sidebarOpen,
   onToggleSidebar,
   traceOpen,
@@ -939,6 +948,10 @@ export function FindingDetail({
   onFocusDraft: () => void;
   /** The action row's buttons (Approve, Seal the leak, Edit, ...). */
   onCommand: (command: Command) => void;
+  /** Keys 1-4, or a click on a route. */
+  onPickRoute: (index: number) => void;
+  /** Show the labelled stand-in for this route's page. */
+  onSample: (route: FixRoute) => void;
   /** The sidebar is showing (] or the icon at the window's top right slides it away). */
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
@@ -952,6 +965,7 @@ export function FindingDetail({
   const finding = "evidence" in item ? item : undefined;
   const scan = useScan();
   const reminder = scan.reminders[item.id];
+  const route = finding && chosenRoute(finding, scan);
   // Amounts code checked, written the ways a bill or email would show them.
   const needles = finding
     ? [...new Set(finding.figures.filter((f) => f.unit === "cents").flatMap((f) => {
@@ -1034,18 +1048,26 @@ export function FindingDetail({
                   onSeal={() => onCommand("seal")}
                   onEdit={() => onCommand("edit")}
                   onRemoveReminder={() => onCommand("remind")}
+                  onEscalate={() => onCommand("escalate")}
                 />}
-              <Draft
-                finding={finding}
-                edited={edited}
-                editing={editing}
-                mouse={mouse}
-                detailsOpen={detailsOpen}
-                onToggleDetails={onToggleDetails}
-                onEdit={() => onCommand("edit")}
-                onStopEditing={onStopEditing}
-                scanning={scanning}
-              />
+              {/* Still to approve: the best way and the others. Once approved the route is fixed (⌘Z to change it). */}
+              {route && finding.status === "new" && !editing && <RouteChooser finding={finding} route={route} mouse={mouse} onPick={onPickRoute} />}
+              {route && route.kind !== "email" ? (
+                <RoutePanel finding={finding} route={route} mouse={mouse} onCopy={() => onCommand("copy")} onSample={() => onSample(route)} />
+              ) : (
+                <Draft
+                  finding={finding}
+                  edited={edited}
+                  editing={editing}
+                  mouse={mouse}
+                  detailsOpen={detailsOpen}
+                  onToggleDetails={onToggleDetails}
+                  onEdit={() => onCommand("edit")}
+                  onStopEditing={onStopEditing}
+                  onCopy={route ? () => onCommand("copy") : undefined}
+                  scanning={scanning}
+                />
+              )}
               <SavedNote finding={finding} />
             </div>
           ) : (
@@ -1100,7 +1122,7 @@ export function MouseIcon() {
 }
 
 /** Something the action bar (or its key) can do. */
-export type Command = "approve" | "seal" | "details" | "trace" | "edit" | "done" | "dismiss" | "remind" | "undo" | "rescan" | "open" | "pane" | "toggle" | "figures";
+export type Command = "copy" | "escalate" | "approve" | "seal" | "details" | "trace" | "edit" | "done" | "dismiss" | "remind" | "undo" | "rescan" | "open" | "pane" | "toggle" | "figures";
 
 /**
  * An open finding's buttons, in the top bar where Search, Filter and View
@@ -1127,6 +1149,9 @@ export function findingActions(finding: Finding, scan: ScanState, editing: boole
       ...(canRemind ? [remind] : []),
     ];
   }
+  // Only the Email route has words to edit here; a call or online step doesn't.
+  const editable = !!finding.draft && usesEmail(finding, scan);
+  const route = chosenRoute(finding, scan);
   if (finding.status === "new") {
     return [
       {
@@ -1135,17 +1160,17 @@ export function findingActions(finding: Finding, scan: ScanState, editing: boole
         command: "approve",
         icon: <ApproveIcon />,
         primary: true,
-        tip: finding.draft ? copy.actions.approveTip : copy.actions.approveHandledTip,
+        tip: route ? copy.routes.approveTip[route.kind] : finding.draft ? copy.actions.approveTip : copy.actions.approveHandledTip,
       },
       // Change the wording first, then approve it.
-      ...(finding.draft ? [{ keys: ["E"], label: copy.actions.edit, command: "edit" as const, icon: <EditIcon />, iconOnly: true }] : []),
+      ...(editable ? [{ keys: ["E"], label: copy.actions.edit, command: "edit" as const, icon: <EditIcon />, iconOnly: true }] : []),
       ...(canRemind ? [remind] : []),
     ];
   }
   if (finding.status === "approved") {
     return [
-      // Edit takes the approval back to change the draft; with nothing drafted there's nothing to edit, so it's plain Undo.
-      finding.draft
+      // Edit takes the approval back to change the draft; with no draft in use there's nothing to edit, so it's plain Undo.
+      editable
         ? { keys: ["E"], label: copy.actions.edit, command: "edit" as const, icon: <EditIcon />, iconOnly: true }
         : { keys: ["⌘", "Z"], label: copy.actions.undo, command: "undo" as const, icon: <UndoIcon /> },
       ...(canRemind ? [remind] : []),

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import type { Cleared, Finding } from "../../agent/pipeline";
-import { activeHotkey, hidePalette, onPaletteShown, onWindowFocus } from "../../lib/native";
+import { activeHotkey, copyText, hidePalette, onPaletteShown, onWindowFocus } from "../../lib/native";
 import {
   finishOnboarding,
   runFirstCheck,
@@ -15,8 +15,10 @@ import {
 import { getPreferences } from "../../lib/preferences";
 import { DetailHint, ListHint, TimelineHint } from "./FooterHint";
 import { SetupScreen, welcomeLocked } from "../Onboarding/SetupScreen";
-import { approve, cancelReminder, dismiss, isEdited, rankedFindings, remind, reopen, resetEdit, syncEverything, undoLast, useScan } from "../../lib/scan-store";
-import { seal, sealTarget } from "../seal";
+import { approve, cancelReminder, chooseRoute, dismiss, isEdited, notify, rankedFindings, remind, reopen, resetEdit, syncEverything, undoLast, useScan } from "../../lib/scan-store";
+import { openComplaintBody, seal, sealTarget } from "../seal";
+import { chosenRoute, escalationPage, routePage, routeText, usesEmail, type SamplePage } from "../fix-route";
+import { SamplePageSheet } from "./RoutePanel";
 import { findingTrace } from "../finding-trace";
 import { DEFAULT_PANELS, FindingActions, FindingDetail, findingActions, hasDraftPanel as findingHasDraftPanel, firstStop, sidebarStops, type Command, type Pane, type PanelId } from "./FindingDetail";
 import {
@@ -131,6 +133,8 @@ export function Palette() {
   const [sideStop, setSideStop] = useState(-1);
   const [panels, setPanels] = useState<PanelId[]>(DEFAULT_PANELS);
   const [peek, setPeek] = useState(-1);
+  // The labelled stand-in for a fictional business's page or number.
+  const [samplePage, setSamplePage] = useState<SamplePage>();
   // The finding's sidebar, showing or slid away (] or its icon). For
   // findings that still need Maya it stays as she left it from one to the next.
   // An approved finding is past its evidence, so its sidebar folds on its own
@@ -206,7 +210,7 @@ export function Palette() {
   // An approved finding has no draft panel (the Next timeline says what was saved, or the step).
   const hasDraftPanel = !!selectedFinding && findingHasDraftPanel(selectedFinding);
   // Details only exist on a draft that's still shown (not once approved).
-  const hasDetails = hasDraftPanel && !!selectedFinding?.draft;
+  const hasDetails = hasDraftPanel && !!selectedFinding?.draft && usesEmail(selectedFinding, scan);
   const entries = filterTimeline(buildTimeline(scan), query);
   const isEarlierOpen = earlierOpen(entries, !!query.trim(), earlierOpened, earlierClosedInSearch);
   // The stops J/K move through on the timeline (Earlier's header included), and the selected one.
@@ -490,8 +494,10 @@ export function Palette() {
     }
     // Seal the leak, once approved: opens Mail (or a call, Calendar), and leaves the selection where it is.
     if (item?.type === "finding" && kind === "seal") {
-      const target = item.finding.status === "approved" ? sealTarget(item.finding, scan.corpus) : undefined;
-      if (target) void seal(target);
+      const target = item.finding.status === "approved" ? sealTarget(item.finding, scan.corpus, scan) : undefined;
+      // A call, chat or online step belongs to a fictional business: show its sample, never dial or open it.
+      if (target?.kind === "sample") setSamplePage(routePage(target.route));
+      else if (target) void seal(target);
       return;
     }
     if (item?.type !== "finding" || item.finding.status !== "new") return;
@@ -507,10 +513,38 @@ export function Palette() {
     if (kind === "dismiss") dismiss(id);
   }
 
+  /** Keys 1-4, or a click on a route: only until it's approved. */
+  function pickRoute(index: number) {
+    const route = selectedFinding?.fix?.routes[index];
+    if (!selectedFinding || !route || selectedFinding.status !== "new") return;
+    chooseRoute(selectedFinding.id, route.id);
+    draftRef.current?.scrollTo({ top: 0 });
+  }
+
+  /** Y: the chosen route's script, opener, figures or draft, onto the clipboard. */
+  async function copyRoute() {
+    const route = selectedFinding && chosenRoute(selectedFinding, scan);
+    const text = route && routeText(selectedFinding, route);
+    if (!text) return notify(copy.toasts.nothingToCopy);
+    notify((await copyText(text)) ? copy.toasts.copied : copy.toasts.copyFailed);
+  }
+
+  /** O: where to go if the business says no. A real body's form opens; a fictional one shows its sample. */
+  function escalate() {
+    const body = selectedFinding?.status === "approved" ? selectedFinding.fix?.escalation : undefined;
+    if (!body) return;
+    if (body.real) void openComplaintBody(body.href);
+    else setSamplePage(escalationPage(body));
+  }
+
   /** One place for what each action does, whether it came from a key or a click. */
   function run(command: Command) {
     const inDetail = view === "detail";
     switch (command) {
+      case "copy":
+        return void copyRoute();
+      case "escalate":
+        return escalate();
       case "approve":
         return act("approve");
       case "seal":
@@ -563,7 +597,11 @@ export function Palette() {
       case "edit": {
         if (selected?.type !== "finding" || !selected.finding.draft) return;
         const { finding } = selected;
+        // Only the Email route has a draft to edit, so E moves there first.
+        const email = finding.fix?.routes.find((r) => r.kind === "email");
+        if (finding.fix && !email) return;
         const startEditing = () => {
+          if (email) chooseRoute(finding.id, email.id);
           if (!inDetail) open(selected.key);
           setPane("draft");
           setEditing(true);
@@ -781,6 +819,22 @@ export function Palette() {
         return;
       }
 
+      if (inDetail && /^[1-4]$/.test(key)) {
+        event.preventDefault();
+        pickRoute(Number(key) - 1);
+        return;
+      }
+      if (inDetail && lower === "y") {
+        event.preventDefault();
+        run("copy");
+        return;
+      }
+      if (inDetail && lower === "o") {
+        event.preventDefault();
+        run("escalate");
+        return;
+      }
+
       switch (key) {
         case "/":
           event.preventDefault();
@@ -877,6 +931,8 @@ export function Palette() {
         }}
         onFocusDraft={() => setPane("draft")}
         onCommand={run}
+        onPickRoute={pickRoute}
+        onSample={(route) => setSamplePage(routePage(route))}
         sidebarOpen={sidebarShown}
         onToggleSidebar={toggleSidebar}
         traceOpen={traceOpen}
@@ -1055,6 +1111,7 @@ export function Palette() {
         <>
           <Toast />
           <ShortcutSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />
+          <SamplePageSheet page={samplePage} onClose={() => setSamplePage(undefined)} />
           <ShortcutIntro
             open={keysIntro}
             mouse={mouse}

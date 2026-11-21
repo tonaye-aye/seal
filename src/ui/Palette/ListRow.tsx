@@ -1,6 +1,8 @@
 import { Check, CircleAlert } from "lucide-react";
 import type { Finding } from "../../agent/pipeline";
 import { copy } from "../../copy";
+import { useScan } from "../../lib/scan-store";
+import { readyLabel } from "../fix-route";
 import { CountUp } from "../CountUp";
 import { daysUntil, headlineAmount, isUnsure, shortDate, urgency } from "../format";
 import { Tip } from "../layers";
@@ -94,8 +96,14 @@ export function FindingCells({ finding, saved = false }: { finding: Finding; sav
   const amount = headlineAmount(finding);
   const done = finding.status !== "new";
   const approved = finding.status === "approved";
+  const scan = useScan();
+  // Approved on a call, chat or online route: Maya still has that step to do.
   const status =
-    finding.status === "new" ? undefined : approved && !finding.draft ? copy.shared.decided.handled : copy.shared.decided[finding.status];
+    finding.status === "new"
+      ? undefined
+      : approved
+        ? (readyLabel(finding, scan) ?? (finding.draft ? copy.shared.decided.approved : copy.shared.decided.handled))
+        : copy.shared.decided[finding.status];
   const unsure = !done && isUnsure(finding);
   return (
     <RowCells

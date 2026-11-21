@@ -229,7 +229,7 @@ function RowMenu({ finding, onAct, startOpen = false }: { finding: Finding; onAc
   const scan = useScan();
   const open_ = finding.status === "new";
   // Approved: Seal the leak opens Mail, a call or Calendar for it.
-  const canSeal = finding.status === "approved" && !!sealTarget(finding, scan.corpus);
+  const canSeal = finding.status === "approved" && !!sealTarget(finding, scan.corpus, scan);
   // Remind me: greyed out with the reason when there's no calendar, or once one is set.
   const noCalendar = scan.result?.notConnected?.includes("calendar");
   const reminder = scan.reminders[finding.id];

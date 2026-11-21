@@ -21,6 +21,7 @@ import { getPreferences } from "./preferences.ts";
 import { ConnectorError } from "../connectors/runtime.ts";
 import { reminderEvent, type Reminder } from "./reminders.ts";
 import { shortDate } from "../ui/format.ts";
+import { chosenRoute } from "../ui/fix-route.ts";
 import type { ConnectorId } from "../connectors/types.ts";
 import { checkEndpoint, dropAfterCalls, markLost, usesReplay, type EndpointState, type EndpointStatus } from "./endpoint.ts";
 import { tauriTransport } from "./llm-tauri.ts";
@@ -85,6 +86,8 @@ export type ScanState = {
   decidedAt: Record<string, number>;
   /** Calendar reminders Maya asked for (L), by finding id. */
   reminders: Record<string, Reminder>;
+  /** The way of fixing each finding Maya picked (1-4), by finding id. None: the recommended one. */
+  routes: Record<string, string>;
   undo: UndoEntry[];
   toast?: Toast;
 };
@@ -135,6 +138,25 @@ function persistReminders(reminders: Record<string, Reminder>) {
   }
 }
 
+const ROUTES_KEY = "life.routes";
+
+function loadRoutes(): Record<string, string> {
+  try {
+    const raw = JSON.parse(localStorage.getItem(ROUTES_KEY) ?? "null") as { v?: number; routes?: Record<string, string> } | null;
+    return raw?.v === 1 && raw.routes ? raw.routes : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistRoutes(routes: Record<string, string>) {
+  try {
+    localStorage.setItem(ROUTES_KEY, JSON.stringify({ v: 1, routes }));
+  } catch {
+    // Storage can be unavailable; the choice then lasts until the app quits.
+  }
+}
+
 /** True until the first scan after launch has put the reminders back in the calendar (the stand-in calendar lives in memory). */
 let remindersPending = Object.keys(loadReminders()).length > 0;
 
@@ -148,6 +170,7 @@ let state: ScanState = {
   trace: [],
   ...loadSaved(),
   reminders: loadReminders(),
+  routes: loadRoutes(),
   undo: [],
 };
 const listeners = new Set<() => void>();
@@ -223,6 +246,7 @@ export async function resetScan(): Promise<boolean> {
     edits: {},
     decidedAt: {},
     reminders: {},
+    routes: {},
     undo: [],
     toast: undefined,
   });
@@ -233,6 +257,7 @@ function set(change: Partial<ScanState>) {
   state = { ...state, ...change };
   if (("decisions" in change || "edits" in change || "saved" in change || "decidedAt" in change)) persist(state);
   if ("reminders" in change) persistReminders(state.reminders);
+  if ("routes" in change) persistRoutes(state.routes);
   for (const listener of listeners) listener();
 }
 
@@ -709,6 +734,15 @@ export async function approve(findingId: string): Promise<void> {
   const finding = state.findings.find((f) => f.id === findingId);
   if (!finding || (state.decisions[findingId] ?? "new") !== "new") return;
   const shown = withDecision(finding);
+  // The route is fixed by approving. Only Email saves a draft: a call, chat or
+  // online step is Maya's to do, so nothing goes to the mailbox.
+  const route = chosenRoute(shown, state);
+  if (route) set({ routes: { ...state.routes, [findingId]: route.id } });
+  if (route && route.kind !== "email") {
+    decide(findingId, "approved", { label: copy.toasts.decision.route });
+    showToast(copy.toasts.routeReady[route.kind](route.provider), true);
+    return;
+  }
   if (finding.action.kind !== "none" && !shown.draft) {
     showToast(copy.toasts.stillWriting, false);
     return;
@@ -869,6 +903,12 @@ async function removeReminder(findingId: string, toast: (merchant: string) => st
 export async function cancelReminder(findingId: string): Promise<void> {
   set({ undo: state.undo.filter((u) => !(u.kind === "reminder" && u.findingId === findingId)) });
   await removeReminder(findingId, copy.toasts.reminderRemoved);
+}
+
+/** Picks a way of fixing a finding (1-4). Fixed once approved: ⌘Z first to change it. */
+export function chooseRoute(findingId: string, routeId: string): void {
+  if ((state.decisions[findingId] ?? "new") !== "new" || state.routes[findingId] === routeId) return;
+  set({ routes: { ...state.routes, [findingId]: routeId } });
 }
 
 export function setEdit(findingId: string, body: string): void {
