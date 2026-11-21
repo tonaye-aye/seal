@@ -300,6 +300,91 @@ export function nowIndex(entries: TimelineEntry[]): number {
   return i === -1 ? entries.length : i;
 }
 
+// ---------- The agenda: Earlier, today, Now, then groups by time ----------
+
+/** The key of Earlier's header, a J/K stop of its own. */
+export const EARLIER_GROUP = "group:earlier";
+
+/** Earlier's header, standing in the J/K stops for the lines folded under it. */
+export type EarlierStop = { key: typeof EARLIER_GROUP; earlierCount: number; open: boolean };
+export type TimelineStop = TimelineEntry | EarlierStop;
+
+export function isEarlierStop(stop: TimelineStop | undefined): stop is EarlierStop {
+  return stop?.key === EARLIER_GROUP;
+}
+
+/** Before today: these fold away under Earlier. */
+export function isEarlier(entry: TimelineEntry): boolean {
+  return entry.date < localDate(now());
+}
+
+/**
+ * Whether Earlier is open: as Maya left it, or open by itself while a search
+ * matches a line inside it (unless she closed it during that search).
+ */
+export function earlierOpen(entries: TimelineEntry[], searching: boolean, opened: boolean, closedInSearch: boolean): boolean {
+  return opened || (searching && !closedInSearch && entries.some(isEarlier));
+}
+
+/** The stops J/K move through: Earlier's header, its lines while it is open, then today and everything to come. */
+export function timelineStops(entries: TimelineEntry[], open: boolean): TimelineStop[] {
+  const before = entries.filter(isEarlier);
+  if (!before.length) return entries;
+  const header: EarlierStop = { key: EARLIER_GROUP, earlierCount: before.length, open };
+  return [header, ...(open ? before : []), ...entries.filter((e) => !isEarlier(e))];
+}
+
+/**
+ * The selected stop. A line folded away inside Earlier stands for its header, so
+ * the highlight stays on something visible. With nothing chosen, the first thing to come.
+ */
+export function pickTimelineStop(entries: TimelineEntry[], stops: TimelineStop[], key: string | undefined): TimelineStop | undefined {
+  const found = stops.find((s) => s.key === key);
+  if (found) return found;
+  if (key && entries.some((e) => e.key === key)) return stops.find(isEarlierStop);
+  return entries[nowIndex(entries)] ?? stops[stops.length - 1];
+}
+
+/** A group of lines still to come, with its own total. */
+export type AgendaGroup = { key: string; label: string; lines: TimelineEntry[]; cents: number };
+
+/**
+ * The timeline split the way it is drawn: Earlier, today, then what's coming in
+ * groups ("Next 7 days", "Later in November", then each later month). The order
+ * inside is buildTimeline's; empty groups are left out.
+ */
+export function agenda(entries: TimelineEntry[]): { earlier: TimelineEntry[]; today: TimelineEntry[]; groups: AgendaGroup[] } {
+  const today = localDate(now());
+  const week = addDays(today, SOON_DAYS);
+  const month = today.slice(0, 7);
+  const groups: AgendaGroup[] = [];
+  for (const entry of entries) {
+    if (entry.date <= today) continue;
+    const key = entry.date <= week ? "next" : entry.date.slice(0, 7) === month ? "later" : entry.date.slice(0, 7);
+    let group = groups[groups.length - 1];
+    if (group?.key !== key) {
+      const name = copy.dates.months[Number((key === "later" ? month : key).slice(5, 7)) - 1];
+      const label = key === "next" ? copy.timeline.groups.next : key === "later" ? copy.timeline.groups.laterIn(name) : name;
+      group = { key, label, lines: [], cents: 0 };
+      groups.push(group);
+    }
+    group.lines.push(entry);
+    group.cents += entry.amountCents ?? 0;
+  }
+  return { earlier: entries.filter((e) => e.date < today), today: entries.filter((e) => e.date === today), groups };
+}
+
+/** A date shows once, on the first line of its day. Agent activity has none: the Now row just below it says the day. */
+export function showsDate(entries: TimelineEntry[], index: number): boolean {
+  const entry = entries[index];
+  return entry.tone !== "agent" && entries[index - 1]?.date !== entry.date;
+}
+
+/** A day's date is amber if any of its lines is urgent, because the date only shows on the first one. */
+export function isSoonDay(entries: TimelineEntry[], date: string): boolean {
+  return entries.some((e) => e.date === date && e.tone === "soon");
+}
+
 /** Totals for the timeline's headline. */
 export function comingUp(entries: TimelineEntry[], days = 30) {
   const until = addDays(localDate(now()), days);

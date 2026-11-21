@@ -1,5 +1,5 @@
 import type { Cleared, Finding } from "../../agent/pipeline";
-import type { TimelineEntry } from "../timeline";
+import { isEarlierStop, type TimelineStop } from "../timeline";
 import { KeyButton, KeyHint } from "../Kbd";
 import { CheckNowIcon, OpenIcon, PaneIcon } from "../icons";
 import { MouseIcon, type Pane, type SideStop } from "./FindingDetail";
@@ -18,15 +18,7 @@ export function ListHint({ item, mouse, onOpen, onRescan }: { item: Item; mouse:
     return <KeyButton keys={["R"]} label={copy.actions.checkAgain} icon={<CheckNowIcon />} tone="muted" mouse={mouse} onClick={onRescan} />;
   }
   // The "Checked and left alone" header: Enter (or Space, or a click) opens and closes it.
-  if ("group" in item) {
-    if (mouse) return <ClickHint text={item.group ? copy.actions.clickToHide : copy.actions.clickToShow} />;
-    return (
-      <>
-        <KeyButton keys={["↵"]} label={item.group ? copy.actions.hide : copy.actions.show} tone="faint" onClick={onOpen} />
-        <KeyHint keys={["J", "K"]} label={copy.actions.move} />
-      </>
-    );
-  }
+  if ("group" in item) return <GroupHint open={item.group} mouse={mouse} onToggle={onOpen} />;
   if (mouse) return <ClickHint text={"evidence" in item ? copy.actions.clickForDetail : copy.actions.clickWhyFine} />;
   return (
     <>
@@ -36,8 +28,11 @@ export function ListHint({ item, mouse, onOpen, onRescan }: { item: Item; mouse:
   );
 }
 
-export function TimelineHint({ entry, mouse, onOpen }: { entry?: TimelineEntry; mouse: boolean; onOpen: () => void }) {
-  if (!entry) return null;
+export function TimelineHint({ stop, mouse, onOpen }: { stop?: TimelineStop; mouse: boolean; onOpen: () => void }) {
+  if (!stop) return null;
+  // Earlier's header works like "Checked and left alone".
+  if (isEarlierStop(stop)) return <GroupHint open={stop.open} mouse={mouse} onToggle={onOpen} />;
+  const entry = stop;
   const opens = !!(entry.findingId || entry.clearedId);
   if (mouse) return opens ? <ClickHint text={entry.clearedId ? copy.actions.clickWhyFine : copy.actions.clickForDetail} /> : null;
   return (
@@ -86,6 +81,17 @@ export function DetailHint({
         <KeyButton keys={["↵"]} label={detailsOpen ? copy.actions.hideDetails : copy.actions.showDetails} icon={<OpenIcon />} tone="faint" onClick={onToggle} />
       )}
       {twoPanes && <KeyButton keys={["Tab"]} label={pane === "draft" ? copy.actions.toEvidence : copy.actions.toDraft} icon={<PaneIcon />} tone="faint" onClick={onPane} />}
+    </>
+  );
+}
+
+/** A folding group's header: Enter (or Space, or a click) opens and closes it. */
+function GroupHint({ open, mouse, onToggle }: { open: boolean; mouse: boolean; onToggle: () => void }) {
+  if (mouse) return <ClickHint text={open ? copy.actions.clickToHide : copy.actions.clickToShow} />;
+  return (
+    <>
+      <KeyButton keys={["↵"]} label={open ? copy.actions.hide : copy.actions.show} tone="faint" onClick={onToggle} />
+      <KeyHint keys={["J", "K"]} label={copy.actions.move} />
     </>
   );
 }

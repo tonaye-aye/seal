@@ -544,6 +544,10 @@ textarea {
   border-radius: 9999px;
   background: var(--color-focus);
 }
+/* The findings list: the soft block alone, no bar. */
+.glide-soft::before {
+  content: none;
+}
 
 /* "Checked and left alone" in the findings list (a Radix Accordion): the
    group's rows fold open and shut by height, and the chevron turns. Radix
