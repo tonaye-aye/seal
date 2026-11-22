@@ -23,7 +23,8 @@
   /* Surfaces, darkest to lightest. */
   --color-bg: #121117;
   --color-surface: #18171f;
-  --color-raised: #201f28; /* the selected row, hovers, key caps, the toast */
+  --color-raised: #201f28; /* hovers, key caps, the toast */
+  --color-row-active: #2a2933; /* the List and Timeline highlight: 1.31 on bg, faint text 4.66 */
   --color-hairline: #2b2a34;
   /* Behind the panel in a plain browser tab (the desktop app shows the desktop instead). */
   --color-backdrop: #07070b;
@@ -175,6 +176,7 @@
     --color-bg: #f7f6fa;
     --color-surface: #fdfcff;
     --color-raised: #edecf4;
+    --color-row-active: #e3e1ec; /* 1.20 on bg, amber text 4.53 */
     --color-hairline: #dbd9e3;
     --color-backdrop: #dedde4;
 
@@ -696,7 +698,10 @@ html[data-palette-hidden] .now-seal {
   border-radius: 9999px;
   background: var(--color-focus);
 }
-/* The findings list: the soft block alone, no bar. */
+/* The List and Timeline: a stronger block with no bar, for hover and J/K alike. */
+.glide-soft {
+  background: var(--color-row-active);
+}
 .glide-soft::before {
   content: none;
 }

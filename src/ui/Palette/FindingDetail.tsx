@@ -25,6 +25,7 @@ import {
   PhotoIcon,
   TraceIcon,
   RemindIcon,
+  RemoveReminderIcon,
   ResetIcon,
   SidebarIcon,
   AttachIcon,
@@ -1175,13 +1176,15 @@ export type Command = "copy" | "escalate" | "approve" | "seal" | "details" | "tr
  * the main action.
  */
 export function findingActions(finding: Finding, scan: ScanState, editing: boolean): Action[] {
-  // Remind me (L) shows while it can still be added: calendar connected, none set yet.
-  const canRemind = !scan.reminders[finding.id] && !cannotRemind(finding.id, scan);
+  // One bell button (L): a plain bell adds a reminder, a slashed bell removes it.
+  // A set reminder can always be removed, even if a new one couldn't be added right now.
+  const hasReminder = !!scan.reminders[finding.id];
+  const canRemind = hasReminder || !cannotRemind(finding.id, scan);
   const remind: Action = {
     keys: ["L"],
-    label: copy.actions.remind,
+    label: hasReminder ? copy.next.removeReminder : copy.actions.remind,
     command: "remind",
-    icon: <RemindIcon />,
+    icon: hasReminder ? <RemoveReminderIcon /> : <RemindIcon />,
     iconOnly: true,
   };
   if (editing) {
@@ -1246,7 +1249,8 @@ export function FindingActions({
     >
       {actions.map((a) =>
         a.iconOnly ? (
-          <Tip key={a.label} content={a.label} keys={a.keys} side="bottom">
+          // Keyed by command, so the bell stays the same button when its label changes.
+          <Tip key={a.command} content={a.label} keys={a.keys} side="bottom">
             <button
               type="button"
               tabIndex={-1}
@@ -1260,7 +1264,7 @@ export function FindingActions({
             </button>
           </Tip>
         ) : (
-          <Tip key={a.label} content={a.tip ?? a.label} keys={a.keys} side="bottom">
+          <Tip key={a.command} content={a.tip ?? a.label} keys={a.keys} side="bottom">
             <span className="mr-1.5 inline-flex text-small">
               <KeyButton
                 keys={a.keys}

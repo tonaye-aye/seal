@@ -8,8 +8,8 @@ import {
   ArrowRight,
   ArrowUpRight,
   Ban,
+  Bell,
   BellOff,
-  BellPlus,
   CalendarDays,
   Check,
   CircleCheck,
@@ -47,7 +47,7 @@ export const ToastErrorIcon = icon(CircleX);
 export const ToastWarningIcon = icon(TriangleAlert);
 export const ToastSuccessIcon = icon(CircleCheck);
 export const ToastInfoIcon = icon(Info);
-export const RemindIcon = icon(BellPlus);
+export const RemindIcon = icon(Bell);
 export const RemoveReminderIcon = icon(BellOff);
 export const DismissIcon = icon(Ban);
 export const EditIcon = icon(Pencil);
