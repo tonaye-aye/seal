@@ -1166,7 +1166,7 @@ export function MouseIcon() {
 }
 
 /** Something the action bar (or its key) can do. */
-export type Command = "copy" | "escalate" | "approve" | "seal" | "details" | "trace" | "edit" | "done" | "dismiss" | "remind" | "undo" | "rescan" | "open" | "pane" | "toggle" | "figures";
+export type Command = "copy" | "escalate" | "approve" | "seal" | "details" | "trace" | "edit" | "done" | "dismiss" | "remind" | "undo" | "unapprove" | "rescan" | "open" | "pane" | "toggle" | "figures";
 
 /**
  * An open finding's buttons, in the top bar where Search, Filter and View
@@ -1215,13 +1215,14 @@ export function findingActions(finding: Finding, scan: ScanState, editing: boole
   }
   if (finding.status === "approved") {
     const target = sealTarget(finding, scan.corpus, scan);
+    // ⌘Z undoes the newest action, so the tooltip only offers it when that is this approval.
+    const newest = scan.undo[scan.undo.length - 1];
+    const undoIsNewest = newest?.findingId === finding.id && (newest.kind ?? "decision") === "decision";
     return [
       // The main action now: opens Mail, or a labelled sample page. Nothing is sent.
       ...(target ? [{ keys: ["S"], label: copy.actions.seal, command: "seal" as const, icon: <Mark size={16} />, primary: true, tip: sealTip(target) }] : []),
-      // Edit takes the approval back to change the draft; with no draft in use there's nothing to edit, so it's plain Undo.
-      editable
-        ? { keys: ["E"], label: copy.actions.edit, command: "edit" as const, icon: <EditIcon />, iconOnly: true }
-        : { keys: ["⌘", "Z"], label: copy.actions.undo, command: "undo" as const, icon: <UndoIcon /> },
+      // Undo takes this finding back to not approved, and doesn't open the editor.
+      { keys: undoIsNewest ? ["⌘", "Z"] : [], label: copy.actions.undo, command: "unapprove" as const, icon: <UndoIcon />, iconOnly: true },
       ...(canRemind ? [remind] : []),
     ];
   }
@@ -1250,7 +1251,7 @@ export function FindingActions({
       {actions.map((a) =>
         a.iconOnly ? (
           // Keyed by command, so the bell stays the same button when its label changes.
-          <Tip key={a.command} content={a.label} keys={a.keys} side="bottom">
+          <Tip key={a.command} content={a.label} keys={a.keys.length ? a.keys : undefined} side="bottom">
             <button
               type="button"
               tabIndex={-1}

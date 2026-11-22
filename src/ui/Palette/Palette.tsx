@@ -17,7 +17,7 @@ import { getPreferences } from "../../lib/preferences";
 import { DetailHint, ListHint, TimelineHint } from "./FooterHint";
 import { VERB_BY_CODE } from "./DraftVerbs";
 import { SetupScreen, SetupSkip, welcomeLocked } from "../Onboarding/SetupScreen";
-import { approve, cancelReminder, cancelRewrite, chooseRoute, pressVerb, dismiss, isEdited, nothingConnected, notify, rankedFindings, rememberWhy, remind, reopen, resetEdit, syncEverything, undoLast, useScan } from "../../lib/scan-store";
+import { approve, cancelReminder, cancelRewrite, chooseRoute, pressVerb, dismiss, isEdited, nothingConnected, notify, rankedFindings, rememberWhy, remind, reopen, resetEdit, syncEverything, undoApproval, undoLast, useScan } from "../../lib/scan-store";
 import { RULE_REASONS } from "../../lib/rules";
 import { openComplaintBody, seal, sealTarget } from "../seal";
 import { chosenRoute, escalationPage, routePage, routeText, usesEmail, type SamplePage } from "../fix-route";
@@ -573,6 +573,10 @@ export function Palette() {
         return act("remind");
       case "undo":
         return void undoLast();
+      case "unapprove":
+        // The Undo button on an approved finding: only this finding, and no editor.
+        if (selected?.type === "finding") void undoApproval(selected.finding.id);
+        return;
       case "done":
         // Done in the heading (while editing): the same as Esc or the Done under the editor.
         if (editing) {

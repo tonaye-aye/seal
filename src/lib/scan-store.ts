@@ -990,20 +990,35 @@ export async function undoLast(): Promise<void> {
 }
 
 /**
- * Edit on an approved finding: takes the approval back (and its draft out of
- * Drafts), so Maya can change the draft and approve it again. Returns false
- * when it isn't approved.
+ * Takes one finding's approval back (and its draft out of Drafts), even if
+ * other actions came after it. Returns undefined when it isn't approved.
  */
-export async function reopen(findingId: string): Promise<boolean> {
-  if (state.decisions[findingId] !== "approved") return false;
+async function takeBackApproval(findingId: string): Promise<{ savedId?: string } | undefined> {
+  if (state.decisions[findingId] !== "approved") return undefined;
   // Its latest decision in the undo list (it may be gone after a restart).
   let at = state.undo.length - 1;
   while (at >= 0 && (state.undo[at].findingId !== findingId || (state.undo[at].kind ?? "decision") !== "decision")) at--;
   const entry: UndoEntry = at >= 0 ? state.undo[at] : { findingId, before: "new", label: "" };
   if (at >= 0) set({ undo: state.undo.filter((_, i) => i !== at) });
-  await revert(entry);
+  return { savedId: await revert(entry) };
+}
+
+/**
+ * Edit on an approved finding: takes the approval back so Maya can change the
+ * draft and approve it again. Returns false when it isn't approved.
+ */
+export async function reopen(findingId: string): Promise<boolean> {
+  if (!(await takeBackApproval(findingId))) return false;
   showToast(copy.toasts.reopened, "info");
   return true;
+}
+
+/** The Undo button on an approved finding: back to not approved, without opening the editor. */
+export async function undoApproval(findingId: string): Promise<void> {
+  const undone = await takeBackApproval(findingId);
+  if (!undone) return;
+  const merchant = state.findings.find((x) => x.id === findingId)?.merchant;
+  showToast(undone.savedId ? copy.toasts.undoneDraft(merchant) : copy.toasts.undone(merchant), "info");
 }
 
 /** Shows a short message in the toast (the Seal button's notes), with no Undo. */
