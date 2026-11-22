@@ -13,8 +13,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
-/// Placeholder product name, shown in the menu bar menu. Kept in sync with
-/// APP_NAME in src/lib/app.ts until the real name is chosen.
+/// The product name, shown in the menu bar menu. Kept in sync with APP_NAME in
+/// src/lib/app.ts.
 const APP_NAME: &str = "Seal";
 
 /// Hotkeys to try, in order. The first one that registers wins. Option+Space

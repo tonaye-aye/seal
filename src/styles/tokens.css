@@ -78,6 +78,8 @@
   /* The "now" mark's glow when WebGL is missing (the CSS fallback). */
   --color-now-glow: var(--color-accent);
   --color-now-glow-soft: var(--color-accent-glow);
+  /* The seal while nothing is happening: violet leaning towards grey. */
+  --color-now-idle: color-mix(in srgb, var(--color-accent) 40%, var(--color-muted));
 
   /* Fonts: Poppins for headings, Nunito for everything you read, Geist Mono
      for figures, dates, ids and small labels. */
@@ -582,16 +584,26 @@ textarea {
   animation: fade-in var(--duration-fast) var(--ease-out);
 }
 
-/* The "now" mark when WebGL is not available: the plain SVG mark, with the
-   same three states done in CSS (dim and still, pulsing, glowing). */
-.now-fallback {
+/* The seal in the "now" mark. It dims when idle and is full strength when
+   something needs you. The shader behind it draws the glow and spark. */
+.now-seal {
   display: grid;
+  color: var(--color-accent);
   transition:
+    color var(--duration-base) var(--ease-out),
     opacity var(--duration-base) var(--ease-out),
     filter var(--duration-base) var(--ease-out);
 }
-.now-fallback.now-idle {
-  opacity: 0.65;
+.now-seal.now-idle {
+  color: var(--color-now-idle);
+  opacity: 0.75;
+}
+.now-seal.now-working {
+  opacity: 0.85;
+}
+/* When WebGL is not available, CSS does the pulse and the glow instead. */
+.now-paused {
+  animation-play-state: paused !important;
 }
 .now-fallback.now-working {
   animation: now-pulse 1.2s ease-in-out infinite;

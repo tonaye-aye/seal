@@ -337,7 +337,7 @@ Script checks are in [section 15](#15-testing-and-the-eval).
 | `ShortcutSheet.tsx` | Shortcut reference |
 | `Toast.tsx`, `Trace.tsx` | Results with Undo, and the agent's log |
 | `SearchField.tsx`, `Filters.tsx`, `Controls.tsx`, `SyncButton.tsx` | Top and bottom bar controls |
-| `NowVisual.tsx`, `Mark.tsx` | The WebGL status mark and its fallback |
+| `NowVisual.tsx`, `Mark.tsx` | The live status mark and the seal logo |
 | `StatusStrip.tsx`, `model-status.ts`, `ViewHeading.tsx` | Status helpers and shared headings |
 
 ### `src-tauri/`: native shell
@@ -1465,15 +1465,15 @@ Timing:
 
 ### The now mark
 
-`NowVisual.tsx` is a small raw WebGL shader in the top bar. It's the app's one atmospheric element, and it only shows real state from `now-state.ts`:
+`NowVisual.tsx` is the seal logo in the top bar, with a small raw WebGL shader behind it. It's the app's one atmospheric element, and it only shows real state from `now-state.ts`:
 
 | State | Look |
 | --- | --- |
-| `idle` | Slow, dim breathing |
-| `working` | A spark sweeps round the ring |
-| `needs-you` | A violet glow that grows with urgency |
+| `idle` | A dim seal with a slow, faint glow |
+| `working` | A spark circles behind the seal |
+| `needs-you` | A bright seal with a violet glow that grows with urgency |
 
-Rendering stops when the window is hidden. With reduced motion, it draws one still frame. If WebGL isn't available, it falls back to the SVG `Mark`.
+The seal is an SVG drawn from `src/ui/seal-mark.ts`, and `scripts/make-seal-icons.ts` draws the menu bar icon and the app icon's source from the same shape. Rendering stops when the window is hidden, and each unmount releases its WebGL context. With reduced motion, it draws one still frame. If WebGL isn't available, the seal stays and CSS draws the glow.
 
 ### The seal
 

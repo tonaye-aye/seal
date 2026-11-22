@@ -5,22 +5,24 @@ import { copy } from "../../copy";
 import { nowFrom, type Now } from "../now-state";
 import { Mark } from "./Mark";
 
-// The "now" visual: the app's mark, alive. It is the one atmospheric element
-// in the app, and it only ever shows the real scan state (see now-state.ts).
+// The "now" visual: the seal, alive. It is the one atmospheric element in the
+// app, and it only ever shows the real scan state (see now-state.ts).
 //
-// - idle: the ring breathes slowly and dimly.
-// - working: a bright spark sweeps round the ring, like a radar.
-// - needs-you: a violet glow that grows and breathes faster as urgency rises.
+// - idle: the seal is dim, with a slow, faint glow behind it.
+// - working: a bright spark circles behind the seal, like a radar.
+// - needs-you: the seal is bright, with a violet glow that grows and breathes
+//   faster as urgency rises.
 //
-// It is drawn by a tiny WebGL shader (a program that runs on the graphics chip
-// and colours every pixel of a small canvas). The canvas is bigger than the
-// mark so the glow can spill softly behind the app name. Rendering stops
-// whenever the palette is hidden or the page is in the background, and with
-// "reduce motion" on it draws one still frame per state change. If WebGL is not
-// available the plain SVG mark shows instead, with a CSS glow. Its colours
+// There are two layers. The seal is a plain SVG, so it stays sharp at any size.
+// Behind it, a tiny WebGL shader (a program that runs on the graphics chip and
+// colours every pixel of a small canvas) draws only the glow and the spark. The
+// canvas is bigger than the seal so the glow can spill softly behind the app
+// name. Rendering stops whenever the palette is hidden or the page is in the
+// background, and with "reduce motion" on it draws one still frame per state
+// change. If WebGL is not available the seal stays, with a CSS glow. Colours
 // come from tokens.css and follow the light or dark theme.
 
-/** The canvas size in CSS pixels. The mark (18 px) sits in the middle. */
+/** The canvas size in CSS pixels. The seal (18 px) sits in the middle. */
 const SIZE = 56;
 
 const VERTEX = `
@@ -28,8 +30,7 @@ attribute vec2 a_pos;
 void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }
 `;
 
-// Distances are in CSS pixels from the centre, so the ring lines up with the
-// 18 px SVG mark: radius 6.3, stroke 1.6, centre dot radius 2.
+// Distances are in CSS pixels from the centre of the 18 px seal.
 const FRAGMENT = `
 precision mediump float;
 uniform vec2 u_res;      // canvas size in device pixels
@@ -44,26 +45,22 @@ uniform vec3 u_muted;
 uniform float u_halo;    // how strong the glow is: 1 on dark, softer on light
 
 const float TAU = 6.2831853;
-const float R = 6.3;
+const float R = 6.3;      // where the glow starts to fade
+const float ORBIT = 10.4; // the circle the spark runs on, just outside the seal
 
 void main() {
   vec2 p = (gl_FragCoord.xy - 0.5 * u_res) / u_dpr;
   float d = length(p);
-  float aa = 0.75;
   float idle = u_mix.x, work = u_mix.y, need = u_mix.z;
   float breath = 0.5 + 0.5 * sin(u_phase);
 
-  // The ring and the centre dot, the same shape as the mark.
-  float ring = 1.0 - smoothstep(0.8 - aa, 0.8 + aa, abs(d - R));
-  float dot = 1.0 - smoothstep(2.0 - aa, 2.0 + aa, d);
-
-  // Working: a spark runs round the ring with a fading tail behind it.
+  // Working: a spark circles the seal with a fading tail behind it.
   float angle = atan(p.y, p.x);
   float behind = mod(u_time * 3.2 - angle, TAU);
   float tail = exp(-behind * 1.4);
-  float spark = tail * (1.0 - smoothstep(0.0, 3.5, abs(d - R)));
+  float spark = tail * (1.0 - smoothstep(0.0, 1.8, abs(d - ORBIT)));
 
-  // A soft glow outside the ring. It reaches further when more is at stake.
+  // A soft glow behind the seal. It reaches further when more is at stake.
   float reach = mix(3.0, 3.5 + 5.0 * u_urgency, need) + 2.0 * work;
   // Fades to nothing well before the canvas edge, so no square shows.
   float halo = exp(-max(d - R, 0.0) / reach) * (1.0 - smoothstep(R + 4.0, 0.5 * u_res.x / u_dpr, d));
@@ -72,18 +69,13 @@ void main() {
       work * 0.22 +
       need * (0.18 + 0.24 * u_urgency) * (0.6 + 0.4 * breath));
 
-  // How bright the mark itself is in each state.
-  float markAlpha = idle * (0.55 + 0.20 * breath) + work * 0.55 + need * 1.0;
-  float dotAlpha = idle * (0.55 + 0.20 * breath) + work * (0.6 + 0.4 * tail) + need * 1.0;
-
-  float a = max(max(ring * markAlpha, dot * dotAlpha), spark * work);
-  a = max(a, halo * glowStrength * (1.0 - ring));
+  float a = max(spark * work, halo * glowStrength);
 
   // Very urgent findings warm the glow towards ember red, never further.
   // Idle leans towards the muted text colour, so the accent means "something is waiting".
   vec3 col = mix(u_accent, u_muted, idle * 0.6);
-  col = mix(col, u_ember, need * smoothstep(0.6, 1.0, u_urgency) * 0.25 * (1.0 - ring));
-  col += work * spark * 0.25; // the spark is a little whiter than the ring
+  col = mix(col, u_ember, need * smoothstep(0.6, 1.0, u_urgency) * 0.25);
+  col += work * spark * 0.25; // the spark is a little whiter than the glow
 
   gl_FragColor = vec4(col * a, a); // premultiplied alpha over a transparent canvas
 }
@@ -104,22 +96,30 @@ function breathSpeed(mix: number[], urgency: number): number {
 export function NowVisual({ still: forceStill = false, fallback = false }: { still?: boolean; fallback?: boolean } = {}) {
   const scan = useScan();
   const now = nowFrom(scan);
-  const canvas = useRef<HTMLCanvasElement>(null);
+  const glow = useRef<HTMLSpanElement>(null);
   const [failed, setFailed] = useState(fallback);
+  const [paused, setPaused] = useState(() => isPaletteHidden() || document.hidden);
   // The latest state, read by the drawing loop without restarting it.
   const live = useRef(now);
   live.current = now;
   const kick = useRef<() => void>(() => {});
 
   useEffect(() => {
-    const el = canvas.current;
-    if (!el) return; // the CSS mark is showing
-    const gl = el?.getContext("webgl", { premultipliedAlpha: true, antialias: false, alpha: true });
-    const program = gl && build(gl);
-    if (!el || !gl || !program) {
+    const host = glow.current;
+    if (!host || fallback) return; // the CSS glow is showing
+    // Made here, not by React: a released WebGL context can't be used again, and
+    // React's development mode runs this effect twice on the same elements.
+    const el = document.createElement("canvas");
+    el.className = "block size-full";
+    const gl = el.getContext("webgl", { premultipliedAlpha: true, antialias: false, alpha: true });
+    const made = gl ? build(gl) : undefined;
+    if (!gl || !made) {
+      gl?.getExtension("WEBGL_lose_context")?.loseContext();
       setFailed(true);
       return;
     }
+    const { program } = made;
+    host.appendChild(el);
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     el.width = el.height = Math.round(SIZE * dpr);
@@ -206,6 +206,7 @@ export function NowVisual({ still: forceStill = false, fallback = false }: { sti
     const lost = (e: Event) => {
       e.preventDefault();
       cancelAnimationFrame(frame);
+      el.remove();
       setFailed(true);
     };
 
@@ -223,8 +224,22 @@ export function NowVisual({ still: forceStill = false, fallback = false }: { sti
       scheme.removeEventListener("change", themeChanged);
       el.removeEventListener("webglcontextlost", lost);
       kick.current = () => {};
+      release(gl, el, made);
     };
   }, []);
+
+  // The CSS glow's animation stops too while no one can see it.
+  useEffect(() => {
+    if (!failed) return;
+    const update = () => setPaused(isPaletteHidden() || document.hidden);
+    update();
+    const stopVisibility = onPaletteVisibility(update);
+    document.addEventListener("visibilitychange", update);
+    return () => {
+      stopVisibility();
+      document.removeEventListener("visibilitychange", update);
+    };
+  }, [failed]);
 
   // With reduced motion there is no loop, so redraw the still frame when the state changes.
   useEffect(() => {
@@ -242,18 +257,17 @@ export function NowVisual({ still: forceStill = false, fallback = false }: { sti
       data-now={now.state}
       data-urgency={now.urgency}
     >
-      {failed ? (
-        <span className={`now-fallback text-accent now-${now.state}`}>
-          <Mark />
-        </span>
-      ) : (
-        <canvas
-          ref={canvas}
-          aria-hidden="true"
-          className="pointer-events-none absolute"
-          style={{ width: SIZE, height: SIZE, left: (18 - SIZE) / 2, top: (18 - SIZE) / 2 }}
-        />
-      )}
+      {/* The shader's canvas goes in here. */}
+      <span
+        ref={glow}
+        aria-hidden="true"
+        className="pointer-events-none absolute"
+        style={{ width: SIZE, height: SIZE, left: (18 - SIZE) / 2, top: (18 - SIZE) / 2 }}
+      />
+      {/* relative: paints the seal above the glow. */}
+      <span className={`now-seal relative now-${now.state}${failed ? " now-fallback" : ""}${failed && paused ? " now-paused" : ""}`}>
+        <Mark />
+      </span>
     </span>
   );
 }
@@ -294,10 +308,24 @@ function toRgb(value: string): Rgb {
 }
 
 /**
+ * Gives the graphics memory back. Browsers allow only a few WebGL contexts at
+ * once, and each summon makes a new one.
+ */
+function release(gl: WebGLRenderingContext, el: HTMLCanvasElement, made: { program: WebGLProgram; buffer: WebGLBuffer | null }) {
+  if (!gl.isContextLost()) {
+    gl.deleteBuffer(made.buffer);
+    gl.deleteProgram(made.program);
+    gl.getExtension("WEBGL_lose_context")?.loseContext();
+  }
+  el.remove();
+  el.width = el.height = 0;
+}
+
+/**
  * Compiles a shader and uploads one triangle that covers the whole canvas.
  * Returns undefined on failure.
  */
-function build(gl: WebGLRenderingContext): WebGLProgram | undefined {
+function build(gl: WebGLRenderingContext): { program: WebGLProgram; buffer: WebGLBuffer | null } | undefined {
   const compile = (type: number, source: string) => {
     const shader = gl.createShader(type);
     if (!shader) return undefined;
@@ -314,6 +342,9 @@ function build(gl: WebGLRenderingContext): WebGLProgram | undefined {
   gl.attachShader(program, vs);
   gl.attachShader(program, fs);
   gl.linkProgram(program);
+  // Linked programs keep their own copy, so the shaders can be let go now.
+  gl.deleteShader(vs);
+  gl.deleteShader(fs);
   if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return undefined;
   gl.useProgram(program);
 
@@ -323,5 +354,5 @@ function build(gl: WebGLRenderingContext): WebGLProgram | undefined {
   const pos = gl.getAttribLocation(program, "a_pos");
   gl.enableVertexAttribArray(pos);
   gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
-  return program;
+  return { program, buffer };
 }
