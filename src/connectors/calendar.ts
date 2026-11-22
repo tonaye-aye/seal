@@ -2,7 +2,7 @@
 // (RRULE) into individual occurrences for the dates asked about. New events
 // can be added only through createEvent, which the UI calls after Maya
 // confirms. The optional "token expired" scenario fails every call with a 401
-// until reconnect() is called.
+// until reconnect() is called or the scenario is switched off.
 
 import { now } from "../lib/clock.ts";
 import { addDays, localDate, toZonedIso, weekday, zonedInstant } from "../lib/dates.ts";
@@ -169,10 +169,14 @@ export function createCalendarConnector(runtime: ConnectorRuntime): CalendarConn
   const created: RawEvent[] = [];
   let createdCount = 0;
   let signedIn = !runtime.scenarios.has("calendar_reauth");
+  let scenarioOn = !signedIn;
 
-  // Switching the scenario on again expires the token again.
+  // The demo switch sets the sign-in only when it flips: on signs out, off
+  // signs back in. Another switch flipping leaves it alone.
   runtime.scenarios.subscribe(() => {
-    if (runtime.scenarios.has("calendar_reauth")) signedIn = false;
+    const on = runtime.scenarios.has("calendar_reauth");
+    if (on !== scenarioOn) signedIn = !on;
+    scenarioOn = on;
   });
 
   const load = once(async () => {
