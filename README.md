@@ -11,11 +11,27 @@ data is in [`seed/`](seed/README.md).
 
 ## Prerequisites
 
-- macOS (the only platform tested)
+Both platforms need:
+
 - [Node.js](https://nodejs.org) 22.18 or newer (the scripts run TypeScript directly; tested on Node 26)
 - [pnpm](https://pnpm.io)
 - [Rust](https://rustup.rs) (stable, via rustup)
+
+### macOS
+
 - Xcode Command Line Tools: `xcode-select --install`
+
+### Windows
+
+- [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/), with **Desktop development with C++** selected in the installer
+- Rust's MSVC toolchain: choose it when installing rustup, or run `rustup default stable-msvc`
+- [WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/#download-section), already installed on Windows 10 (version 1803 onward) and Windows 11
+
+On Windows, the summon key is **Alt+Space**, or **Ctrl+Shift+Space** if that's taken. This build has three limits there:
+
+- Shortcuts shown with `⌘` listen for the Windows key, not Ctrl. Use `V` for the timeline, the cog for Settings and the toast's Undo button.
+- `S` can't open a draft in your mail app and `O` can't open a complaint form, because both use a macOS command. Use `Y` to copy the draft.
+- The `LIFE_REPLAY=1` and `LIFE_ONBOARDING=1` commands below use macOS shell syntax. In PowerShell, run `$env:LIFE_REPLAY=1; pnpm tauri dev`.
 
 ## Setup
 
@@ -70,7 +86,7 @@ Press **⌥Space** to bring it up (or **⌘⇧Space** if ⌥Space is taken). The
 | `?` | All shortcuts |
 | `Esc` | Back, then close |
 
-Every row and button shows its key, and everything works with the mouse too. The businesses' phone numbers and links are
+Key hints sit in the bottom bar and on buttons or their tooltips, and everything works with the mouse too. The businesses' phone numbers and links are
 samples: the app shows them but never dials or opens them.
 
 ## Guides
@@ -216,7 +232,7 @@ error, replay, undo and more.
   fresh clone.
 - **The detectors were written against this seed data.** They use no merchant names, but they need a broader
   test set before they could handle real mail.
-- **macOS only**, one household, AUD only, fake connectors.
+- **Best on macOS.** Windows has the limits listed under Prerequisites. One household, AUD only, fake connectors.
 
 ## Licences
 
@@ -227,9 +243,9 @@ error, replay, undo and more.
 - [Geist Mono](https://github.com/vercel/geist-font) by Vercel (figures, dates and small labels): SIL Open Font
   License 1.1, installed through `@fontsource-variable/geist-mono`.
 - [Lucide](https://lucide.dev) icons (`lucide-react`): ISC.
-- [Rive](https://rive.app) runtime (`@rive-app/canvas`) for the animated seal in onboarding: MIT. Its engine is bundled, so it
+- [Rive](https://rive.app) runtime (`@rive-app/canvas`) for the animated seal in onboarding and the empty list: MIT. Its engine is bundled, so it
   works offline.
-- [Sappy Seal](https://rive.app/community/files/19467-36588-sappy-seal/) by dob, the animated seal in onboarding:
+- [Sappy Seal](https://rive.app/community/files/19467-36588-sappy-seal/) by dob, the animated seal in onboarding and the empty list:
   [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Changed: its dark background is made transparent, and new
   animations are added: a wave, a small plug it lifts and keeps holding once a source connects, a magnifying glass, document and pencil held up in
   turn during a check, and a celebration with three extra hearts.
