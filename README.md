@@ -55,7 +55,7 @@ Press **⌥Space** to bring it up (or **⌘⇧Space** if ⌥Space is taken). The
 | `⇧1` / `⇧2` | On the Email route: rewrite the draft Firmer or Shorter (checked by code; press again or `⌘Z` to go back) |
 | `Y` | Copy the prepared script, opener, figures or draft |
 | `A` | Approve the chosen way (only Email saves a draft, and nothing is sent) |
-| `S` | Seal the leak, once approved: opens Mail with the draft filled in, or a labelled sample page for a call, chat or online step |
+| `S` | Seal, once approved: opens Mail with the draft filled in, or a labelled sample page for a call, chat or online step |
 | `O` | If they say no: opens the real complaint body's form, or a labelled sample |
 | `E` / `D` / `L` | Edit the draft (takes an approval back) / Not a leak / Remind me (a calendar reminder) |
 | `1`-`3` after `D` | Say why it isn't a leak: We want this, Already sorted, or Seal got it wrong. Seal remembers the answer in Settings, and the finding comes back if the charge changes or a new problem appears. Plain code applies it, and it never reaches a model |
@@ -227,8 +227,6 @@ error, replay, undo and more.
 - [Geist Mono](https://github.com/vercel/geist-font) by Vercel (figures, dates and small labels): SIL Open Font
   License 1.1, installed through `@fontsource-variable/geist-mono`.
 - [Lucide](https://lucide.dev) icons (`lucide-react`): ISC.
-- The seal on Seal the leak is from Microsoft's [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) (High Contrast
-  set, via [shadcn.io](https://www.shadcn.io/icon/fluent-emoji-high-contrast-seal)): MIT.
 - [Rive](https://rive.app) runtime (`@rive-app/canvas`) for the animated seal in onboarding: MIT. Its engine is bundled, so it
   works offline.
 - [Sappy Seal](https://rive.app/community/files/19467-36588-sappy-seal/) by dob, the animated seal in onboarding:

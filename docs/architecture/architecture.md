@@ -309,7 +309,7 @@ Script checks are in [section 15](#15-testing-and-the-eval).
 | `timeline.ts` | Builds the timeline |
 | `next-steps.ts` | What to expect after approving |
 | `fix-route.ts` | Which route is chosen, and what it prepares |
-| `seal.ts` | Where "Seal the leak" goes |
+| `seal.ts` | Where the Seal button goes |
 | `mail-attachments.ts` | What Maya must attach by hand in Mail |
 | `finding-trace.ts` | One finding's trace |
 | `rule-words.ts` | Words for rules and returned findings |
@@ -490,7 +490,7 @@ At launch, the app uses macOS's `Accessory` policy, which means no Dock icon and
 
 `register_hotkey()` tries ⌥Space, then ⌘⇧Space. The choice is saved in a small `hotkey` file in the app's config folder. If neither registers, the menu bar icon still works.
 
-The tray icon is a macOS **template image** (`src-tauri/icons/tray.png`), which is black on transparent so macOS can recolour it. Its menu has Open and Quit.
+The tray icon is a macOS **template image** (`src-tauri/icons/tray.png`), which is black on transparent so macOS can recolour it. Its menu has Open, Settings and Quit, with their shortcuts passed as native accelerators so macOS draws them in grey. Settings is greyed out until onboarding is done.
 
 ### Commands the web page can call
 
@@ -1104,9 +1104,9 @@ A finding's `fix` is a `FixPlan`:
 
 `NextSteps.tsx` then shows how to finish, what to expect (from `next-steps.ts`) and dated lines for any deadlines. **The app doesn't check the outcome.** That text is guidance written by code.
 
-### Seal the leak
+### The Seal button
 
-`sealTarget()` in `ui/seal.ts` decides where `S` goes:
+Once a finding is approved, **Seal** takes Approve's place at the top right. `sealTarget()` in `ui/seal.ts` decides where it and `S` go:
 
 | Route | Result |
 | --- | --- |
@@ -1375,7 +1375,7 @@ flowchart LR
     F --> D["Palette, then shortcuts dialog"]
 ```
 
-State lives in `lib/onboarding.ts`, and resumes after a restart. The palette doesn't hide on blur until it's finished. If both hotkeys are taken, `⌘↵` or the Skip link continues.
+State lives in `lib/onboarding.ts`, and resumes after a restart. The palette doesn't hide on blur until it's finished. **Skip** sits at the top right on steps 1 and 2 (`⌘⇧↵`). Step 1's is for when another app holds both hotkeys. Step 2's ends setup with what's connected and checks only those. With nothing connected it reads nothing: `skipped` in the saved state stops an empty list meaning "all four", and the List asks for a source.
 
 One seal carries across all three steps. Each step reserves a space with `SealSlot`. On a new step, `SealStage.tsx` fades the seal out, moves it by transform while it can't be seen, and fades it back in with the step's content, so the engine loads once and nothing else shifts. `SealAnimation.tsx` lazy-loads the Rive engine, bundled locally so it works offline. If it can't load within 4 seconds, a static seal icon appears at the same size.
 
@@ -1432,7 +1432,7 @@ Every toast has one of these four tones (`ToastTone` in `scan-store.ts`). Its co
 
 All text colours pass WCAG AA (4.5:1) on background (at the grain's strongest speck), surface and raised, in both themes. Ratios are noted beside each token.
 
-**Grain:** the panel is opaque, with a tinted grain under its content (`.grain`). `scripts/make-grain.ts` draws the tile, and tokens set its colour, size and strength. Text keeps AA up to a strength of 0.087, and it is set to 0.08.
+**Grain:** the panel is opaque, with a tinted grain under its content (`.grain`). Filled violet buttons add `.grain-accent`, at a strength (`--cta-grain`) that keeps white text at 4.5:1 on the strongest speck. `scripts/make-grain.ts` draws the tile, and tokens set its colour, size and strength. Text keeps AA up to a strength of 0.087, and it is set to 0.08.
 
 **Themes:** `@theme` holds dark, and a `prefers-color-scheme: light` block swaps in light. The app follows macOS.
 
@@ -1471,7 +1471,7 @@ Timing:
 | State | Look |
 | --- | --- |
 | `idle` | A dim seal with a slow, faint glow |
-| `working` | A spark circles behind the seal |
+| `working` | The seal pulses, with a steady glow behind it |
 | `needs-you` | A bright seal with a violet glow that grows with urgency |
 
 The seal is an SVG drawn from `src/ui/seal-mark.ts`, and `scripts/make-seal-icons.ts` draws the menu bar icon and the app icon's source from the same shape. Rendering stops when the window is hidden, and each unmount releases its WebGL context. With reduced motion, it draws one still frame. If WebGL isn't available, the seal stays and CSS draws the glow.
@@ -1483,6 +1483,8 @@ The seal is an SVG drawn from `src/ui/seal-mark.ts`, and `scripts/make-seal-icon
 `SealAnimation.tsx` uses the state machine `Seal` on the artboard `Sappy`, with inputs `Click`, `Found` and `Wave` (triggers) and `Blush`, `Checking`, `Plug` and `Plug Held` (booleans). A mismatch in these names fails silently, so check the animation after any change. A missing input only loses that reaction.
 
 `seal-reaction.ts` works out the reaction from the onboarding step and the real check: a wave every 5 seconds on step 1 until the summon key is pressed, a magnifying glass, document and pencil in turn while a check runs, and a celebration when it ends with findings. The props change on a 9-second timer inside the `.riv`, so they don't show how far the check has got. A failed check, or one that finds nothing, lowers whichever prop is up with no celebration. The seal is redrawn on every summon, so whether it has already celebrated is kept outside it.
+
+The same seal, at the same 144 px, also fills an empty List (`SealState`): before a first check with Run my check, after a skipped setup with Connectors, and while a check runs. The three share one layout, so the seal stays mounted when a check starts. While checking it waits 250 ms, so a fast check can't flash it. The blush follows the pointer and fades once it has been still for 3 seconds.
 
 On step 2 the seal lifts a small plug the first time a source really connects, then keeps holding it until the check starts. `SealStage.tsx` works this out from the connected sources and their real status, so a failed source doesn't count. A seal drawn again after a reload or summon is already holding the plug and doesn't lift it a second time. Nothing extra is saved.
 
