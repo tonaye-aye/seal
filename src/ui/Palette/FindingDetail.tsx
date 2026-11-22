@@ -16,6 +16,7 @@ import {
   ApproveIcon,
   BankIcon,
   CalendarIcon,
+  CloseIcon,
   DismissIcon,
   DocumentIcon,
   EditIcon,
@@ -252,7 +253,7 @@ function PeekCard({ view, needles, onOpenSource }: { view: EvidenceView; needles
 }
 
 /** The whole source, over a dimmed palette: the full text with checked amounts marked, or the photo, or the bank line. */
-function SourceSheet({ view, needles, onClose }: { view?: EvidenceView; needles: string[]; onClose: () => void }) {
+function SourceSheet({ view, needles, mouse, onClose }: { view?: EvidenceView; needles: string[]; mouse: boolean; onClose: () => void }) {
   // Keep showing the last source while the sheet fades out.
   const last = useRef(view);
   if (view) last.current = view;
@@ -293,7 +294,10 @@ function SourceSheet({ view, needles, onClose }: { view?: EvidenceView; needles:
               <h2 className={`mt-0.5 heading text-body text-text ${shown.kind === "txn" ? "font-mono" : ""}`}>{shown.title}</h2>
               <p className="mt-0.5 truncate text-meta text-faint">{shown.meta}</p>
             </div>
-            <Kbd keys={["Esc"]} />
+            {/* Like the other sheets: Esc's key cap in keyboard mode, an X with the mouse. Either way it closes the sheet. */}
+            <span className="pr-1.5">
+              <KeyButton keys={["Esc"]} label={copy.actions.close} icon={<CloseIcon />} mouse={mouse} onClick={onClose} />
+            </span>
           </header>
           <div ref={body} className="relative min-h-0 overflow-y-auto px-5 py-4">
             {shown.imageDocId && <EvidenceImage docId={shown.imageDocId} alt={shown.title} large />}
@@ -571,7 +575,7 @@ function Sidebar({
         </Accordion.Root>
       </div>
       </div>
-      <SourceSheet view={source >= 0 ? all[source] : undefined} needles={needles} onClose={() => onOpenSource(-1)} />
+      <SourceSheet view={source >= 0 ? all[source] : undefined} needles={needles} mouse={mouse} onClose={() => onOpenSource(-1)} />
     </aside>
     {/* One icon that never moves: pinned to the window's top right, while the sidebar slides beneath it.
         Closed, it is simply the last icon in the top bar. */}

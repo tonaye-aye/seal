@@ -189,7 +189,7 @@ export const copy = {
     /** Notes above the rows. */
     stoppedEarly: "The check stopped early: {error} Press [R] to try again.",
     notConnected: (names: string[]) =>
-      `${andList(names)} ${pick(names.length, "wasn't", "weren't")} connected, so this check didn't look at ${pick(names.length, "it", "them")}. Connect from Connectors at the bottom.`,
+      `${andList(names)} ${pick(names.length, "wasn't", "weren't")} connected, so this check didn't look at ${pick(names.length, "it", "them")}. Turn ${pick(names.length, "it", "them")} on in Settings, under Connectors.`,
     couldntRead: (names: string[]) =>
       `${andList(names)} couldn't be read, so this check is missing what's in it. Press [R] to reconnect and check again.`,
 
@@ -985,21 +985,21 @@ export const copy = {
         short: "Calendar signed out",
         simulates: "Every calendar call fails with 401, like an expired token.",
         expect:
-          "Connectors at the bottom turns red with a 1 (open it for Reconnect), and the findings list says the calendar couldn't be read. Press R again to reconnect.",
+          "the Settings cog gets a red dot (Connectors in there has Reconnect), and the findings list says the calendar couldn't be read. Press R again to reconnect.",
       },
       bank_rate_limit: {
         name: "Bank rate limit",
         short: "Bank rate limit",
         simulates: "Every 4th transactions call is refused with 429, asking to wait 3 seconds.",
         expect:
-          'once per check, Connectors at the bottom counts down "Retrying in 3s" and the checking screen says the bank asked us to slow down. It carries on by itself.',
+          "once per check, the checking screen says the bank asked us to slow down and the Settings cog gets a blue dot. It carries on by itself.",
       },
       slow_documents: {
         name: "Slow documents",
         short: "Slow documents",
         simulates: "Each document read takes 4 to 6 seconds.",
         expect:
-          "for about 15 s while documents are read, a loading card under the steps on the checking screen; the Connectors count at the bottom pulses blue, and its menu says Documents are slow to respond.",
+          "for about 15 s while documents are read, a loading card on the checking screen says Documents are slow to respond, and the Settings cog gets a blue dot.",
       },
     },
     modelTitle: "Model endpoint",
@@ -1007,7 +1007,7 @@ export const copy = {
       name: "Use saved answers only",
       simulates: "Every model answer comes from the saved answers of earlier runs. No model calls are made.",
       expect:
-        'a "Replay mode" banner says you chose saved answers, and a "Model: saved answers" chip sits at the bottom. Run one live check first so there is something saved.',
+        'a "Replay mode" banner says you chose saved answers, and the Settings cog gets a blue dot. Run one live check first so there is something saved.',
       locked: "On for this launch: started with LIFE_REPLAY=1. Restart without it to go live.",
     },
     drop: {
@@ -1015,7 +1015,7 @@ export const copy = {
       short: "Endpoint drops",
       simulates: (calls: number) => `The first ${calls} model calls of the next check answer, then the endpoint stops answering.`,
       expect:
-        'the trace says the endpoint was lost and the check starts again from saved answers; a "Replay mode" banner says so, and a "Model: offline" chip sits at the bottom.',
+        'the trace says the endpoint was lost and the check starts again from saved answers. A "Replay mode" banner says so, and the Settings cog gets a red dot.',
     },
     resetTitle: "Start onboarding again",
     resetWait: "Wait for the check to finish first.",
