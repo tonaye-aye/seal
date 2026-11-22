@@ -36,8 +36,8 @@ async function boot() {
 
 const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
 
-// In a plain browser tab there is no native blur behind the window: paint a
-// dark backdrop so the translucent panel doesn't sit on white.
+// In a plain browser tab there is no desktop behind the window: paint a
+// backdrop so the panel's round corners don't sit on white.
 if (!isTauri()) document.documentElement.dataset.preview = "";
 
 // Dev only: #/gallery (or the app's "gallery" window) shows every palette

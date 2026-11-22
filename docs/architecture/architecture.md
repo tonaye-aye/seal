@@ -472,8 +472,8 @@ Configured in `src-tauri/tauri.conf.json`:
 | Label | `palette` | The only production window |
 | Size | 1000 x 680 | A compact command surface |
 | Decorations | off | Custom top bar |
-| Transparent | on | The panel paints over a macOS blur |
-| Window effect | `popover`, radius 14 | Follows the system theme |
+| Transparent | on | Lets the opaque panel have round corners |
+| Shadow | on | The native window shadow |
 | `macOSPrivateApi` | on | Needed for window transparency |
 
 At launch, the app uses macOS's `Accessory` policy, which means no Dock icon and no ⌘Tab entry.
@@ -1428,7 +1428,9 @@ dismissed: (merchant: string) => `Marked ${merchant} as not a leak.`,
 | **Green** | Done |
 | **Red** | Failed |
 
-All text colours pass WCAG AA (4.5:1) on background, surface and raised, in both themes. Ratios are noted beside each token.
+All text colours pass WCAG AA (4.5:1) on background (at the grain's strongest speck), surface and raised, in both themes. Ratios are noted beside each token.
+
+**Grain:** the panel is opaque, with a tinted grain under its content (`.grain`). `scripts/make-grain.ts` draws the tile, and tokens set its colour, size and strength. Text keeps AA up to a strength of 0.087, and it is set to 0.08.
 
 **Themes:** `@theme` holds dark, and a `prefers-color-scheme: light` block swaps in light. The app follows macOS.
 

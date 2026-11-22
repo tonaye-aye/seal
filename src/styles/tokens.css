@@ -8,10 +8,10 @@
    Two themes, following the macOS setting (prefers-color-scheme): the values
    in @theme are the dark theme, and the block after it swaps in the light
    one. Greys carry a faint violet tint (hue 292.6, the accent's), and the
-   accent is Tony's violet scale (Radix steps 9-11). Contrast, measured on
-   bg / surface / raised, is noted beside each text colour; all pass WCAG AA
-   (4.5:1). The panel is 86% opaque over the window blur, so real contrast
-   moves a little with the desktop behind it. */
+   accent is Tony's violet scale (Radix steps 9-11). Contrast is noted beside
+   each text colour, measured on bg at the grain's strongest speck / surface /
+   raised; all pass WCAG AA (4.5:1). The panel is fully opaque, so the desktop
+   behind it never changes these numbers. */
 
 @import "tailwindcss";
 @import "@fontsource-variable/nunito";
@@ -25,43 +25,45 @@
   --color-surface: #18171f;
   --color-raised: #201f28; /* the selected row, hovers, key caps, the toast */
   --color-hairline: #2b2a34;
-  /* Behind the panel in a plain browser tab (the desktop app shows the blur instead). */
+  /* Behind the panel in a plain browser tab (the desktop app shows the desktop instead). */
   --color-backdrop: #07070b;
 
   /* Text, strongest to faintest. */
-  --color-text: #edebf4; /* 15.9 / 15.1 / 13.8 */
-  --color-muted: #b6b3c3; /* 9.1 / 8.7 / 7.9 */
-  --color-faint: #9491a0; /* 6.1 / 5.8 / 5.3 */
+  --color-text: #edebf4; /* 13.6 / 15.1 / 13.8 */
+  --color-muted: #b6b3c3; /* 7.8 / 8.7 / 7.9 */
+  --color-faint: #9491a0; /* 5.2 / 5.8 / 5.3 */
 
   /* Violet, the accent, means two things only: the main action and the
      "now" mark. accent is for text and marks, accent-solid fills the
      primary button (hover darkens it), on-accent is the text on that fill. */
-  --color-accent: #baa3ff; /* violet-11: 8.7 / 8.3 / 7.6 */
+  --color-accent: #baa3ff; /* violet-11: 7.5 / 8.3 / 7.6 */
   --color-accent-glow: #8e62ff40;
   --color-accent-solid: #743cdd; /* violet-9 */
   --color-accent-solid-hover: #6729cc; /* violet-10 */
   --color-on-accent: #ffffff; /* 6.1 on accent-solid */
 
   /* Amber means one thing only: urgent (due within 7 days). */
-  --color-amber: #f2a65a; /* 9.3 / 8.8 / 8.1 */
+  --color-amber: #f2a65a; /* 7.9 / 8.8 / 8.1 */
   --color-amber-glow: #f2a65a33;
 
-  --color-positive: #8fbf8a; /* 8.9 / 8.5 / 7.8 */
-  --color-danger: #e5736b; /* 6.3 / 5.9 / 5.4 */
+  --color-positive: #8fbf8a; /* 7.6 / 8.5 / 7.8 */
+  --color-danger: #e5736b; /* 5.4 / 5.9 / 5.4 */
   /* Info: the agent's own status (working, saved answers, simulating). */
-  --color-info: #8ab4d8; /* 8.6 / 8.1 / 7.5 */
+  --color-info: #8ab4d8; /* 7.3 / 8.1 / 7.5 */
 
   /* The selected row's bar and the keyboard focus ring: neutral, so the accent stays rare. */
   --color-focus: #edebf4;
 
-  /* The palette panel: a thin outer edge, and the tint it paints over the
-     window's blur (mostly opaque, so text never sits on a busy desktop). */
+  /* The palette panel: a thin outer edge and a solid fill, so text never
+     sits on a busy desktop. */
   --color-edge: rgb(255 255 255 / 0.06);
   /* The dotted zig-zag lines (.stitch-x and .stitch-y): a soft, neutral grey. */
   --color-stitch: rgb(255 255 255 / 0.2);
   /* Under onboarding's white seal: nothing on dark, a soft edge on light. */
   --seal-shadow: none;
-  --color-panel: color-mix(in srgb, var(--color-bg) 86%, transparent);
+  --color-panel: var(--color-bg);
+  /* The specks in the background grain (.grain): a pale violet on dark. */
+  --color-grain: #d8ccff;
   /* Dims the palette behind a sheet (shortcuts, demo controls). */
   --color-scrim: color-mix(in srgb, var(--color-bg) 70%, transparent);
   /* Inset fields (search, draft) sit slightly darker than the panel. */
@@ -110,7 +112,7 @@
 
   /* The trace drawer's height (Trace.tsx). An open finding leaves this much
      room under its draft, so nothing is stuck behind the drawer. */
-  --trace-height: 290px;
+  --trace-height: 270px;
 
   /* Motion: quick and purposeful. */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
@@ -128,10 +130,22 @@
 /* Numbers that aren't colours. --now-halo scales the WebGL mark's glow
    (NowVisual.tsx reads it): full on dark, softer on light. --search-width
    is the top bar's search when open (SearchField.tsx): room for the
-   placeholder, while the breadcrumb and the status still fit beside it. */
+   placeholder, while the breadcrumb and the status still fit beside it.
+   --inactive-brightness dims the window while another app has focus, and
+   keeps onboarding's text (the only screen that stays up then) at AA. */
 :root {
   --now-halo: 1;
   --search-width: 248px;
+  --inactive-brightness: 0.95;
+  /* The grain: the repeating tile (scripts/make-grain.ts), its size, and how
+     strong its strongest speck is. Text keeps AA up to 0.087, set by the light theme. */
+  --grain-tile: url("/src/assets/grain.png");
+  --grain-size: 128px;
+  --grain-strength: 0.08;
+  /* The soft edge above the trace drawer: its height (the same 20 px as the
+     list's fade at the bottom bar) and how much it blurs what passes under it. */
+  --trace-fade: 20px;
+  --trace-fade-blur: 2px;
 }
 
 /* The top bar's search opening from the magnifier into a field, and back.
@@ -153,29 +167,29 @@
     --color-hairline: #dbd9e3;
     --color-backdrop: #dedde4;
 
-    --color-text: #1f1d2a; /* 15.4 / 16.2 / 14.1 */
-    --color-muted: #585665; /* 6.7 / 7.0 / 6.1 */
-    --color-faint: #666472; /* 5.4 / 5.7 / 4.9 */
+    --color-text: #1f1d2a; /* 13.3 / 16.2 / 14.1 */
+    --color-muted: #585665; /* 5.7 / 7.0 / 6.1 */
+    --color-faint: #666472; /* 4.6 / 5.7 / 4.9 */
 
-    --color-accent: #6f40cf; /* violet-11: 5.9 / 6.2 / 5.4 */
+    --color-accent: #6f40cf; /* violet-11: 5.1 / 6.2 / 5.4 */
     --color-accent-glow: #743cdd24;
     --color-accent-solid: #743cdd; /* violet-9 */
     --color-accent-solid-hover: #6533c3; /* violet-10 */
     --color-on-accent: #ffffff; /* 6.1 on accent-solid */
 
-    --color-amber: #975400; /* 5.4 / 5.7 / 5.0 */
+    --color-amber: #975400; /* 4.7 / 5.7 / 5.0 */
     --color-amber-glow: #f2a65a2e;
 
-    --color-positive: #1c7149; /* 5.6 / 5.9 / 5.1 */
-    --color-danger: #c62a2f; /* 5.2 / 5.4 / 4.7 */
-    --color-info: #0b67b4; /* 5.4 / 5.7 / 5.0 */
+    --color-positive: #1c7149; /* 4.8 / 5.9 / 5.1 */
+    --color-danger: #b4262b; /* 5.2 / 6.3 / 5.5 */
+    --color-info: #0b61aa; /* 5.1 / 6.2 / 5.4 */
 
     --color-focus: #1f1d2a;
 
     --color-edge: rgb(31 29 42 / 0.1);
+    --color-grain: #2e2150;
     --color-stitch: rgb(0 0 0 / 0.2);
     --seal-shadow: drop-shadow(0 2px 7px rgb(31 29 42 / 0.28));
-    --color-panel: color-mix(in srgb, var(--color-bg) 88%, transparent);
     /* A light veil plus the sheet's own shadow, rather than a dark wash. */
     --color-scrim: color-mix(in srgb, var(--color-text) 12%, transparent);
     --color-inset: color-mix(in srgb, var(--color-raised) 70%, transparent);
@@ -185,6 +199,7 @@
     --shadow-toast: 0 8px 24px rgb(31 29 42 / 0.14), 0 1px 3px rgb(31 29 42 / 0.08);
 
     --now-halo: 0.6;
+    --inactive-brightness: 0.96;
   }
 }
 
@@ -212,8 +227,8 @@
   letter-spacing: -0.015em;
 }
 
-/* The window itself is transparent so the native macOS blur shows through;
-   the palette panel paints its own tinted surface on top. */
+/* The window itself is transparent so its corners can be round; the palette
+   panel paints its own solid surface on top. */
 html,
 body,
 #root {
@@ -225,10 +240,28 @@ body,
   color-scheme: light dark;
 }
 
-/* In a plain browser tab there is no native blur behind the window, so the
-   translucent panel would sit on white. main.tsx sets data-preview there. */
+/* In a plain browser tab, the area around the panel's round corners would
+   be white. main.tsx sets data-preview there. */
 html[data-preview] {
   background: var(--color-backdrop);
+}
+
+/* A quiet tinted grain on a solid surface. It sits above the element's own
+   fill and below everything inside it, so opaque cards and menus stay clean.
+   The element needs a position (relative or absolute). */
+.grain {
+  isolation: isolate;
+}
+.grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--color-grain);
+  opacity: var(--grain-strength);
+  mask: var(--grain-tile) repeat left top / var(--grain-size);
+  pointer-events: none;
 }
 
 body {
@@ -350,6 +383,21 @@ input:focus-visible {
   animation: drawer-up var(--duration-base) var(--ease-out);
 }
 
+/* A strip on top of the trace drawer. Rows passing under it blur a little and
+   fade into the drawer, like the list does at the bottom bar. The mask fades
+   the fill and the blur together, and clicks go through to the rows. */
+.drawer-fade {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 100%;
+  height: var(--trace-fade);
+  background: var(--color-surface);
+  -webkit-backdrop-filter: blur(var(--trace-fade-blur));
+  backdrop-filter: blur(var(--trace-fade-blur));
+  mask-image: linear-gradient(to top, black, transparent);
+  pointer-events: none;
+}
+
 /* Menus, tooltips and sheets (src/ui/layers.tsx): Radix marks each one open
    or closed with data-state, and waits for the closing animation before it
    removes the layer. */
@@ -359,8 +407,11 @@ input:focus-visible {
   }
 }
 
-/* A menu or sheet takes focus itself so its keys work; only the rows and
-   buttons inside it show the focus ring, never the whole panel. */
+/* The palette, a menu or a sheet takes focus itself so its keys work; only
+   the rows and buttons inside it show the focus ring, never the whole panel.
+   The palette fills the window, so a ring on it would be cut off everywhere
+   except its round corners, where it would show as four small dots. */
+.palette-shell:focus-visible,
 .layer-pop:focus-visible,
 .layer-sheet:focus-visible {
   outline: none;
@@ -489,13 +540,10 @@ textarea {
 
 /* The palette while another app has focus (it stays on screen during onboarding): dimmed, like an inactive window. */
 .palette-inactive {
-  opacity: 0.78;
-  filter: saturate(0.5);
+  filter: saturate(0.5) brightness(var(--inactive-brightness));
 }
 .palette-enter {
-  transition:
-    opacity var(--duration-base) var(--ease-out),
-    filter var(--duration-base) var(--ease-out);
+  transition: filter var(--duration-base) var(--ease-out);
 }
 @media (prefers-reduced-motion: reduce) {
   .palette-enter {

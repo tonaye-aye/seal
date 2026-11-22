@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import type { TraceLine } from "../../lib/scan-store";
 import type { FindingTraceLine } from "../finding-trace";
 import { copy } from "../../copy";
@@ -68,23 +68,33 @@ export function TraceDrawer({
   useScrollFade(scroller);
   const showFinding = scope === "finding" && !!finding;
   const shown = showFinding ? finding.lines : lines;
-  // Follow new lines as they arrive (the whole check's, while it runs).
+  // Whether the reader is at the end of the log, so new lines can follow them there.
+  const atEnd = useRef(true);
+  const noteScroll = () => {
+    const el = scroller.current;
+    if (el) atEnd.current = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
+  };
+  // Start at the top when the drawer opens, and when switching between the two traces.
+  useLayoutEffect(() => {
+    scroller.current?.scrollTo({ top: 0 });
+    noteScroll();
+  }, [showFinding]);
+  // While a check runs, keep up with new lines, unless the reader has stayed further up.
   useEffect(() => {
-    if (showFinding) scroller.current?.scrollTo({ top: 0 });
-    else scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
+    const el = scroller.current;
+    if (!el) return;
+    // A new check empties the log, so everything fits and the reader is at its end again.
+    if (el.scrollHeight <= el.clientHeight) atEnd.current = true;
+    if (!showFinding && atEnd.current) el.scrollTo({ top: el.scrollHeight });
   }, [lines.length, showFinding]);
   return (
     <section
       aria-label={copy.trace.title}
-      className="drawer-in pointer-events-none absolute inset-x-0 bottom-0 z-10 flex h-(--trace-height) flex-col"
+      className="drawer-in absolute inset-x-0 bottom-0 z-10 flex h-(--trace-height) flex-col bg-surface"
     >
-      {/* Room above the line, matching the room below it. Text scrolling underneath fades out here
-          rather than running into the line, and can still be clicked. */}
-      <div className="h-5 shrink-0 bg-linear-to-b from-transparent to-bg to-60%" aria-hidden="true" />
-      <div className="pointer-events-auto flex min-h-0 flex-1 flex-col bg-bg">
-      {/* The same zig-zag line as under an open finding's heading. */}
-      <div className="stitch-x mx-4 shrink-0" aria-hidden="true" />
-      {/* The same room around it as the draft below that line has. */}
+      {/* Rows passing under the drawer fade and blur a little, like the list at the bottom bar. */}
+      <div className="drawer-fade" aria-hidden="true" />
+      {/* The same room around it as an open finding's draft has. */}
       <div className="flex min-h-0 flex-1 flex-col px-5 pt-5 pb-6.5">
       <div className="flex h-8 shrink-0 items-center gap-3">
         <span className="text-meta font-medium">{copy.trace.title}</span>
@@ -113,10 +123,9 @@ export function TraceDrawer({
           <KeyButton keys={["Esc"]} label={copy.trace.close} icon={<CloseIcon />} mouse={mouse || editing} onClick={onClose} />
         </span>
       </div>
-      <div ref={scroller} className="scroll-fade mt-1.5 min-h-0 flex-1 overflow-y-auto">
+      <div ref={scroller} onScroll={noteScroll} className="scroll-fade mt-1.5 min-h-0 flex-1 overflow-y-auto">
         {shown.length ? <TraceLines lines={shown} /> : <p className="text-faint">{copy.trace.nothingYet}</p>}
         <p className="mt-3 text-meta text-faint">{showFinding ? copy.trace.finding.footnote : copy.trace.privacy}</p>
-      </div>
       </div>
       </div>
     </section>
