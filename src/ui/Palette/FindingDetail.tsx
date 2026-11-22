@@ -33,11 +33,12 @@ import {
   UndoIcon,
 } from "../icons";
 import { NextSteps } from "./NextSteps";
-import { CopyIcon, RouteChooser, RoutePanel } from "./RoutePanel";
+import { CopyIcon, FOLD_LINE, RouteChooser, RoutePanel } from "./RoutePanel";
 import { chosenRoute, showsVerbs, usesEmail } from "../fix-route";
 import { DraftVerbs } from "./DraftVerbs";
 import type { Verb } from "../../agent/rewrite";
 import { Kbd, KeyButton } from "../Kbd";
+import { ProgressBar } from "../ProgressBar";
 import { iconButton } from "./Controls";
 import { dragByBar } from "./Header";
 import { ShellAside } from "./PaletteShell";
@@ -207,7 +208,7 @@ const isPanel = (s: SideStop | undefined, id: PanelId) => !!s && "panel" in s &&
 const isEvidence = (s: SideStop | undefined, index: number) => !!s && "evidence" in s && s.evidence === index;
 
 // Shared by every line in the sidebar, so the headers and the evidence line up.
-const LINE = "row-press relative flex h-7 cursor-pointer items-center gap-2 rounded-md px-2 text-meta";
+const LINE = FOLD_LINE;
 
 /** A piece of evidence's card: where it's from, a few words of it (or the photo), and Open source. */
 function PeekCard({ view, needles, onOpenSource }: { view: EvidenceView; needles: string[]; onOpenSource: () => void }) {
@@ -753,11 +754,9 @@ function Draft({
       );
     else if (scanning)
       body = (
-        <div className="flex flex-col gap-2" aria-label={copy.detail.writingDraftLabel}>
+        <div className="flex max-w-[320px] flex-col gap-2">
           <p className="text-meta text-faint">{copy.detail.writingDraft}</p>
-          <span className="shimmer h-3 w-3/4 rounded" />
-          <span className="shimmer h-3 w-full rounded" />
-          <span className="shimmer h-3 w-5/6 rounded" />
+          <ProgressBar label={copy.detail.writingDraftLabel} />
         </div>
       );
     else body = <p className="text-small text-danger">{copy.detail.couldntDraft}</p>;
@@ -928,6 +927,8 @@ export function FindingDetail({
   source,
   editing,
   detailsOpen,
+  readyOpen = false,
+  onToggleReady,
   mouse,
   onStopEditing,
   onToggleDetails,
@@ -960,6 +961,9 @@ export function FindingDetail({
   editing: boolean;
   /** The draft's Details (To, Subject, Attach) are unfolded. */
   detailsOpen: boolean;
+  /** A call, chat or online route's Have Ready is unfolded (closed to start). */
+  readyOpen?: boolean;
+  onToggleReady?: () => void;
   mouse: boolean;
   onStopEditing: () => void;
   onToggleDetails: () => void;
@@ -1086,7 +1090,7 @@ export function FindingDetail({
               {/* Still to approve: the best way and the others. Once approved the route is fixed (⌘Z to change it). */}
               {route && finding.status === "new" && !editing && <RouteChooser finding={finding} route={route} mouse={mouse} onPick={onPickRoute} />}
               {route && route.kind !== "email" ? (
-                <RoutePanel finding={finding} route={route} mouse={mouse} onCopy={() => onCommand("copy")} onSample={() => onSample(route)} />
+                <RoutePanel finding={finding} route={route} mouse={mouse} readyOpen={readyOpen} onToggleReady={onToggleReady} onCopy={() => onCommand("copy")} onSample={() => onSample(route)} />
               ) : (
                 <Draft
                   finding={finding}

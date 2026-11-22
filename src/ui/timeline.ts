@@ -310,6 +310,15 @@ export function filterTimeline(entries: TimelineEntry[], query: string): Timelin
   return entries.filter((e) => [e.who, e.what, e.detail ?? "", e.title ?? "", shortDate(e.date), e.date].some((t) => t.toLowerCase().includes(q)));
 }
 
+/**
+ * The lines of the findings that pass the filters (`ids`; undefined means no
+ * filter is on). Lines that belong to no finding, like an ordinary expected
+ * charge, have nothing to match, so they step aside while a filter is on.
+ */
+export function onlyFindings(entries: TimelineEntry[], ids?: ReadonlySet<string>): TimelineEntry[] {
+  return ids ? entries.filter((e) => !!e.findingId && ids.has(e.findingId)) : entries;
+}
+
 /** Where the present-moment marker goes: before the first entry after today. */
 export function nowIndex(entries: TimelineEntry[]): number {
   const i = entries.findIndex((e) => e.side === "future");

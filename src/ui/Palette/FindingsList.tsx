@@ -6,15 +6,14 @@ import type { Cleared, Finding } from "../../agent/pipeline";
 import { useLive } from "../../connectors/live";
 import { useScan, type ScanState } from "../../lib/scan-store";
 import { fromSaved, mixedReplay } from "../replay";
-import { shortDate, urgency, type Urgency } from "../format";
+import { headlineAmount, shortDate, urgency, type Urgency } from "../format";
 import { copy } from "../../copy";
 import { KeyText } from "../KeyText";
 import { ApproveIcon, DismissIcon, SealIcon, RemindIcon } from "../icons";
 import { sealTarget } from "../seal";
 import { Kbd } from "../Kbd";
-import { useFlip, useGlide, useScrollFade } from "../motion";
-import { TraceLines } from "./Trace";
-import { ViewHeading } from "./ViewHeading";
+import { useCountUp, useFlip, useGlide, useScrollFade } from "../motion";
+import { HeadingTotal, ViewHeading } from "./ViewHeading";
 import { FilterChips } from "./Filters";
 import { ClearedCells, FindingCells, GroupLabel, MENU_SLOT, ROW, ROW_SHAPE, UndecidedCells } from "./ListRow";
 import type { FilterId } from "../filters";
@@ -126,9 +125,14 @@ export function Headline({
   const scanning = scan.phase === "scanning";
   const q = query.trim();
   const filtered = filters.length > 0;
+  const narrowed = !!q || filtered;
+  const hits = matches.flatMap((i) => (i.type === "finding" && i.finding.status === "new" ? [i.finding] : []));
+  // What the rows that still need Maya add up to. While searching or filtering, only the ones showing.
+  const totalCents = (narrowed ? hits : open).reduce((n, f) => n + (headlineAmount(f)?.cents ?? 0), 0);
+  const counted = useCountUp(narrowed ? "list:search" : "list:total", totalCents);
+  const total = totalCents > 0 ? <HeadingTotal cents={narrowed ? totalCents : counted} label={copy.list.inTotal} /> : undefined;
 
-  if (q || filtered) {
-    const hits = matches.flatMap((i) => (i.type === "finding" && i.finding.status === "new" ? [i.finding] : []));
+  if (narrowed) {
     const fine = matches.filter(leftAlone).length;
     const hitBack = hits.reduce((n, f) => n + (f.amounts.recoverable ?? 0), 0);
     const hitMonthly = hits.reduce((n, f) => n + (f.amounts.perMonth ?? 0), 0);
@@ -146,7 +150,7 @@ export function Headline({
     else title = hits.length ? copy.filters.of(hits.length, open.length) : copy.filters.noneOpen;
     const sentence = words.join(", ");
     return (
-      <ViewHeading title={title} below={chips}>
+      <ViewHeading title={title} below={chips} action={total}>
         {matches.length === 0 ? (
           // Nothing left: say how to get back. Filters are the likelier cause, so they come first.
           filtered ? (
@@ -173,9 +177,8 @@ export function Headline({
   else line = copy.list.needAttentionLine;
 
   return (
-    <ViewHeading title={title}>
+    <ViewHeading title={title} action={total}>
       {line}
-      {scanning && <span className="text-faint">{line ? " " : ""}{copy.list.stillChecking}</span>}
     </ViewHeading>
   );
 }
@@ -381,8 +384,6 @@ export function FindingsList({
   const labelSaved = mixedReplay(scan);
   const missing = Object.values(live.statuses).filter((s) => s && (s.state === "needs_reconnect" || s.state === "error"));
     const notConnected = (scan.result?.notConnected ?? []).map((id) => copy.shared.source[id]);
-  const remaining =
-    scan.phase === "scanning" && scan.stage === "judge" && scan.progress ? scan.progress.total - scan.progress.done : undefined;
 
   // Keep the selected row in view as J/K move.
   useEffect(() => {
@@ -485,16 +486,6 @@ export function FindingsList({
             );
           })}
           {snoozed.map((i) => row(i))}
-          {remaining !== undefined && remaining > 0 && (
-            <div data-flip-key="pending" className="relative flex h-8.5 items-center gap-2 px-2.5 text-meta text-faint">
-              <span className="grid size-5 shrink-0 place-items-center" aria-hidden="true">
-                <span className="size-1.5 rounded-full bg-info/60 motion-safe:animate-pulse" />
-              </span>
-              {copy.list.stillDeciding(remaining)}
-              {/* Ends where the amounts end, clear of the ⋯ slot. */}
-              <span className="shimmer mr-8 ml-1 h-2 flex-1 rounded-full" aria-hidden="true" />
-            </div>
-          )}
           {/* "Approved" stays open, like "Couldn't decide": a plain title, not a J/K stop. */}
           <GroupTitle id="approved" label={copy.list.groups.approved} count={approved.length} />
           {groupRows(approved)}
@@ -549,40 +540,6 @@ function StateFrame({ icon, title, children }: { icon: React.ReactNode; title: s
       <h1 className="heading text-heading font-semibold">{title}</h1>
       <div className="mt-1.5 max-w-[48ch] text-muted">{children}</div>
     </section>
-  );
-}
-
-/** While the check runs and nothing has been found yet: show the work. */
-export function Scanning({ scan }: { scan: ScanState }) {
-  return (
-    <section className="flex min-h-0 flex-1 flex-col px-4 pt-6">
-      <div className="mb-4 flex items-center gap-3">
-        <span className="scan-ring size-8 rounded-full border border-info/30" aria-hidden="true" />
-        <div>
-          <h1 className="heading text-heading font-semibold">{copy.list.scanningTitle}</h1>
-          <p className="text-small text-muted">{copy.list.scanningLine}</p>
-        </div>
-      </div>
-      <div className="min-h-0 flex-1 overflow-hidden pl-1">
-        <TraceLines lines={scan.trace} limit={9} />
-        <SlowDocuments />
-      </div>
-    </section>
-  );
-}
-
-/** A loading skeleton while document reads are taking a long time. */
-export function SlowDocuments() {
-  const { slowReads } = useLive();
-  if (!slowReads) return null;
-  return (
-    <div role="status" className="fade-in mt-3 max-w-[420px] rounded-lg border border-hairline px-3 py-2.5">
-      <p className="text-meta text-muted">{copy.list.slowDocuments(slowReads.done)}</p>
-      <div className="mt-2 flex flex-col gap-1.5" aria-hidden="true">
-        <span className="shimmer h-2 w-3/4 rounded-full" />
-        <span className="shimmer h-2 w-1/2 rounded-full" />
-      </div>
-    </div>
   );
 }
 

@@ -8,11 +8,14 @@ import type { ScanState } from "../../lib/scan-store";
 import { EARLIER_GROUP, agenda, comingUp, isSoonDay, showsDate, type TimelineEntry, type TimelineTone } from "../timeline";
 import { clockTime, daysUntil, shortDate } from "../format";
 import { copy } from "../../copy";
+import type { FilterId } from "../filters";
 import { Kbd } from "../Kbd";
+import { KeyText } from "../KeyText";
 import { Tip } from "../layers";
 import { useCountUp, useGlide, useScrollFade } from "../motion";
+import { FilterChips } from "./Filters";
 import { GroupLabel, ROW_BASE, ROW_SHAPE } from "./ListRow";
-import { ViewHeading } from "./ViewHeading";
+import { HeadingTotal, ViewHeading } from "./ViewHeading";
 
 // The case view: an agenda on one vertical rail. Earlier folds away at the
 // top, today's activity sits just above the violet Now, and what is coming
@@ -134,33 +137,43 @@ export function TimelineLine({
   );
 }
 
-function Headline({ entries, scan, query }: { entries: TimelineEntry[]; scan: ScanState; query: string }) {
+function Headline({
+  entries,
+  scan,
+  query,
+  filtered,
+  chips,
+}: {
+  entries: TimelineEntry[];
+  scan: ScanState;
+  query: string;
+  filtered: boolean;
+  /** The filter chips, drawn under the heading. */
+  chips: React.ReactNode;
+}) {
   const q = query.trim();
+  const narrowed = !!q || filtered;
   const next = comingUp(entries);
-  // The total counts up the first time the timeline opens; while searching it just follows the matches.
-  const counted = useCountUp(q ? "timeline:search" : "timeline:total", next.totalCents);
-  const total = q ? next.totalCents : counted;
+  // The total counts up the first time the timeline opens; while searching or filtering it just follows the matches.
+  const counted = useCountUp(narrowed ? "timeline:search" : "timeline:total", next.totalCents);
+  const total = narrowed ? next.totalCents : counted;
   let title = copy.timeline.title;
   if (q) title = entries.length ? copy.search.matches(entries.length, q) : copy.search.noMatches(q);
+  else if (filtered && !entries.length) title = copy.filters.noMatches;
   // The dates that need Maya stay on the line under the title.
-  let line: string | undefined;
-  if (q && !entries.length) line = copy.timeline.searchHelp;
+  let line: React.ReactNode;
+  if (filtered && !entries.length) line = <KeyText text={q ? copy.filters.noMatchesSearchHelp : copy.filters.noMatchesHelp} />;
+  else if (q && !entries.length) line = copy.timeline.searchHelp;
   else if (next.soon && next.lastSoon) line = copy.timeline.soonDates(next.soon, shortDate(next.lastSoon));
   else if (!q && scan.phase === "done") line = copy.timeline.noSoonDates;
   return (
     <ViewHeading
       title={title}
-      action={
-        next.totalCents > 0 ? (
-          <div className="text-right">
-            <div className="figure text-title leading-5 text-text">{formatAUD(total)}</div>
-            <div className="mt-0.5 text-meta text-faint">{copy.timeline.inNextThirty}</div>
-          </div>
-        ) : undefined
-      }
+      reserveLine
+      below={chips}
+      action={next.totalCents > 0 ? <HeadingTotal cents={total} label={copy.timeline.inNextThirty} /> : undefined}
     >
       {line}
-      {scan.phase === "scanning" && <span className="text-faint">{line ? " " : ""}{copy.timeline.stillChecking}</span>}
     </ViewHeading>
   );
 }
@@ -193,6 +206,9 @@ export function Timeline({
   earlierOpen,
   onToggleEarlier,
   mouse = false,
+  filters = [],
+  onRemoveFilter,
+  onClearFilters,
 }: {
   entries: TimelineEntry[];
   selectedKey?: string;
@@ -208,6 +224,10 @@ export function Timeline({
   onToggleEarlier: (open: boolean) => void;
   /** True while the mouse is in use: Earlier's header then drops its key hint. */
   mouse?: boolean;
+  /** The filters that are on (the entries already pass them). */
+  filters?: FilterId[];
+  onRemoveFilter: (id: FilterId) => void;
+  onClearFilters: () => void;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
   useScrollFade(listRef);
@@ -218,8 +238,9 @@ export function Timeline({
   const scrollToSelected = () => {
     listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
   };
-  // Also when a search changes or clears: the selected line may have moved out of view.
-  useEffect(scrollToSelected, [scrollKey, query]);
+  // Also when a search or filter changes: the selected line may have moved out of view.
+  const filterKey = filters.join();
+  useEffect(scrollToSelected, [scrollKey, query, filterKey]);
 
   // On opening, put Now about a third of the way down, then make sure the
   // selected line shows (it may be inside Earlier, coming back from a finding).
@@ -243,12 +264,12 @@ export function Timeline({
     placed.current = !checking;
   }, [checking]);
 
-  const q = query.trim();
+  const narrowed = !!query.trim() || filters.length > 0;
   const { earlier, today, groups } = agenda(entries);
   const position = new Map(entries.map((e, i) => [e.key, i]));
   const lastLine = groups.length ? groups[groups.length - 1].lines.slice(-1)[0] : undefined;
   const nowFirst = !earlier.length && !today.length;
-  const nothingAhead = !groups.length && !q && scan.phase === "done";
+  const nothingAhead = !groups.length && !narrowed && scan.phase === "done";
   const headerSelected = selectedKey === EARLIER_GROUP;
 
   // `leads` marks a group's first line: J/K scrolling then brings its header into view too.
@@ -291,7 +312,13 @@ export function Timeline({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Pinned: the heading stays put while the timeline scrolls. */}
-      <Headline entries={entries} scan={scan} query={query} />
+      <Headline
+        entries={entries}
+        scan={scan}
+        query={query}
+        filtered={filters.length > 0}
+        chips={<FilterChips active={filters} mouse={mouse} onRemove={onRemoveFilter} onClear={onClearFilters} />}
+      />
       <div ref={listRef} className="scroll-fade relative min-h-0 flex-1 overflow-y-auto pb-4">
         <div ref={linesRef} role="listbox" aria-label={copy.timeline.label} className="relative flex flex-col px-1.5">
           <div ref={highlightRef} className="glide glide-soft inset-x-1.5" aria-hidden="true" />
@@ -313,7 +340,8 @@ export function Timeline({
                     <RailCell first>
                       <span className={`relative ${DOT.past}`} aria-hidden="true" />
                     </RailCell>
-                    <span className="flex items-center gap-1.5">
+                    {/* data-state: the chevron turns from its direct parent's state. */}
+                    <span data-state={earlierOpen ? "open" : "closed"} className="flex items-center gap-1.5">
                       <GroupLabel label={copy.timeline.earlier} count={earlier.length} selected={headerSelected} />
                       <ChevronRight
                         size={12}
@@ -326,15 +354,15 @@ export function Timeline({
                     {headerSelected && !mouse && <Kbd keys={["↵"]} />}
                   </div>
                 </Accordion.Trigger>
-                {/* While searching, it opens at once: a sliding open would leave the highlight behind. */}
-                <Accordion.Content data-glide-rows className="accordion-content flex flex-col" style={q ? { animation: "none" } : undefined}>
+                {/* While searching or filtering, it opens at once: a sliding open would leave the highlight behind. */}
+                <Accordion.Content data-glide-rows className="accordion-content flex flex-col" style={narrowed ? { animation: "none" } : undefined}>
                   {earlierLines}
                 </Accordion.Content>
               </Accordion.Item>
             </Accordion.Root>
           )}
           {today.map((entry, i) => line(entry, false, i === 0 && !earlier.length))}
-          {!(q && !entries.length) && <NowRow first={nowFirst} last={!groups.length} />}
+          {!(narrowed && !entries.length) && <NowRow first={nowFirst} last={!groups.length} />}
           {nothingAhead && (
             <div role="none" className="flex h-9 items-center gap-2 px-2.5 text-meta text-faint">
               <span className={DATE_COLUMN} />

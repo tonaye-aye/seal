@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
-import * as Accordion from "@radix-ui/react-accordion";
-import { Check, ChevronRight, CircleAlert, Loader2 } from "lucide-react";
+import { Check } from "lucide-react";
 import type { ConnectorStatus } from "../../connectors";
 import type { ConnectorId } from "../../connectors/types";
 import { useLive } from "../../connectors/live";
@@ -13,10 +12,8 @@ import { Kbd, KeyButton } from "../Kbd";
 import { KeyText } from "../KeyText";
 import { useScrollFade } from "../motion";
 import { CheckNowIcon, NextIcon, ResetIcon } from "../icons";
-import { SlowDocuments } from "../Palette/FindingsList";
+import { CheckProgress } from "../CheckProgress";
 import { stateText, useTick } from "../Palette/StatusStrip";
-import { TraceLines } from "../Palette/Trace";
-import { scanPercent } from "../scan-percent";
 import { ConnectorList, MORE_ROWS, SOURCE_ROWS, type ConnectorRow } from "./ConnectorList";
 import { OnboardingCta } from "./OnboardingCta";
 import { SealAnimation } from "./SealAnimation";
@@ -299,59 +296,7 @@ function FirstCheck({
           <OnboardingCta keys={["↵"]} label={copy.onboarding.viewFindings} icon={<NextIcon />} disabled={!done} mouse={mouse} onClick={next} />
         )}
       </div>
-      <AgentSteps open={agentOpen} onOpen={onAgentOpen} mouse={mouse} />
+      <CheckProgress open={agentOpen} onOpen={onAgentOpen} mouse={mouse} />
     </section>
-  );
-}
-
-/**
- * "Seal is on it...": the agent's live steps in a fold, closed to start, with how far along it is. The
- * steps open over the empty space below it, so the seal and the button above
- * never move. T or a click opens it.
- */
-function AgentSteps({ open, onOpen, mouse }: { open: boolean; onOpen: (open: boolean) => void; mouse: boolean }) {
-  const scan = useScan();
-  const failed = scan.phase === "error";
-  const done = scan.phase === "done";
-  const steps = useRef<HTMLDivElement>(null);
-  // Follows the newest step while it is open.
-  useEffect(() => {
-    if (open && steps.current) steps.current.scrollTop = steps.current.scrollHeight;
-  }, [open, scan.trace.length]);
-  const label = failed ? copy.onboarding.agentStopped : done ? copy.onboarding.agentDone : copy.onboarding.agentWorking;
-  return (
-    <Accordion.Root type="single" collapsible value={open ? "agent" : ""} onValueChange={(v) => onOpen(v === "agent")} className="relative mt-2 w-[480px]">
-      <Accordion.Item value="agent">
-        <Accordion.Header>
-          <Accordion.Trigger
-            tabIndex={-1}
-            onMouseDown={(e) => e.preventDefault()}
-            className="press flex h-9 w-full cursor-pointer items-center gap-2 rounded-lg px-3 text-small text-muted hover:bg-raised/60 hover:text-text"
-          >
-            <span className="grid size-4 shrink-0 place-items-center">
-              {failed ? (
-                <CircleAlert size={14} strokeWidth={1.75} aria-hidden="true" className="text-danger" />
-              ) : done ? (
-                <Check size={14} strokeWidth={2} aria-hidden="true" className="text-positive" />
-              ) : (
-                <Loader2 size={14} strokeWidth={1.75} aria-hidden="true" className="motion-safe:animate-spin" />
-              )}
-            </span>
-            <span className="flex-1 text-left" aria-live="polite">
-              {label}
-            </span>
-            {!failed && <span className="min-w-9 text-right figure text-meta text-muted">{copy.onboarding.percent(scanPercent(scan))}</span>}
-            {!mouse && <Kbd keys={["T"]} />}
-            <ChevronRight size={14} strokeWidth={1.75} aria-hidden="true" className="accordion-chevron" />
-          </Accordion.Trigger>
-        </Accordion.Header>
-        <Accordion.Content className="accordion-content absolute inset-x-0 top-full z-5 mt-1 rounded-lg border border-hairline bg-surface text-left shadow-(--shadow-menu)">
-          <div ref={steps} className="h-[104px] overflow-y-auto px-3 py-2.5 select-text">
-            <TraceLines lines={scan.trace} />
-            <SlowDocuments />
-          </div>
-        </Accordion.Content>
-      </Accordion.Item>
-    </Accordion.Root>
   );
 }

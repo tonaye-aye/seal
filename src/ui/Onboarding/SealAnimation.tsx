@@ -115,6 +115,8 @@ export function SealAnimation({ fallback = false }: { /** The dev gallery only: 
             const inputs = (rive.stateMachineInputs("Seal") ?? []) as Input[];
             love.current = inputs.find((input) => input.name === "Click");
             stopFollowing = followPointer(target, inputs.find((input) => input.name === "Blush"));
+            // It finished loading after the app was hidden: wait to be shown.
+            if (isPaletteHidden()) rive.pause();
           }
           setReady(true);
         },
@@ -143,7 +145,7 @@ export function SealAnimation({ fallback = false }: { /** The dev gallery only: 
   return (
     <div role="img" aria-label={copy.onboarding.sealAlt} onClick={() => love.current?.fire?.()} className="relative grid size-48 place-items-center">
       {failed ? (
-        <span className="text-muted">
+        <span className="fade-in text-muted">
           <SealIcon size={112} />
         </span>
       ) : (

@@ -4,6 +4,7 @@ import { orderedStatuses, reconnectCalendar, useLive } from "../../connectors/li
 import { startScan } from "../../lib/scan-store";
 import { copy } from "../../copy";
 import { Tip } from "../layers";
+import { ProgressBar } from "../ProgressBar";
 
 // One chip per data source, showing its live state. Short labels keep the
 // strip calm; the full detail is in each chip's tooltip and screen reader text.
@@ -89,7 +90,7 @@ export function StatusStrip() {
               {slow && (
                 <>
                   <span className="font-mono text-label text-faint">{copy.footer.slowShort}</span>
-                  <span className="shimmer h-1.5 w-8 rounded-full" aria-hidden="true" />
+                  <ProgressBar className="w-8" label={copy.check.slow} />
                 </>
               )}
               <span className="sr-only">: {text}</span>

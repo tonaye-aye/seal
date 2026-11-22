@@ -142,6 +142,10 @@
   --grain-tile: url("/src/assets/grain.png");
   --grain-size: 128px;
   --grain-strength: 0.08;
+  /* The grain on the loading bar's violet fill, in the on-accent colour. It is
+     stronger than the panel's so it still reads on a bar 6 px tall. */
+  --progress-grain: 0.34;
+  --progress-height: 6px;
   /* The soft edge above the trace drawer: its height (the same 20 px as the
      list's fade at the bottom bar) and how much it blurs what passes under it. */
   --trace-fade: 20px;
@@ -470,16 +474,82 @@ input:focus-visible {
   animation: shimmer 1.6s linear infinite;
 }
 
-/* The scanning ring: a slow sweep in the info colour while the agent works. */
-@keyframes spin {
+/* The one loading bar (ProgressBar.tsx). The fill slides in rather than
+   stretching, so its grain and rounded end keep their shape. */
+.progress-track {
+  position: relative;
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: var(--progress-height);
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--color-hairline);
+}
+
+.progress-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--color-accent-solid);
+  transform: translateX(calc(var(--progress, 0%) - 100%));
+  transition: transform var(--duration-count) var(--ease-out);
+}
+
+.progress-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--color-on-accent);
+  opacity: var(--progress-grain);
+  mask: var(--grain-tile) repeat left top / var(--grain-size);
+}
+
+.progress-track[data-mode="stopped"] .progress-fill {
+  background: var(--color-faint);
+}
+
+/* No honest percentage: a short piece of the bar travels across it. */
+@keyframes progress-travel {
+  from {
+    transform: translateX(-100%);
+  }
   to {
-    transform: rotate(360deg);
+    transform: translateX(250%);
   }
 }
 
-.scan-ring {
-  border-top-color: var(--color-info);
-  animation: spin 1.4s linear infinite;
+.progress-track[data-mode="indeterminate"] .progress-fill {
+  right: auto;
+  width: 40%;
+  transition: none;
+  animation: progress-travel 1.5s var(--ease-panel) infinite;
+}
+
+/* A finished check: the fill reaches the end, then the bar fades away. */
+.progress-leave {
+  animation: fade-out var(--duration-base) var(--ease-out) var(--duration-count) forwards;
+}
+
+/* Nothing loops while the app is hidden in the menu bar. */
+html[data-palette-hidden] .progress-fill {
+  animation-play-state: paused;
+}
+
+/* With reduced motion, a waiting bar is one soft, still fill. */
+.progress-track[data-mode="indeterminate"][data-still] .progress-fill {
+  width: 100%;
+  opacity: 0.5;
+  transform: none;
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .progress-track[data-mode="indeterminate"] .progress-fill {
+    width: 100%;
+    opacity: 0.5;
+    transform: none;
+    animation: none !important;
+  }
 }
 
 /* The pane that J/K and Tab act on, in an open finding. */
@@ -501,7 +571,6 @@ textarea {
    running at the near-zero duration set above. */
 @media (prefers-reduced-motion: reduce) {
   .shimmer,
-  .scan-ring,
   .toast-in,
   .toast-timer,
   .now-fallback {

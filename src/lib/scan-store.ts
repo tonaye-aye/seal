@@ -395,7 +395,7 @@ function onEvent(event: AgentEvent) {
       const before = connectorState[event.status.id];
       connectorState[event.status.id] = event.status.state;
       setConnectorStatus(event.status);
-      // Say so on the checking screen when a source asks us to wait, and when it lets us carry on.
+      // Say so in the trace when a source asks us to wait, and when it lets us carry on.
       if (event.status.state === "retrying" && before !== "retrying") {
         const seconds = Math.max(1, Math.round(((event.status.retryAt ?? Date.now()) - Date.now()) / 1000));
         set({ trace: trace(copy.trace.slowDown(event.status.name, seconds), "warn") });

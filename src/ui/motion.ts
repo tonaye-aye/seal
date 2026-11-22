@@ -329,6 +329,44 @@ export function useCountUp(id: string, target: number): number {
   return value;
 }
 
+// ---------- The bottom bar's loading bar ----------
+
+/**
+ * True for a moment after a check finishes, so its bar can fill to 100% and
+ * fade instead of vanishing part way. Nothing waits for it. It's set during the
+ * render, so the bar never unmounts and its fill can slide on to the end.
+ */
+export function useFinishing(running: boolean, finished: boolean): boolean {
+  const [finishing, setFinishing] = useState(false);
+  const [wasRunning, setWasRunning] = useState(running);
+  if (running !== wasRunning) {
+    setWasRunning(running);
+    setFinishing(!running && finished && !reducedMotion());
+  }
+  useEffect(() => {
+    if (!finishing) return;
+    const timer = setTimeout(() => setFinishing(false), ms("--duration-count", 420) + ms("--duration-base", 180));
+    return () => clearTimeout(timer);
+  }, [finishing]);
+  return finishing;
+}
+
+/** Slides an element from its old place when something beside it comes or goes, rather than jumping. */
+export function useSlideX(ref: React.RefObject<HTMLElement | null>) {
+  const freeze = useContext(MotionFreeze);
+  const last = useRef<number | undefined>(undefined);
+  // No dependency list: any render can move it.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const left = el.offsetLeft;
+    const was = last.current;
+    last.current = left;
+    if (was === undefined || was === left || freeze || reducedMotion()) return;
+    el.animate([{ transform: `translateX(${was - left}px)` }, { transform: "none" }], { duration: ms("--duration-base", 180), easing: easing() });
+  });
+}
+
 // ---------- Changing view ----------
 
 type ViewTransitionDocument = Document & { startViewTransition?: (update: () => void) => unknown };

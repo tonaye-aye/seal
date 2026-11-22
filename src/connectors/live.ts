@@ -22,7 +22,7 @@ export type LiveState = {
   statuses: Partial<Record<ConnectorId, ConnectorStatus>>;
   /** Scenarios switched on or off since their connector was last synced. */
   pending: ScenarioId[];
-  /** Document reads that are taking a long time, for the "slow to respond" skeleton. */
+  /** Document reads that are taking a long time, so the loading bar can say so. */
   slowReads?: { done: number; total: number };
 };
 
@@ -93,7 +93,7 @@ export function toggleScenario(id: ScenarioId): void {
   scenarios.set(id, !scenarios.has(id));
 }
 
-/** A read longer than this counts as slow and shows the skeleton. */
+/** A read longer than this counts as slow, and the loading bar says so. */
 const SLOW_READ_MS = 1500;
 
 /**
@@ -126,7 +126,7 @@ function watchDocumentReads(c: Connectors): Connectors {
       inFlight -= 1;
       done += 1;
       if (late) slow -= 1;
-      // Once every read is back, the skeleton goes away.
+      // Once every read is back, the bar stops saying it's slow.
       if (inFlight === 0) slow = 0;
       update();
     }

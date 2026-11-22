@@ -5,10 +5,10 @@ import { copy } from "../copy";
 import { LivePreviewProvider } from "../connectors/live";
 import { TOAST_MS, isEdited, rankedFindings, ScanPreviewProvider, type ScanState, type ToastTone } from "../lib/scan-store";
 import { KeyButton } from "../ui/Kbd";
-import { EARLIER_GROUP, buildTimeline, earlierOpen, filterTimeline, isSoonDay, pickTimelineStop, showsDate, timelineStops, type TimelineEntry } from "../ui/timeline";
+import { EARLIER_GROUP, buildTimeline, earlierOpen, filterTimeline, isSoonDay, onlyFindings, pickTimelineStop, showsDate, timelineStops, type TimelineEntry } from "../ui/timeline";
 import { SearchField } from "../ui/Palette/SearchField";
 import { FilterButton } from "../ui/Palette/Filters";
-import { applyFilters, filterOptions, type FilterId } from "../ui/filters";
+import { applyFilters, filterOptions, passingFindings, type FilterId } from "../ui/filters";
 import type { Finding } from "../agent/pipeline";
 import { findingTrace } from "../ui/finding-trace";
 import { DEFAULT_PANELS, FindingActions, FindingDetail, findingActions, hasDraftPanel as findingHasDraftPanel, firstStop, sidebarStops, type Pane, type PanelId } from "../ui/Palette/FindingDetail";
@@ -18,7 +18,6 @@ import {
   FindingsList,
   Headline,
   NotChecked,
-  Scanning,
   ScanError,
   groupOpen,
   listItems,
@@ -32,8 +31,8 @@ import { Header } from "../ui/Palette/Header";
 import { NowVisual } from "../ui/Palette/NowVisual";
 import { PaletteShell } from "../ui/Palette/PaletteShell";
 import { ScenariosSheet } from "../ui/Palette/ScenariosSheet";
-import { SamplePageSheet } from "../ui/Palette/RoutePanel";
-import { usesEmail, type SamplePage } from "../ui/fix-route";
+import { SamplePageSheet, hasHaveReady } from "../ui/Palette/RoutePanel";
+import { chosenRoute, usesEmail, type SamplePage } from "../ui/fix-route";
 import { ShortcutIntro, ShortcutSheet } from "../ui/Palette/ShortcutSheet";
 import { StatusStrip } from "../ui/Palette/StatusStrip";
 import { TIMELINE_ROW, Timeline, TimelineLine } from "../ui/Palette/Timeline";
@@ -50,7 +49,8 @@ import { EndpointPreviewProvider, ModelDemoPreviewProvider, type EndpointStatus 
 import { SettingsDialog, type SettingsTab } from "../ui/Palette/SettingsDialog";
 import { SyncButton } from "../ui/Palette/SyncButton";
 import { PreviewLayers, Tip } from "../ui/layers";
-import { Ellipsis, Settings } from "lucide-react";
+import { CircleAlert, Ellipsis, Settings } from "lucide-react";
+import { ProgressBar } from "../ui/ProgressBar";
 import { MotionFreeze, type Freeze } from "../ui/motion";
 
 // Dev only (#/gallery): every palette state drawn from fixed sample data, so
@@ -197,6 +197,8 @@ type FrameProps = {
   source?: number;
   /** The draft's Details (To, Subject, Attach) unfolded. */
   detailsOpen?: boolean;
+  /** A call, chat or online route's Have Ready unfolded. */
+  readyOpen?: boolean;
   editing?: boolean;
   mouse?: boolean;
   hint?: boolean;
@@ -256,6 +258,7 @@ function PaletteFrame({
   peek = -1,
   source = -1,
   detailsOpen = true,
+  readyOpen = false,
   editing = false,
   mouse = false,
   hint = false,
@@ -295,8 +298,8 @@ function PaletteFrame({
   const items = listStops(rows, isGroupOpen);
   const item = pickSelected(rows, items, selected, view === "list");
   const openItem = item?.type === "finding" ? item.finding : item?.type === "cleared" ? item.cleared : undefined;
-  const entries = filterTimeline(buildTimeline(shownScan), query);
-  const isEarlierOpen = earlierOpen(entries, !!query.trim(), earlier, false);
+  const entries = filterTimeline(onlyFindings(buildTimeline(shownScan), passingFindings(everyRow, filters)), query);
+  const isEarlierOpen = earlierOpen(entries, !!query.trim() || filters.length > 0, earlier, false);
   const timelineItems = timelineStops(entries, isEarlierOpen);
   const entry = pickTimelineStop(entries, timelineItems, selected);
   const nothingYet = items.length === 0 && !query && !filters.length;
@@ -306,6 +309,7 @@ function PaletteFrame({
   const openFinding = openItem && "evidence" in openItem ? openItem : undefined;
   const hasDraftPanel = !!openFinding && findingHasDraftPanel(openFinding);
   const hasDetails = hasDraftPanel && !!openFinding?.draft && usesEmail(openFinding, shownScan);
+  const hasReady = !!openFinding && hasHaveReady(openFinding, chosenRoute(openFinding, shownScan));
   // As in the app: the sidebar folds once a finding is approved, and then the keys are on the draft side.
   const sidebarShown = sidebarFolded !== undefined ? !sidebarFolded : openFinding?.status !== "approved";
   const pane: Pane = !sidebarShown && paneAsked === "evidence" ? "draft" : paneAsked;
@@ -327,6 +331,7 @@ function PaletteFrame({
         source={source}
         editing={editing}
         detailsOpen={detailsOpen}
+        readyOpen={readyOpen}
         onToggleDetails={noop}
         mouse={mouse}
         onStopEditing={noop}
@@ -359,12 +364,14 @@ function PaletteFrame({
         earlierOpen={isEarlierOpen}
         onToggleEarlier={noop}
         mouse={mouse}
+        filters={filters}
+        onRemoveFilter={noop}
+        onClearFilters={noop}
       />
     );
-  } else if (nothingYet && shownScan.phase === "scanning") main = <Scanning scan={shownScan} />;
-  else if (nothingYet && shownScan.phase === "error") main = <ScanError message={shownScan.error ?? "Something went wrong."} />;
+  } else if (nothingYet && shownScan.phase === "error") main = <ScanError message={shownScan.error ?? "Something went wrong."} />;
   else if (nothingYet && shownScan.phase === "done") main = <AllClear checked={0} />;
-  else if (nothingYet) main = <NotChecked />;
+  else if (nothingYet && shownScan.phase === "idle") main = <NotChecked />;
   else
     main = (
       <FindingsList
@@ -425,7 +432,6 @@ function PaletteFrame({
                       onOpenChange={noop}
                       onSettings={noop}
                       mouse={mouse}
-                      away={view === "timeline"}
                       preview={{ hover: controls?.hover === "filter", tip: controls?.tip === "filter" }}
                     />
                     <ViewButton
@@ -480,7 +486,7 @@ function PaletteFrame({
                     stop={stops[stopAt]}
                     panelOpen={!!stops[stopAt] && "panel" in stops[stopAt] && panels.includes((stops[stopAt] as { panel: PanelId }).panel)}
                     twoPanes={!!openItem && "evidence" in openItem && sidebarShown}
-                    detailsOpen={hasDetails ? detailsOpen : undefined}
+                    detailsOpen={hasDetails ? detailsOpen : hasReady ? readyOpen : undefined}
                     mouse={mouse}
                     onToggle={noop}
                     onPane={noop}
@@ -638,6 +644,22 @@ function ToastTones() {
         </Labelled>
       ))}
       <Labelled label="Question">{card("success", copy.toasts.dismissed("BrightPage Kids"), true, "f-brightpage")}</Labelled>
+    </Strip>
+  );
+}
+
+/** The one loading bar in every state, with the two "reduce motion" pictures. */
+function LoadingBars() {
+  const bar = "w-[420px]";
+  return (
+    <Strip>
+      <Labelled label="Start"><ProgressBar className={bar} percent={0} label="Sample" /></Labelled>
+      <Labelled label="Part way"><ProgressBar className={bar} percent={42} label="Sample" /></Labelled>
+      <Labelled label="Finished"><ProgressBar className={bar} percent={100} label="Sample" /></Labelled>
+      <Labelled label="Failed"><ProgressBar className={bar} percent={42} stopped end={<CircleAlert size={14} strokeWidth={1.75} aria-hidden="true" className="text-danger" />} label="Sample" /></Labelled>
+      <Labelled label="Indeterminate"><ProgressBar className={bar} end="" label="Sample" /></Labelled>
+      <Labelled label="Reduced, part way"><ProgressBar className={bar} percent={42} still label="Sample" /></Labelled>
+      <Labelled label="Reduced, waiting"><ProgressBar className={bar} end="" still label="Sample" /></Labelled>
     </Strip>
   );
 }
@@ -854,6 +876,12 @@ export function Gallery() {
               <Shot title="2. Connect your data, calendar signed out" note="All four in, calendar sign-in expiry switched on; ⌘↵ runs the check">
                 <PaletteFrame scan={s.idle} live="connectedReconnect" onboarding={o({ step: "connect", connected: ["bank", "email", "documents", "calendar"] })} />
               </Shot>
+              <Shot title="3. First check, just started" note="The bar at 0%, before the first stage reports">
+                <PaletteFrame scan={{ ...s.scanningEmpty, stage: undefined, progress: undefined, trace: [] }} live="syncing" onboarding={o({ step: "first-scan", connected: ["bank", "email", "documents", "calendar"] })} />
+              </Shot>
+              <Shot title="3. First check, documents slow" note="No honest percentage while waiting, so the bar moves without a number. The reason is in the open steps">
+                <PaletteFrame scan={s.scanningEmpty} live="slow" agentOpen onboarding={o({ step: "first-scan", connected: ["bank", "email", "documents", "calendar"] })} />
+              </Shot>
               <Shot title="3. First check, running" note="The live seal on a transparent background follows the pointer anywhere in the window. The fold is closed and shows how far along it is; View findings is locked until the check ends">
                 <PaletteFrame scan={s.scanning} live="syncing" onboarding={o({ step: "first-scan", connected: ["bank", "email", "documents", "calendar"] })} />
               </Shot>
@@ -863,7 +891,7 @@ export function Gallery() {
               <Shot title="3. First check, done" note="View findings unlocks; it waits for the press instead of jumping away">
                 <PaletteFrame scan={s.done} onboarding={o({ step: "first-scan", connected: ["bank", "email", "documents", "calendar"] })} />
               </Shot>
-              <Shot title="3. First check, done, steps open, mouse mode" note="Seal is done, with a tick and 100%">
+              <Shot title="3. First check, done, steps open, mouse mode" note="Seal is done, with a full bar and 100%">
                 <PaletteFrame scan={s.done} mouse agentOpen onboarding={o({ step: "first-scan", connected: ["bank", "email", "documents", "calendar"] })} />
               </Shot>
               <Shot title="3. First check, on saved answers" note="The replay notice stays on the bare screen, so saved answers are always labelled">
@@ -1007,8 +1035,20 @@ export function Gallery() {
               <Shot title="A filter matching a row left alone" note="Paying twice, after Not a leak on StreamBox: the group opens by itself while the filter is on">
                 <PaletteFrame scan={dismissedTop} filters={["kind:duplicate_subscription"]} selected={top.id} />
               </Shot>
-              <Shot title="On the timeline" note="Filters are for the findings list: the icon is dimmed here, and F or a click goes back to the list with the menu open">
-                <PaletteFrame scan={s.done} view="timeline" filters={["unsure"]} controls={{ tip: "filter" }} />
+              <Shot title="Timeline, menu open" note="The same filters, counted by finding. F or a click stays on the timeline">
+                <PaletteFrame scan={s.done} view="timeline" filterMenu filters={["kind:price_increase"]} />
+              </Shot>
+              <Shot title="Timeline, filtered" note="Only the dated lines of matching findings, with the same chips. The total and group sums follow">
+                <PaletteFrame scan={s.done} view="timeline" filters={["kind:price_increase", "kind:trial_converted"]} />
+              </Shot>
+              <Shot title="Timeline, a finding with no dates" note="This sample has no dated lines, so it says how to get back">
+                <PaletteFrame scan={s.done} view="timeline" filters={["kind:billing_error"]} />
+              </Shot>
+              <Shot title="Timeline, mouse mode" note="Clear all takes the place of the key hint">
+                <PaletteFrame scan={s.done} view="timeline" mouse filters={["soon"]} />
+              </Shot>
+              <Shot title="Timeline, nothing matches" note="A filter and a search with no line in common: says how to get back">
+                <PaletteFrame scan={s.done} view="timeline" query="sky" filters={["kind:billing_error"]} />
               </Shot>
             </Section>
 
@@ -1124,8 +1164,11 @@ export function Gallery() {
               <Shot title="Routes: Email" note="Best way and why, then one tab per route on keys 1-4, recommended first. Email keeps the draft as it was; hovering it adds Copy (Y) beside Edit">
                 <PaletteFrame scan={r.email} view="detail" selected="f-skylink" pane="draft" />
               </Shot>
-              <Shot title="Routes: Call" note="Number marked Sample (never dialled), hours and wait, Say this with Copy (Y), If they say no, and Have ready: what they'll ask for, then figures code checked. Edit leaves the heading, since there's no draft on this route">
+              <Shot title="Routes: Call" note="Number marked Sample (never dialled), hours and wait, Say this with Copy (Y), If they say no, and Have Ready folded: Edit leaves the heading, since there's no draft on this route">
                 <PaletteFrame scan={r.call} view="detail" selected="f-skylink" pane="draft" />
+              </Shot>
+              <Shot title="Routes: Call, Have Ready open" note="Enter or a click: what they'll ask for, then figures code checked. It starts closed on every finding">
+                <PaletteFrame scan={r.call} view="detail" selected="f-skylink" pane="draft" readyOpen />
               </Shot>
               <Shot title="Routes: Chat" note="The opener to paste, with the link marked Sample: a click shows the sample page">
                 <PaletteFrame scan={r.chat} view="detail" selected="f-skylink" pane="draft" />
@@ -1315,11 +1358,32 @@ export function Gallery() {
             </Section>
 
             <Section id="states" title="Scan states">
-              <Shot title="Checking, nothing yet" note="Trace lines and the slow documents skeleton">
+              <Shot title="Loading bar" note="One bar everywhere: violet with grain, the number beside it" height={250}>
+                <LoadingBars />
+              </Shot>
+              <Shot title="Checking, just started" note="The list stays in place. Bottom left: cog, Trace, Sync, the bar, then the status and date">
+                <PaletteFrame scan={{ ...s.scanningEmpty, stage: undefined, progress: undefined, trace: [] }} live="syncing" />
+              </Shot>
+              <Shot title="Checking, part way, nothing yet">
+                <PaletteFrame scan={s.scanningEmpty} live="syncing" />
+              </Shot>
+              <Shot title="Checking, documents slow" note="No honest percentage, so the bar moves without a number and the status says why">
                 <PaletteFrame scan={s.scanningEmpty} live="slow" />
               </Shot>
-              <Shot title="Checking, first findings in">
+              <Shot title="Checking, first findings in" note="Rows fill in above the bottom bar's loading bar">
                 <PaletteFrame scan={s.scanning} live="syncing" />
+              </Shot>
+              <Shot title="Checking, on the timeline" note="The same bar, in the same place">
+                <PaletteFrame scan={s.scanning} live="syncing" view="timeline" />
+              </Shot>
+              <Shot title="Checking, replay notice showing">
+                <PaletteFrame scan={s.checkingOffline} live="syncing" />
+              </Shot>
+              <Shot title="Checking, inside a finding" note="The narrowest bottom bar: the loading bar gives up width first">
+                <PaletteFrame scan={s.scanning} live="syncing" view="detail" selected="f-redgum" pane="draft" />
+              </Shot>
+              <Shot title="Background check" note="No bar: the last results stay and the footer says it's checking">
+                <PaletteFrame scan={s.refreshing} />
               </Shot>
               <Shot title="All clear">
                 <PaletteFrame scan={s.allClear} />

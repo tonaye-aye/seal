@@ -110,6 +110,9 @@ export const copy = {
     } satisfies Record<Stage, string>,
     starting: "Starting",
     progress: (stage: string, done: number, total: number) => `${stage} ${done}/${total}`,
+    /** A source asked us to wait, or documents are slow: said here, beside the loading bar. */
+    retrying: (source: string, seconds: number) => `${source}: retrying in ${seconds}s`,
+    slowDocuments: (done: number) => (done > 0 ? `Documents slow, ${done} read` : "Documents slow"),
     notChecked: "Not checked yet",
     checkingAgain: "Checking again",
     checkedAt: (time: string) => `Checked ${time}`,
@@ -117,7 +120,7 @@ export const copy = {
     /** The sync button in the top bar. */
     sync: "Sync everything",
     syncing: "Syncing…",
-    /** The breadcrumb after the app name ("Seal / Timeline / Skylink Internet"), read out by screen readers. */
+    /** The breadcrumb after the app name ("Seal  Timeline / Skylink Internet"), read out by screen readers. */
     breadcrumb: "Where you are",
     /** The tooltip on a breadcrumb that goes back. */
     backTo: (place: string) => `Back to ${place}`,
@@ -154,9 +157,10 @@ export const copy = {
     /** The line under the heading. */
     needAttentionLine: "Charges that look wrong or unwanted, most urgent first.",
     findingsAppear: "Findings appear here as soon as each one is checked.",
+    /** Under the money at the heading's right. */
+    inTotal: "in total",
     allClearLine: "Nothing looks wrong or unwanted. The ones below were checked and look fine.",
     allDealtWithLine: "Approved drafts are waiting in your mailbox. Nothing was sent.",
-    stillChecking: "Still checking the rest.",
     /** The line under the heading while searching. */
     searchHelp: "Try a business, like Skylink, or a problem, like price rise. Esc clears the search",
     searchOfOpen: (hits: number, open: number) => `${hits} of the ${open} that need you`,
@@ -175,7 +179,6 @@ export const copy = {
     /** Rows. */
     quickActions: "Quick actions",
     quickActionsFor: (merchant: string) => `Quick actions for ${merchant}`,
-    stillDeciding: (n: number) => `Still deciding on ${n} more`,
     /** Group headers in the list. Each is drawn with its count beside it. */
     groups: {
       soon: "Due within 7 days",
@@ -194,8 +197,6 @@ export const copy = {
       `${andList(names)} couldn't be read, so this check is missing what's in it. Press [R] to reconnect and check again.`,
 
     /** Whole-area states. */
-    scanningTitle: "Checking this month's money",
-    scanningLine: "Reading what you've connected. Findings appear here as soon as each one is checked.",
     slowDocuments: (done: number) => `Documents are slow to respond. ${done > 0 ? `${done} read so far, ` : ""}still waiting on the rest.`,
     allClearTitle: "All clear this month",
     allClearBody: (charges: number) =>
@@ -437,7 +438,7 @@ export const copy = {
     sayThis: "Say this",
     ask: "Ask",
     ifNo: "If they say no",
-    haveReady: "Have ready",
+    haveReady: "Have Ready",
     steps: "Steps",
     pasteThis: "Paste this into the chat",
     noScript: "No script this time: the model couldn't write one that passed the check. The number and figures are still right.",
@@ -481,7 +482,6 @@ export const copy = {
     soonDates: (n: number, by: string) => `${plural(n, "date")} ${pick(n, "needs", "need")} you by ${by}.`,
     noSoonDates: "No dates need you in the next 7 days.",
     searchHelp: "Try a business, like Skylink, or a date, like 28 Nov. Esc clears the search.",
-    stillChecking: "Still checking, so more may appear.",
     now: "Now",
     /** Groups of lines still to come. */
     groups: { next: "Next 7 days", laterIn: (month: string) => `Later in ${month}` },
@@ -825,12 +825,19 @@ export const copy = {
     viewFindings: "View findings",
     tryCheckAgain: "Try again",
     carryOn: "Carry on without it",
-    /** The fold that holds the agent's live steps. */
-    agentWorking: "Seal is on it...",
-    agentDone: "Seal is done",
-    agentStopped: "Seal stopped",
-    percent: (n: number) => `${n}%`,
     sealAlt: "A seal, looking around",
+  },
+
+  // ---------- The check's loading bar ----------
+  check: {
+    /** Onboarding's fold that holds the agent's live steps. */
+    working: "Seal is on it...",
+    done: "Seal is done",
+    stopped: "Seal stopped",
+    slow: "Documents are slow",
+    percent: (n: number) => `${n}%`,
+    /** For screen readers. */
+    progressLabel: "How far the check has got",
   },
 
   // ---------- The Settings dialog ----------
@@ -874,7 +881,7 @@ export const copy = {
       last: { name: "Where I left off", note: "The view or finding you last had open" },
     },
     filters: {
-      intro: "Filters narrow the Findings list. They clear each time you summon me.",
+      intro: "Filters narrow the Findings list and the Timeline. They clear each time you summon me.",
       clearAll: "Clear all",
       none: "Nothing to filter yet. Filters appear after a check finds something.",
       meaning: {
@@ -992,14 +999,14 @@ export const copy = {
         short: "Bank rate limit",
         simulates: "Every 4th transactions call is refused with 429, asking to wait 3 seconds.",
         expect:
-          "once per check, the checking screen says the bank asked us to slow down and the Settings cog gets a blue dot. It carries on by itself.",
+          "once per check, the bottom bar says it's retrying the bank with a countdown, and the Settings cog gets a blue dot. It carries on by itself.",
       },
       slow_documents: {
         name: "Slow documents",
         short: "Slow documents",
         simulates: "Each document read takes 4 to 6 seconds.",
         expect:
-          "for about 15 s while documents are read, a loading card on the checking screen says Documents are slow to respond, and the Settings cog gets a blue dot.",
+          "for about 15 s while documents are read, the bottom bar's loading bar moves without a percentage, its status says Documents slow, and the Settings cog gets a blue dot.",
       },
     },
     modelTitle: "Model endpoint",
