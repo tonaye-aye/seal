@@ -3,8 +3,9 @@ import { copy } from "../copy";
 import { isUnsure, urgency } from "./format";
 import type { ListItem } from "./Palette/FindingsList";
 
-// The findings list's filters (F, or the funnel on the rail). Plain code, no
-// model: each filter is a test on one row.
+// The filters for the findings list and the timeline (F, or the funnel in the
+// top bar). Plain code, no model: each filter is a test on one finding's row.
+// The timeline then shows the dated lines of the findings that pass.
 //
 // How they combine (the way Linear does it): several kinds show rows of any
 // of those kinds; "Due within 7 days" and "Not sure" each narrow that down
@@ -48,6 +49,12 @@ export function passes(item: ListItem, active: FilterId[]): boolean {
 
 export function applyFilters(items: ListItem[], active: FilterId[]): ListItem[] {
   return active.length ? items.filter((item) => passes(item, active)) : items;
+}
+
+/** The ids of the findings that pass, for the timeline. Undefined when no filter is on. */
+export function passingFindings(items: ListItem[], active: FilterId[]): Set<string> | undefined {
+  if (!active.length) return undefined;
+  return new Set(items.filter((item) => item.type === "finding" && passes(item, active)).map((item) => item.key));
 }
 
 /**

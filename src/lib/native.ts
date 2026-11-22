@@ -56,8 +56,15 @@ if (inPaletteWindow) {
 
 function setHidden(next: boolean): void {
   paletteHidden = next;
+  markHidden();
   visibilityListeners.forEach((run) => run());
 }
+
+/** Lets the CSS pause anything that loops while the app is hidden. */
+function markHidden(): void {
+  document.documentElement.toggleAttribute("data-palette-hidden", paletteHidden);
+}
+markHidden();
 
 export function isPaletteHidden(): boolean {
   return paletteHidden;

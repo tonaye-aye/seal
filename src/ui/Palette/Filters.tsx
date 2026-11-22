@@ -5,16 +5,14 @@ import { Menu, MenuCheckItem, MenuItem, MenuSections, Tip } from "../layers";
 import { filterLabel, type FilterId, type FilterOption } from "../filters";
 import { iconButton } from "./Controls";
 
-// Filters for the findings list: a funnel in the top bar (or F) opens a
-// menu of ticks, and each filter that is on shows as a chip under the
-// heading. The rules for what a filter matches are in src/ui/filters.ts.
+// Filters for the findings list and the timeline: a funnel in the top bar (or
+// F) opens a menu of ticks, and each filter that is on shows as a chip under
+// the heading. The rules for what a filter matches are in src/ui/filters.ts.
 
 /**
  * The Filter button and its menu. Inside the menu, the number on a row
  * ticks it (the menu stays open), Backspace clears them all, comma opens Filter
  * settings, F or Esc closes it.
- * In the timeline it is dimmed: filters are for the findings list, so using
- * it goes back there first (the palette does that in `onOpenChange`).
  */
 export function FilterButton({
   options,
@@ -25,7 +23,6 @@ export function FilterButton({
   onOpenChange,
   onSettings,
   mouse,
-  away = false,
   preview,
 }: {
   options: FilterOption[];
@@ -37,8 +34,6 @@ export function FilterButton({
   /** The last row: Settings, on its Filters tab. */
   onSettings: () => void;
   mouse: boolean;
-  /** In the timeline (or a finding opened from it): the list isn't showing. */
-  away?: boolean;
   /** The dev gallery only: held hovered, or its tooltip held open. */
   preview?: { hover?: boolean; tip?: boolean };
 }) {
@@ -84,7 +79,7 @@ export function FilterButton({
             tabIndex={-1}
             aria-label={copy.controls.filter}
             onMouseDown={(e) => e.preventDefault()}
-            className={`${iconButton(look, !!preview?.hover)} ${away && !open ? "opacity-60" : ""}`}
+            className={iconButton(look, !!preview?.hover)}
           >
             <ListFilter size={16} strokeWidth={1.75} aria-hidden="true" className="block" />
             {/* How many filters are on: a small neutral badge (violet is kept for the main action). */}

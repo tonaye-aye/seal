@@ -1,5 +1,6 @@
 import { useRef } from "react";
-import { Copy, Globe, Mail, MessageCircle, Phone } from "lucide-react";
+import * as Accordion from "@radix-ui/react-accordion";
+import { ChevronRight, Copy, Globe, Mail, MessageCircle, Phone } from "lucide-react";
 import type { Finding } from "../../agent/pipeline";
 import type { FixRoute, RouteKind } from "../../agent/routes";
 import { copy } from "../../copy";
@@ -13,6 +14,9 @@ import { Sheet, SheetTitle, Tip } from "../layers";
 // is a sample: it's shown, never dialled or opened.
 
 const KIND_ICON: Record<RouteKind, typeof Mail> = { email: Mail, call: Phone, chat: MessageCircle, online: Globe };
+
+/** A fold's heading line in an open finding: the sidebar's panels, "Drafted email" and Have Ready. */
+export const FOLD_LINE = "row-press relative flex h-7 cursor-pointer items-center gap-2 rounded-md px-2 text-meta";
 
 export function CopyIcon() {
   return <Copy size={14} strokeWidth={1.75} aria-hidden="true" />;
@@ -123,28 +127,51 @@ function Contact({ route, reason, onSample }: { route: FixRoute; reason?: string
   );
 }
 
-/** What to have in front of you: what the business will ask for, then figures code checked. */
-function HaveReady({ finding, route }: { finding: Finding; route: FixRoute }) {
+/** Whether this route has anything to put under Have Ready. */
+export function hasHaveReady(finding: Finding, route: FixRoute | undefined): boolean {
+  return !!route && route.kind !== "email" && (route.needs.length > 0 || (finding.fix?.haveReady.length ?? 0) > 0);
+}
+
+const HAVE_READY = "have-ready";
+
+/**
+ * What to have in front of you: what the business will ask for, then figures
+ * code checked. Folded to start, so the script or steps come first. Enter or
+ * Space on the draft side opens it, or a click. Drawn like "Drafted email".
+ */
+function HaveReady({ finding, route, open, onToggle }: { finding: Finding; route: FixRoute; open: boolean; onToggle: () => void }) {
+  if (!hasHaveReady(finding, route)) return null;
   const figures = finding.fix?.haveReady ?? [];
-  if (!route.needs.length && !figures.length) return null;
   return (
-    <Part title={copy.routes.haveReady}>
-      {route.needs.length > 0 && (
-        <ul className="mb-1.5 list-disc pl-4 text-meta text-muted">
-          {route.needs.map((n) => (
-            <li key={n}>{n}</li>
-          ))}
-        </ul>
-      )}
-      <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 text-meta">
-        {figures.map((f) => (
-          <div key={f.label} className="contents">
-            <dt className="truncate text-muted">{f.label}</dt>
-            <dd className="figure text-right text-text">{f.value}</dd>
+    <Accordion.Root type="single" collapsible value={open ? HAVE_READY : ""} onValueChange={onToggle}>
+      <Accordion.Item value={HAVE_READY}>
+        <Accordion.Trigger asChild>
+          <div className={`${FOLD_LINE} -mx-2 w-fit text-muted hover:text-text`}>
+            <span className={`label ${open ? "text-muted" : "text-faint"}`}>{copy.routes.haveReady}</span>
+            <ChevronRight size={12} strokeWidth={2} aria-hidden="true" className="accordion-chevron shrink-0 text-faint" />
           </div>
-        ))}
-      </dl>
-    </Part>
+        </Accordion.Trigger>
+        <Accordion.Content className="accordion-content">
+          <div className="pt-0.5 pb-1">
+            {route.needs.length > 0 && (
+              <ul className="mb-1.5 list-disc pl-4 text-meta text-muted">
+                {route.needs.map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
+              </ul>
+            )}
+            <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 text-meta">
+              {figures.map((f) => (
+                <div key={f.label} className="contents">
+                  <dt className="truncate text-muted">{f.label}</dt>
+                  <dd className="figure text-right text-text">{f.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </Accordion.Content>
+      </Accordion.Item>
+    </Accordion.Root>
   );
 }
 
@@ -153,12 +180,17 @@ export function RoutePanel({
   finding,
   route,
   mouse,
+  readyOpen = false,
+  onToggleReady = () => {},
   onCopy,
   onSample,
 }: {
   finding: Finding;
   route: FixRoute;
   mouse: boolean;
+  /** Have Ready is unfolded (closed to start). */
+  readyOpen?: boolean;
+  onToggleReady?: () => void;
   /** Y: copy the script, opener or figures. */
   onCopy: () => void;
   /** Show the labelled stand-in for this business's page. */
@@ -226,7 +258,7 @@ export function RoutePanel({
         </Part>
       )}
       <div className="mt-4">
-        <HaveReady finding={finding} route={route} />
+        <HaveReady finding={finding} route={route} open={readyOpen} onToggle={onToggleReady} />
       </div>
     </div>
   );

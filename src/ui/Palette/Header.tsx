@@ -3,7 +3,7 @@ import { centerWindow, startWindowDrag } from "../../lib/native";
 import { Tip } from "../layers";
 import { NowVisual } from "./NowVisual";
 
-// Top bar: who we are and where you are (the breadcrumb: "Seal / Timeline /
+// Top bar: who we are and where you are (the breadcrumb: "Seal  Timeline /
 // Skylink Internet"), with Search, Filter and View on the right. It is also
 // the window's handle: drag it to move the palette, double-click it to put it
 // back in the centre.
@@ -63,15 +63,18 @@ export function Header({
           <span className="heading relative text-body font-semibold">{copy.appName}</span>
         )}
         {crumbs.length > 0 && (
-          <nav aria-label={copy.header.breadcrumb} className="flex min-w-0 items-center text-small">
+          <nav aria-label={copy.header.breadcrumb} className="ml-1.5 flex min-w-0 items-center text-small">
             <ol className="flex min-w-0 items-center">
               {crumbs.map((crumb, i) => {
                 const last = i === crumbs.length - 1;
                 return (
                   <li key={i} className="flex min-w-0 items-center">
-                    <span className="px-2 text-faint" aria-hidden="true">
-                      /
-                    </span>
+                    {/* Only between crumbs: the app name and the view need no slash. */}
+                    {i > 0 && (
+                      <span className="px-2 text-faint" aria-hidden="true">
+                        /
+                      </span>
+                    )}
                     {crumb.onClick ? (
                       <Tip content={copy.header.backTo(crumb.label)} keys={["Esc"]} side="bottom">
                         <button

@@ -20,7 +20,7 @@ import { approve, cancelReminder, cancelRewrite, chooseRoute, pressVerb, dismiss
 import { RULE_REASONS } from "../../lib/rules";
 import { openComplaintBody, seal, sealTarget } from "../seal";
 import { chosenRoute, escalationPage, routePage, routeText, usesEmail, type SamplePage } from "../fix-route";
-import { SamplePageSheet } from "./RoutePanel";
+import { SamplePageSheet, hasHaveReady } from "./RoutePanel";
 import { findingTrace } from "../finding-trace";
 import { DEFAULT_PANELS, FindingActions, FindingDetail, findingActions, hasDraftPanel as findingHasDraftPanel, firstStop, sidebarStops, type Command, type Pane, type PanelId } from "./FindingDetail";
 import {
@@ -28,7 +28,6 @@ import {
   CLEARED_GROUP,
   FindingsList,
   NotChecked,
-  Scanning,
   ScanError,
   groupOpen,
   leftAlone,
@@ -40,7 +39,7 @@ import {
 } from "./FindingsList";
 import { SearchField } from "./SearchField";
 import { FilterButton } from "./Filters";
-import { applyFilters, filterOptions, toggleFilter, type FilterId } from "../filters";
+import { applyFilters, filterOptions, passingFindings, toggleFilter, type FilterId } from "../filters";
 import { Footer } from "./Footer";
 import { Header, type Crumb } from "./Header";
 import { PaletteShell } from "./PaletteShell";
@@ -55,7 +54,7 @@ import { Toast } from "./Toast";
 import { TraceDrawer } from "./Trace";
 import { replayNote } from "../replay";
 import { Timeline } from "./Timeline";
-import { EARLIER_GROUP, buildTimeline, earlierOpen, filterTimeline, isEarlier, isEarlierStop, nowIndex, pickTimelineStop, timelineStops } from "../timeline";
+import { EARLIER_GROUP, buildTimeline, earlierOpen, filterTimeline, isEarlier, isEarlierStop, nowIndex, onlyFindings, pickTimelineStop, timelineStops } from "../timeline";
 import { changeView, nativeViewTransitions } from "../motion";
 
 // The summoned palette. It fills the native window; the window itself is
@@ -67,7 +66,7 @@ import { changeView, nativeViewTransitions } from "../motion";
 //   detail  J/K move through the sidebar (or scroll the draft), Enter or Space
 //           opens or closes the selected line, C "Checked by code", Tab draft/sidebar
 //   timeline  J/K move through time, Enter opens the line's finding
-//   list    F filter menu, Backspace removes the newest filter (Esc clears them all, after the search)
+//   list and timeline  F filter menu, Backspace removes the newest filter (Esc clears them all, after the search)
 //   always  Cmd+Enter timeline, V view menu, Cmd+Z undo, / search, T trace, R sync everything, N connectors, M models, ? keys, Esc back
 //   hidden  Cmd+Shift+D demo panel (its own keys live in ScenariosSheet)
 //   setup   (the three onboarding steps) Enter does the step's action, Cmd+Enter runs the first check
@@ -149,6 +148,8 @@ export function Palette() {
   // The draft's "Drafted email" fold (To, Subject, Attach): open to start, and
   // left as Maya sets it from one finding to the next.
   const [detailsOpen, setDetailsOpen] = useState(true);
+  // Which finding has Have Ready unfolded. It starts closed on every finding.
+  const [readyFor, setReadyFor] = useState<string>();
   const [traceOpen, setTraceOpen] = useState(false);
   // Which trace the drawer shows: the open finding's own, or the whole check's.
   const [traceScope, setTraceScope] = useState<"finding" | "check">("check");
@@ -178,7 +179,7 @@ export function Palette() {
   // The timeline's Earlier: closed by default, open by itself while a search matches inside it.
   const [earlierOpened, setEarlierOpened] = useState(false);
   const [earlierClosedInSearch, setEarlierClosedInSearch] = useState(false);
-  useEffect(() => setEarlierClosedInSearch(false), [query]);
+  useEffect(() => setEarlierClosedInSearch(false), [query, filterKey]);
   // Editing belongs to an open finding: leaving it (Esc, the rail, the
   // breadcrumb, the search) ends editing, so the list's keys never get stuck
   // waiting for a draft that isn't on screen.
@@ -194,8 +195,8 @@ export function Palette() {
   const narrowed = !!query.trim() || filters.length > 0;
   const isGroupOpen = groupOpen(rows, narrowed, groupOpened, groupClosedInSearch);
   const items = listStops(rows, isGroupOpen);
-  // A finding opened from the timeline can be one the list's filters or search
-  // hide (filters only apply to the list): while it is open, find it among every row.
+  // A finding opened from the timeline can be one the list's search hides (a
+  // date can match there but not here): while it is open, find it among every row.
   const hiddenOpen = view === "detail" && !rows.some((i) => i.key === selectedKey) ? everyRow.find((i) => i.key === selectedKey) : undefined;
   const selected: ListItem | undefined = hiddenOpen ?? pickSelected(rows, items, selectedKey, view === "list");
   const selectedItem: Finding | Cleared | undefined =
@@ -213,8 +214,12 @@ export function Palette() {
   const hasDraftPanel = !!selectedFinding && findingHasDraftPanel(selectedFinding);
   // Details only exist on a draft that's still shown (not once approved).
   const hasDetails = hasDraftPanel && !!selectedFinding?.draft && usesEmail(selectedFinding, scan);
-  const entries = filterTimeline(buildTimeline(scan), query);
-  const isEarlierOpen = earlierOpen(entries, !!query.trim(), earlierOpened, earlierClosedInSearch);
+  // A call, chat or online route has a Have Ready fold instead, on the same Enter key.
+  const hasReady = !!selectedFinding && hasHaveReady(selectedFinding, chosenRoute(selectedFinding, scan));
+  const readyOpen = hasReady && readyFor === selectedFinding?.id;
+  // The same filters narrow the timeline to the dated lines of the findings that pass.
+  const entries = filterTimeline(onlyFindings(buildTimeline(scan), passingFindings(everyRow, filters)), query);
+  const isEarlierOpen = earlierOpen(entries, narrowed, earlierOpened, earlierClosedInSearch);
   // The stops J/K move through on the timeline (Earlier's header included), and the selected one.
   const timelineItems = timelineStops(entries, isEarlierOpen);
   const timelineStop = pickTimelineStop(entries, timelineItems, timelineKey);
@@ -296,6 +301,7 @@ export function Palette() {
     setPeek(-1);
     setSource(-1);
     setApprovedSidebarOpen(false);
+    setReadyFor(undefined);
     // Editing belongs to one open finding: moving to another ends it.
     setEditing(false);
   }
@@ -367,7 +373,7 @@ export function Palette() {
 
   function open(key: string, from: "list" | "timeline" = "list") {
     if (key === CLEARED_GROUP) return toggleGroup();
-    // From the timeline, a finding the list's filters or search hide still opens.
+    // From the timeline, a finding the list's search hides still opens.
     const item = rows.find((i) => i.key === key) ?? (from === "timeline" ? everyRow.find((i) => i.key === key) : undefined);
     if (!item || item.type === "undecided" || item.type === "group") return;
     // A case opened from the timeline is shown in its group when you come back to the list.
@@ -406,7 +412,7 @@ export function Palette() {
 
   /** Opens or closes the timeline's Earlier. Its header takes the selection, so the highlight stays put while it folds. */
   function toggleEarlier(next = !isEarlierOpen) {
-    if (query.trim()) setEarlierClosedInSearch(!next);
+    if (narrowed) setEarlierClosedInSearch(!next);
     setEarlierOpened(next);
     setTimelineKey(EARLIER_GROUP);
   }
@@ -454,13 +460,14 @@ export function Palette() {
   }
 
   /**
-   * Opens or closes the Filter menu. Filters are for the findings list, so
-   * from the timeline or an open finding it goes back to the list first.
+   * Opens or closes the Filter menu. The list and the timeline can both be
+   * filtered. An open finding has no Filter button, so F steps back to the view
+   * it was opened from.
    */
   function setFilterMenu(next: boolean) {
-    if (next && view !== "list") {
+    if (next && view === "detail") {
       setEditing(false);
-      changeView(() => setView("list"), "back");
+      changeView(() => setView(detailFrom), "back");
     }
     setFilterMenuOpen(next);
   }
@@ -577,6 +584,7 @@ export function Palette() {
       case "details":
         // Enter or Space on the draft side, or a click on "Drafted email" (also while editing): open or fold To, Subject and Attach.
         if (inDetail && hasDetails) setDetailsOpen((o) => !o);
+        else if (inDetail && hasReady) setReadyFor(readyOpen ? undefined : selectedFinding?.id);
         return;
       case "open":
         if (selected) open(selected.key);
@@ -708,6 +716,7 @@ export function Palette() {
         else if (traceOpen) setTraceOpen(false);
         else if (view === "detail") back();
         else if (view === "timeline" && query) setQuery("");
+        else if (view === "timeline" && filters.length) setFilters([]);
         else if (view === "timeline") back();
         else if (query) setQuery("");
         else if (filters.length) setFilters([]);
@@ -817,6 +826,10 @@ export function Palette() {
         } else if (lower === "f") {
           event.preventDefault();
           setFilterMenu(true);
+        } else if (key === "Backspace" && filters.length) {
+          // Takes the newest filter off, like on the list.
+          event.preventDefault();
+          setFilters((f) => f.slice(0, -1));
         }
         return;
       }
@@ -947,6 +960,8 @@ export function Palette() {
         source={source}
         editing={editing}
         detailsOpen={detailsOpen}
+        readyOpen={readyOpen}
+        onToggleReady={() => run("details")}
         onToggleDetails={() => run("details")}
         mouse={mouse}
         onStopEditing={() => {
@@ -985,12 +1000,16 @@ export function Palette() {
         earlierOpen={isEarlierOpen}
         onToggleEarlier={toggleEarlier}
         mouse={mouse}
+        filters={filters}
+        onRemoveFilter={(id) => setFilters((f) => f.filter((x) => x !== id))}
+        onClearFilters={() => setFilters([])}
       />
     );
-  } else if (nothingYet && scan.phase === "scanning") main = <Scanning scan={scan} />;
-  else if (nothingYet && scan.phase === "error") main = <ScanError message={scan.error ?? copy.shared.somethingWentWrong} />;
+  } else if (nothingYet && scan.phase === "error") main = <ScanError message={scan.error ?? copy.shared.somethingWentWrong} />;
   else if (nothingYet && scan.phase === "done") main = <AllClear checked={0} />;
-  else if (nothingYet) main = <NotChecked />;
+  else if (nothingYet && scan.phase === "idle") main = <NotChecked />;
+  // While a check runs the list stays in place, like the timeline: the bottom
+  // bar shows the loading bar and the rows fill in as each one is checked.
   else
     main = (
       <FindingsList
@@ -1073,7 +1092,6 @@ export function Palette() {
                     onOpenChange={setFilterMenu}
                     onSettings={() => setSettingsTab("filters")}
                     mouse={mouse}
-                    away={shownView === "timeline"}
                   />
                   <ViewButton current={shownView} onToggle={toggleView} />
                 </>
@@ -1113,7 +1131,7 @@ export function Palette() {
                 stop={selectedStop}
                 panelOpen={!!selectedStop && "panel" in selectedStop && panels.includes(selectedStop.panel)}
                 twoPanes={!!selectedItem && "evidence" in selectedItem && sidebarShown}
-                detailsOpen={hasDetails ? detailsOpen : undefined}
+                detailsOpen={hasDetails ? detailsOpen : hasReady ? readyOpen : undefined}
                 canSayWhy={selectedFinding?.status === "dismissed"}
                 mouse={mouse}
                 onToggle={() => run(pane === "evidence" ? "toggle" : "details")}

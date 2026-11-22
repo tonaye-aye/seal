@@ -3,12 +3,25 @@
 // under it. Search lives in the top bar (SearchField.tsx); while it holds a
 // search, the title says how many rows match.
 
+import { formatAUD } from "../../lib/money";
+
+/** The money figure at the heading's right, the same on the list and the timeline. */
+export function HeadingTotal({ cents, label }: { cents: number; label: string }) {
+  return (
+    <div className="text-right">
+      <div className="figure text-title leading-5 text-text">{formatAUD(cents)}</div>
+      <div className="mt-0.5 text-meta text-faint">{label}</div>
+    </div>
+  );
+}
+
 export function ViewHeading({
   title,
   eyebrow,
   children,
   action,
   below,
+  reserveLine = false,
   divider = false,
 }: {
   title: string;
@@ -20,6 +33,8 @@ export function ViewHeading({
   action?: React.ReactNode;
   /** Under the title and its line (the findings list's filter chips). */
   below?: React.ReactNode;
+  /** Keep the line under the title even when it's empty, so the rows don't move when words arrive. */
+  reserveLine?: boolean;
   /** A dotted zig-zag line under it, inset to match the content (an open finding: it separates the actions from the draft). */
   divider?: boolean;
 }) {
@@ -30,7 +45,7 @@ export function ViewHeading({
           {eyebrow && <div className="mb-1 flex items-center gap-2 text-meta whitespace-nowrap">{eyebrow}</div>}
           <h1 className="heading text-heading font-semibold">{title}</h1>
           {/* The line under the title is left out when there is nothing to say. */}
-          {hasContent(children) && <p className="mt-0.5 text-small text-muted">{children}</p>}
+          {(reserveLine || hasContent(children)) && <p className="mt-0.5 text-small text-muted">{hasContent(children) ? children : " "}</p>}
           {below}
         </div>
         {action && <div className="mt-1 shrink-0">{action}</div>}

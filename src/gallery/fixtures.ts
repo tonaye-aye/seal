@@ -706,7 +706,7 @@ export function scanSamples(corpus: Corpus | undefined) {
     replayOffline: { ...savedCheck, replay: { why: "offline", detail: "Couldn't reach the endpoint. Check the network." } } satisfies ScanState,
     replayKey: { ...savedCheck, replay: { why: "key_rejected", detail: "The endpoint didn't accept the API key (it answered 401)." } } satisfies ScanState,
     replayLost: { ...savedCheck, replay: { why: "lost", detail: "the endpoint stopped answering", stage: "extract" } } satisfies ScanState,
-    /** The checking screen after the endpoint check failed: the trace says why. */
+    /** A check running after the endpoint check failed: the replay notice and the trace say why. */
     checkingOffline: {
       ...done,
       phase: "scanning",
