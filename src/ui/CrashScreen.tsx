@@ -34,9 +34,9 @@ export function CrashPanel({ onReload, onHide, panelRef }: { onReload: () => voi
           type="button"
           onMouseDown={(e) => e.preventDefault()}
           onClick={onReload}
-          className={`${BUTTON} bg-accent-solid font-semibold text-on-accent hover:bg-accent-solid-hover`}
+          className={`${BUTTON} grain grain-accent relative bg-accent-solid font-semibold text-on-accent hover:bg-accent-solid-hover`}
         >
-          <kbd className={`${KEY_CAP} border-on-accent/25 bg-on-accent/10 text-on-accent`}>R</kbd>
+          <kbd className={`${KEY_CAP} border-on-accent/25 bg-accent-solid-hover text-on-accent`}>R</kbd>
           {copy.crash.reload}
         </button>
         <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={onHide} className={`${BUTTON} text-muted hover:bg-raised hover:text-text`}>

@@ -1,11 +1,10 @@
 import { useRef, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
-import { Check } from "lucide-react";
 import type { ConnectorStatus } from "../../connectors";
 import type { ConnectorId } from "../../connectors/types";
 import { useLive } from "../../connectors/live";
 import { chooseHotkey } from "../../lib/native";
-import { SOURCES, connectNext, finishOnboarding, next, retestSummon, retrySource, runFirstCheck, type OnboardingState } from "../../lib/onboarding";
+import { SOURCES, connectNext, finishOnboarding, next, retestSummon, retrySource, runFirstCheck, skipConnect, type OnboardingState } from "../../lib/onboarding";
 import { rankedFindings, useScan } from "../../lib/scan-store";
 import { copy, plural } from "../../copy";
 import { Kbd, KeyButton } from "../Kbd";
@@ -75,8 +74,48 @@ export function welcomeLocked(onboarding: OnboardingState, hotkey: string[], hot
   return !(desktop && hotkey.length === 0);
 }
 
+/**
+ * Skip, at the right of the top bar on steps 1 and 2. Step 1 can always be
+ * skipped until its key is pressed, because another app can hold both
+ * shortcuts. Step 2 waits for a source that's still connecting.
+ */
+export function SetupSkip({
+  onboarding,
+  hotkey,
+  hotkeyReady,
+  mouse,
+}: {
+  onboarding: OnboardingState;
+  hotkey: string[];
+  hotkeyReady: boolean;
+  mouse: boolean;
+}) {
+  const welcome = onboarding.step === "welcome";
+  if (!(onboarding.step === "connect" || (welcome && welcomeLocked(onboarding, hotkey, hotkeyReady)))) return null;
+  return (
+    <span className="inline-flex text-small">
+      <KeyButton keys={SKIP_KEYS} label={copy.onboarding.skip} icon={<NextIcon />} mouse={mouse} disabled={!welcome && !!onboarding.connecting} onClick={welcome ? next : skipConnect} />
+    </span>
+  );
+}
+
+const SKIP_KEYS = ["⌘", "⇧", "↵"];
+
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return <p className="mb-3 label text-faint">{children}</p>;
+}
+
+/** A box edged with the same dotted zig-zag as the finding's sidebar. */
+function StitchBox({ className, children }: { className: string; children: React.ReactNode }) {
+  return (
+    <div className={`relative ${className}`}>
+      <span className="stitch-x absolute inset-x-0 top-0" aria-hidden="true" />
+      <span className="stitch-x absolute inset-x-0 bottom-0" aria-hidden="true" />
+      <span className="stitch-y absolute inset-y-0 left-0" aria-hidden="true" />
+      <span className="stitch-y absolute inset-y-0 right-0" aria-hidden="true" />
+      {children}
+    </div>
+  );
 }
 
 // ---------- 1. Welcome ----------
@@ -106,24 +145,24 @@ function Welcome({
   const locked = welcomeLocked(onboarding, hotkey, hotkeyReady, desktop);
   return (
     <section className="fade-in flex flex-1 flex-col items-center justify-center px-10 pb-12 text-center">
-      <SealSlot className="mb-3 size-28 shrink-0" />
       <Eyebrow>{copy.onboarding.step(1)}</Eyebrow>
       <h1 className="heading text-hero font-semibold">{copy.onboarding.welcomeTitle}</h1>
       <p className="mt-3 max-w-[54ch] text-lead text-muted">{copy.onboarding.welcomeBody}</p>
-      <div className="mt-12 flex w-[480px] flex-col items-center rounded-xl border border-hairline bg-raised/60 px-5 py-6">
+      <SealSlot className="mt-5 size-36 shrink-0" />
+      <StitchBox className="mt-5 flex h-[84px] w-[480px] flex-col items-center justify-center px-5">
         {noShortcut ? (
-          <p className="text-body text-muted">{copy.onboarding.noShortcut}</p>
+          <p className="font-mono text-small text-muted">{copy.onboarding.noShortcut}</p>
         ) : (
-          <>
-            {/* The same line before and after the key is pressed, so nothing moves when it unlocks. */}
-            <p role="status" className="flex min-h-8 items-center gap-2 text-lead text-text">
-              {!locked && <Check size={18} strokeWidth={2} aria-hidden="true" className="tick-in shrink-0 text-positive" />}
-              <span>
-                <KeyText text={locked ? copy.onboarding.openWith : copy.onboarding.provedIt} slots={{ keys: <PlusKeys keys={keys} /> }} />
-              </span>
-            </p>
-          </>
+          // The same line before and after the key is pressed, so nothing moves up or down when it unlocks.
+          <p role="status" className="flex min-h-8 items-center font-mono text-lead whitespace-nowrap text-text">
+            <span>
+              <KeyText text={locked ? copy.onboarding.openWith : copy.onboarding.provedIt} slots={{ keys: <PlusKeys keys={keys} /> }} />
+            </span>
+          </p>
         )}
+      </StitchBox>
+      <div className="mt-6 w-[480px]">
+        <OnboardingCta keys={["↵"]} label={copy.onboarding.getStarted} icon={<NextIcon />} disabled={locked} mouse={mouse} onClick={next} />
       </div>
       {desktop && (
         <button
@@ -141,19 +180,12 @@ function Welcome({
               })
               .finally(() => setSwitching(false));
           }}
-          className="mt-2 cursor-pointer rounded-md px-2 py-1 text-meta text-faint hover:bg-raised hover:text-text"
+          // The same gap and height as the loading bar under step 3's button.
+          className="press mt-2 flex h-9 cursor-pointer items-center rounded-lg px-3 text-small text-muted hover:bg-raised/60 hover:text-text"
         >
           <KeyText text={onFallback ? copy.onboarding.useDefault : copy.onboarding.useFallback} />
         </button>
       )}
-      <div className="mt-8 w-[480px]">
-        <OnboardingCta keys={["↵"]} label={copy.onboarding.getStarted} icon={<NextIcon />} disabled={locked} mouse={mouse} onClick={next} />
-      </div>
-      {/* Another app can hold both shortcuts, so this step must never trap anyone. The
-          space stays when it goes, so nothing moves as the button unlocks. */}
-      <div className="mt-1.5 flex h-7 items-center text-meta">
-        {locked && <KeyButton keys={["⌘", "↵"]} label={copy.onboarding.skipShortcut} icon={<NextIcon />} tone="faint" mouse={mouse} onClick={next} />}
-      </div>
     </section>
   );
 }
@@ -220,7 +252,7 @@ function Connect({ onboarding, mouse }: { onboarding: OnboardingState; mouse: bo
       <p className="mt-3 max-w-[84ch] text-center text-lead text-muted">{copy.onboarding.connectBody}</p>
       {/* Two columns: the list scrolls on the left, the next step stays put on the right. */}
       <div className="mt-10 grid min-h-0 w-full max-w-[880px] flex-1 grid-cols-[minmax(0,1fr)_288px] gap-5">
-        <div ref={list} className="scroll-fade min-h-0 overflow-y-auto pb-6">
+        <div ref={list} className="scroll-fade mb-12 min-h-0 overflow-y-auto">
           <ConnectorList
             rows={[...rows, ...MORE_ROWS]}
             mouse={mouse}
@@ -230,12 +262,7 @@ function Connect({ onboarding, mouse }: { onboarding: OnboardingState; mouse: bo
         </div>
         <div className="flex min-h-0 flex-col items-center gap-5">
           <aside className="flex h-fit w-full flex-col gap-3 rounded-xl border border-hairline bg-raised/60 p-4">
-            <p className="heading text-title font-semibold tabular">{copy.onboarding.connectedCount(count, SOURCES.length)}</p>
-            <div className="grid grid-cols-4 gap-1" aria-hidden="true">
-              {SOURCES.map((id, i) => (
-                <span key={id} className={`h-1 rounded-full transition-colors duration-(--duration-base) ${i < count ? "bg-positive" : "bg-hairline"}`} />
-              ))}
-            </div>
+            <p className="heading text-title font-semibold tabular">{copy.onboarding.connectedCount(count)}</p>
             <p className="min-h-[38px] text-small text-muted">{count ? copy.onboarding.readyToCheck : copy.onboarding.connectFirst}</p>
             <OnboardingCta
               keys={["⌘", "↵"]}
@@ -269,7 +296,7 @@ function FirstCheck({ mouse, agentOpen, onAgentOpen }: { mouse: boolean; agentOp
   const found = rankedFindings(scan).length;
   const title = failed ? copy.onboarding.checkFailedTitle : done ? copy.onboarding.checkDoneTitle : copy.onboarding.checkTitle;
   // The reason is in the agent's steps. scan.error's own wording points at R, which this step doesn't use.
-  const body = failed ? copy.onboarding.checkFailedBody : done ? copy.onboarding.checkDoneBody(found) : copy.onboarding.checkBody;
+  const body = failed ? copy.onboarding.checkFailedBody : done ? copy.onboarding.checkDoneBody(found, scan.undecided.length) : copy.onboarding.checkBody;
   return (
     <section className="fade-in flex flex-1 flex-col items-center justify-center px-10 pb-20 text-center">
       <Eyebrow>{copy.onboarding.step(3)}</Eyebrow>
@@ -278,7 +305,7 @@ function FirstCheck({ mouse, agentOpen, onAgentOpen }: { mouse: boolean; agentOp
         {title}
       </h1>
       <p className="mt-3 max-w-[72ch] text-lead text-muted select-text">{body}</p>
-      <SealSlot className="mt-8 size-48 shrink-0" />
+      <SealSlot className="mt-8 size-36 shrink-0" />
       <div className="mt-8 flex w-[480px] items-center gap-3 text-small">
         {failed ? (
           <>

@@ -10,7 +10,7 @@ import { chosenRoute } from "./fix-route";
 import { shortDate } from "./format";
 import { hasAttachmentWork, mailAttachments, mailBody, type MailAttachments } from "./mail-attachments";
 
-// "Seal the leak": where the approved fix goes next, worked out by code from
+// The Seal button: where the approved fix goes next, worked out by code from
 // the route Maya chose (no model). In order:
 //   email     the Email route, or no routes and a draft with an address: Mail opens with it filled in
 //   sample    a call, chat or online route: a labelled stand-in page, because the business is fictional
@@ -43,7 +43,7 @@ export function sealTarget(finding: Finding, corpus: Corpus | undefined, scan: P
   return undefined;
 }
 
-/** The line in the Next block saying what Seal the leak does. */
+/** The line in the Next block saying what the Seal button does. */
 export function sealNote(t: SealTarget): string {
   if (t.kind === "email") return hasAttachmentWork(t.attachments) ? copy.next.seal.emailWithFiles : copy.next.seal.email;
   if (t.kind === "sample") return copy.next.seal.sample[t.route.kind];
@@ -51,7 +51,7 @@ export function sealNote(t: SealTarget): string {
   return copy.next.seal.bank(t.account);
 }
 
-/** The tooltip on the Seal the leak button. */
+/** The tooltip on the Seal button. */
 export function sealTip(t: SealTarget): string {
   if (t.kind === "email") return hasAttachmentWork(t.attachments) ? copy.actions.sealTip.emailWithFiles(t.to) : copy.actions.sealTip.email(t.to);
   if (t.kind === "sample") return copy.actions.sealTip.sample(t.route.provider);
@@ -60,7 +60,7 @@ export function sealTip(t: SealTarget): string {
 }
 
 /**
- * Seal the leak: opens Mail or Calendar. A bank fix has no link to open, so it
+ * The Seal button: opens Mail or Calendar. A bank fix has no link to open, so it
  * says where to do it instead. A sample route is drawn by the palette.
  */
 export async function seal(t: Exclude<SealTarget, { kind: "sample" }>): Promise<void> {

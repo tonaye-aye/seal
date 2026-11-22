@@ -26,7 +26,8 @@ const CRUMB_LINK = "press -mx-1 cursor-pointer rounded-sm px-1 hover:bg-raised/6
  * app name as a link home, while a finding is open. `search`: the magnifier
  * (SearchField.tsx). `controls`: Filter and View to its right, or an open
  * finding's actions in their place. `bare`: the
- * name and mark only, for the onboarding steps.
+ * name and mark, with no breadcrumb or search, for the onboarding steps (their
+ * Skip button comes in through `controls`).
  */
 export function Header({
   crumbs = [],
@@ -103,7 +104,7 @@ export function Header({
         )}
       </div>
       {/* Never shrinks: when room runs short, the breadcrumb is what gets cut. */}
-      {!bare && (
+      {(!bare || controls) && (
         <div className="flex shrink-0 items-center gap-1">
           {search}
           {controls}

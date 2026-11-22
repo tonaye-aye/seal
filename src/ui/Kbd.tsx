@@ -3,7 +3,8 @@
 // `onAccent`: the cap sits inside a filled violet (primary) button.
 // `large`: beside onboarding's larger text.
 export function Kbd({ keys, onAccent = false, large = false }: { keys: string[]; onAccent?: boolean; large?: boolean }) {
-  const cap = onAccent ? "border-on-accent/25 bg-on-accent/10 text-on-accent" : "border-hairline bg-raised text-muted";
+  // A solid fill on a violet button, so the button's grain can't sit behind the key's letter.
+  const cap = onAccent ? "border-on-accent/25 bg-accent-solid-hover text-on-accent" : "border-hairline bg-raised text-muted";
   return (
     <span className="inline-flex gap-0.5">
       {keys.map((key) => (
@@ -64,7 +65,7 @@ export function KeyButton({
   const colour = locked
     ? "bg-raised font-semibold text-muted"
     : primary
-      ? `bg-accent-solid font-semibold text-on-accent ${disabled ? "" : "hover:bg-accent-solid-hover"}`
+      ? `grain grain-accent relative bg-accent-solid font-semibold text-on-accent ${disabled ? "" : "hover:bg-accent-solid-hover"}`
       : disabled
         ? "text-faint"
         : tone === "faint"
@@ -72,7 +73,7 @@ export function KeyButton({
           : "text-muted hover:text-text";
   // The primary button is a real filled button; the rest are key hints you can click.
   const shape = cta
-    ? "h-11 w-full justify-center gap-2 rounded-lg px-5 text-body"
+    ? "h-11 w-full justify-center gap-2.5 rounded-lg px-5 text-title"
     : `gap-1.5 rounded-md ${primary ? "h-7 px-2.5" : `-mx-1.5 px-1.5 py-1 ${disabled ? "" : "hover:bg-raised"}`}`;
   return (
     <button
@@ -84,8 +85,10 @@ export function KeyButton({
       onClick={onClick}
       className={`press inline-flex shrink-0 items-center leading-none whitespace-nowrap ${shape} ${disabled ? `cursor-default ${locked ? "" : "opacity-60"}` : "cursor-pointer"} ${colour}`}
     >
-      {/* An exact 16 px box with a block-level icon, so icon and text share one centre line. */}
-      {mouse ? icon && <span className="grid size-4 shrink-0 place-items-center [&>svg]:block">{icon}</span> : <Kbd keys={keys} onAccent={primary && !locked} />}
+      {/* An exact box with a block-level icon, so icon and text share one centre line. The big button's is a size up. */}
+      {mouse
+        ? icon && <span className={`grid shrink-0 place-items-center [&>svg]:block ${cta ? "size-5 [&>svg]:size-4" : "size-4"}`}>{icon}</span>
+        : <Kbd keys={keys} onAccent={primary && !locked} large={cta} />}
       {label}
     </button>
   );

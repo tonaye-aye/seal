@@ -9,13 +9,14 @@ import { Mark } from "./Mark";
 // app, and it only ever shows the real scan state (see now-state.ts).
 //
 // - idle: the seal is dim, with a slow, faint glow behind it.
-// - working: a bright spark circles behind the seal, like a radar.
+// - working: the seal pulses, with a steady glow behind it.
 // - needs-you: the seal is bright, with a violet glow that grows and breathes
 //   faster as urgency rises.
 //
-// There are two layers. The seal is a plain SVG, so it stays sharp at any size.
-// Behind it, a tiny WebGL shader (a program that runs on the graphics chip and
-// colours every pixel of a small canvas) draws only the glow and the spark. The
+// There are two layers. The seal is a plain SVG, so it stays sharp at any size,
+// and its pulse is CSS. Behind it, a tiny WebGL shader (a program that runs on
+// the graphics chip and colours every pixel of a small canvas) draws only the
+// glow. The
 // canvas is bigger than the seal so the glow can spill softly behind the app
 // name. Rendering stops whenever the palette is hidden or the page is in the
 // background, and with "reduce motion" on it draws one still frame per state
@@ -35,7 +36,6 @@ const FRAGMENT = `
 precision mediump float;
 uniform vec2 u_res;      // canvas size in device pixels
 uniform float u_dpr;     // device pixels per CSS pixel
-uniform float u_time;    // seconds
 uniform vec3 u_mix;      // how much of idle, working, needs-you (sums to 1)
 uniform float u_urgency; // 0 to 1
 uniform float u_phase;   // breathing phase, advanced on the CPU so speed changes stay smooth
@@ -44,21 +44,13 @@ uniform vec3 u_ember;
 uniform vec3 u_muted;
 uniform float u_halo;    // how strong the glow is: 1 on dark, softer on light
 
-const float TAU = 6.2831853;
 const float R = 6.3;      // where the glow starts to fade
-const float ORBIT = 10.4; // the circle the spark runs on, just outside the seal
 
 void main() {
   vec2 p = (gl_FragCoord.xy - 0.5 * u_res) / u_dpr;
   float d = length(p);
   float idle = u_mix.x, work = u_mix.y, need = u_mix.z;
   float breath = 0.5 + 0.5 * sin(u_phase);
-
-  // Working: a spark circles the seal with a fading tail behind it.
-  float angle = atan(p.y, p.x);
-  float behind = mod(u_time * 3.2 - angle, TAU);
-  float tail = exp(-behind * 1.4);
-  float spark = tail * (1.0 - smoothstep(0.0, 1.8, abs(d - ORBIT)));
 
   // A soft glow behind the seal. It reaches further when more is at stake.
   float reach = mix(3.0, 3.5 + 5.0 * u_urgency, need) + 2.0 * work;
@@ -69,13 +61,12 @@ void main() {
       work * 0.22 +
       need * (0.18 + 0.24 * u_urgency) * (0.6 + 0.4 * breath));
 
-  float a = max(spark * work, halo * glowStrength);
+  float a = halo * glowStrength;
 
   // Very urgent findings warm the glow towards ember red, never further.
   // Idle leans towards the muted text colour, so the accent means "something is waiting".
   vec3 col = mix(u_accent, u_muted, idle * 0.6);
   col = mix(col, u_ember, need * smoothstep(0.6, 1.0, u_urgency) * 0.25);
-  col += work * spark * 0.25; // the spark is a little whiter than the glow
 
   gl_FragColor = vec4(col * a, a); // premultiplied alpha over a transparent canvas
 }
@@ -125,7 +116,7 @@ export function NowVisual({ still: forceStill = false, fallback = false }: { sti
     el.width = el.height = Math.round(SIZE * dpr);
     gl.viewport(0, 0, el.width, el.height);
     const u = (name: string) => gl.getUniformLocation(program, name);
-    const uRes = u("u_res"), uDpr = u("u_dpr"), uTime = u("u_time"), uMix = u("u_mix"), uUrg = u("u_urgency"), uPhase = u("u_phase");
+    const uRes = u("u_res"), uDpr = u("u_dpr"), uMix = u("u_mix"), uUrg = u("u_urgency"), uPhase = u("u_phase");
     gl.uniform2f(uRes, el.width, el.height);
     gl.uniform1f(uDpr, dpr);
 
@@ -147,12 +138,10 @@ export function NowVisual({ still: forceStill = false, fallback = false }: { sti
     const mix = [...TARGET[live.current.state]];
     let urgency = live.current.urgency;
     let phase = Math.PI / 2; // start mid-breath
-    let time = 0;
     let last = performance.now();
     let frame = 0;
 
     const draw = () => {
-      gl.uniform1f(uTime, time);
       gl.uniform3f(uMix, mix[0], mix[1], mix[2]);
       gl.uniform1f(uUrg, urgency);
       gl.uniform1f(uPhase, phase);
@@ -168,7 +157,6 @@ export function NowVisual({ still: forceStill = false, fallback = false }: { sti
       const k = 1 - Math.exp(-dt * 6); // reaches about 95% in half a second
       for (let i = 0; i < 3; i++) mix[i] += (target[i] - mix[i]) * k;
       urgency += (live.current.urgency - urgency) * k;
-      time += dt;
       phase += dt * breathSpeed(mix, urgency);
       draw();
       frame = requestAnimationFrame(tick);
@@ -180,7 +168,6 @@ export function NowVisual({ still: forceStill = false, fallback = false }: { sti
       for (let i = 0; i < 3; i++) mix[i] = target[i];
       urgency = live.current.urgency;
       phase = Math.PI / 2;
-      time = 0.6; // puts the working spark at the top right, a clear "in progress" arc
       draw();
     };
 
@@ -265,7 +252,7 @@ export function NowVisual({ still: forceStill = false, fallback = false }: { sti
         style={{ width: SIZE, height: SIZE, left: (18 - SIZE) / 2, top: (18 - SIZE) / 2 }}
       />
       {/* relative: paints the seal above the glow. */}
-      <span className={`now-seal relative now-${now.state}${failed ? " now-fallback" : ""}${failed && paused ? " now-paused" : ""}`}>
+      <span className={`now-seal relative now-${now.state}${forceStill ? " now-still" : ""}${failed ? " now-fallback" : ""}${failed && paused ? " now-paused" : ""}`}>
         <Mark />
       </span>
     </span>

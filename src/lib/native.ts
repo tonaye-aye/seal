@@ -29,6 +29,13 @@ export function onPaletteHidden(handler: () => void): () => void {
   return () => void unlisten.then((stop) => stop());
 }
 
+/** Runs `handler` when Settings is chosen from the menu bar menu. Returns an unsubscribe. */
+export function onOpenSettings(handler: () => void): () => void {
+  if (!isTauri()) return () => {};
+  const unlisten = listen("palette:open-settings", handler);
+  return () => void unlisten.then((stop) => stop());
+}
+
 /** Lets the user move the window by dragging (called on mouse down in the top bar). */
 export function startWindowDrag(): void {
   if (isTauri()) void getCurrentWindow().startDragging();

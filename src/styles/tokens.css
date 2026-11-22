@@ -29,27 +29,27 @@
   --color-backdrop: #07070b;
 
   /* Text, strongest to faintest. */
-  --color-text: #edebf4; /* 13.6 / 15.1 / 13.8 */
-  --color-muted: #b6b3c3; /* 7.8 / 8.7 / 7.9 */
-  --color-faint: #9491a0; /* 5.2 / 5.8 / 5.3 */
+  --color-text: #edebf4; /* 13.0 / 15.1 / 13.8 */
+  --color-muted: #b6b3c3; /* 7.5 / 8.7 / 7.9 */
+  --color-faint: #9491a0; /* 5.0 / 5.8 / 5.3 */
 
   /* Violet, the accent, means two things only: the main action and the
      "now" mark. accent is for text and marks, accent-solid fills the
      primary button (hover darkens it), on-accent is the text on that fill. */
-  --color-accent: #baa3ff; /* violet-11: 7.5 / 8.3 / 7.6 */
+  --color-accent: #baa3ff; /* violet-11: 7.1 / 8.3 / 7.6 */
   --color-accent-glow: #8e62ff40;
-  --color-accent-solid: #743cdd; /* violet-9 */
+  --color-accent-solid: #7038d9; /* violet-9, a touch darker so white text keeps AA on the button grain */
   --color-accent-solid-hover: #6729cc; /* violet-10 */
-  --color-on-accent: #ffffff; /* 6.1 on accent-solid */
+  --color-on-accent: #ffffff; /* 6.4 on accent-solid, 4.5 on its strongest speck */
 
   /* Amber means one thing only: urgent (due within 7 days). */
-  --color-amber: #f2a65a; /* 7.9 / 8.8 / 8.1 */
+  --color-amber: #f2a65a; /* 7.6 / 8.8 / 8.1 */
   --color-amber-glow: #f2a65a33;
 
-  --color-positive: #8fbf8a; /* 7.6 / 8.5 / 7.8 */
-  --color-danger: #e5736b; /* 5.4 / 5.9 / 5.4 */
+  --color-positive: #8fbf8a; /* 7.3 / 8.5 / 7.8 */
+  --color-danger: #e5736b; /* 5.1 / 5.9 / 5.4 */
   /* Info: the agent's own status (working, saved answers, simulating). */
-  --color-info: #8ab4d8; /* 7.3 / 8.1 / 7.5 */
+  --color-info: #8ab4d8; /* 7.0 / 8.1 / 7.5 */
 
   /* The selected row's bar and the keyboard focus ring: neutral, so the accent stays rare. */
   --color-focus: #edebf4;
@@ -142,14 +142,17 @@
   --search-width: 248px;
   --inactive-brightness: 0.95;
   /* The grain: the repeating tile (scripts/make-grain.ts), its size, and how
-     strong its strongest speck is. Text keeps AA up to 0.087, set by the light theme. */
+     strong its strongest speck is. Every text colour below is measured at this strength. */
   --grain-tile: url("/src/assets/grain.png");
   --grain-size: 128px;
-  --grain-strength: 0.08;
+  --grain-strength: 0.1;
   /* The grain on the loading bar's violet fill, in the on-accent colour. It is
      stronger than the panel's so it still reads on a bar 6 px tall. */
   --progress-grain: 0.34;
   --progress-height: 6px;
+  /* The grain on filled violet buttons. Lower than the bar's, because white
+     text sits on it and has to keep 4.5:1 at the strongest speck. */
+  --cta-grain: 0.175;
   /* The soft edge above the trace drawer: its height (the same 20 px as the
      list's fade at the bottom bar) and how much it blurs what passes under it. */
   --trace-fade: 20px;
@@ -175,22 +178,22 @@
     --color-hairline: #dbd9e3;
     --color-backdrop: #dedde4;
 
-    --color-text: #1f1d2a; /* 13.3 / 16.2 / 14.1 */
-    --color-muted: #585665; /* 5.7 / 7.0 / 6.1 */
-    --color-faint: #666472; /* 4.6 / 5.7 / 4.9 */
+    --color-text: #1f1d2a; /* 12.8 / 16.2 / 14.1 */
+    --color-muted: #585665; /* 5.5 / 7.0 / 6.1 */
+    --color-faint: #615f6d; /* 4.8 / 6.1 / 5.3 */
 
-    --color-accent: #6f40cf; /* violet-11: 5.1 / 6.2 / 5.4 */
+    --color-accent: #6f40cf; /* violet-11: 4.9 / 6.2 / 5.4 */
     --color-accent-glow: #743cdd24;
-    --color-accent-solid: #743cdd; /* violet-9 */
+    --color-accent-solid: #7038d9; /* violet-9, a touch darker so white text keeps AA on the button grain */
     --color-accent-solid-hover: #6533c3; /* violet-10 */
-    --color-on-accent: #ffffff; /* 6.1 on accent-solid */
+    --color-on-accent: #ffffff; /* 6.4 on accent-solid, 4.5 on its strongest speck */
 
-    --color-amber: #975400; /* 4.7 / 5.7 / 5.0 */
+    --color-amber: #975400; /* 4.5 / 5.7 / 5.0 */
     --color-amber-glow: #f2a65a2e;
 
-    --color-positive: #1c7149; /* 4.8 / 5.9 / 5.1 */
-    --color-danger: #b4262b; /* 5.2 / 6.3 / 5.5 */
-    --color-info: #0b61aa; /* 5.1 / 6.2 / 5.4 */
+    --color-positive: #1c7149; /* 4.6 / 5.9 / 5.1 */
+    --color-danger: #ab2328; /* 5.4 / 6.8 / 6.0 */
+    --color-info: #0a5a9e; /* 5.4 / 6.9 / 6.0 */
 
     --color-focus: #1f1d2a;
 
@@ -270,6 +273,11 @@ html[data-preview] {
   opacity: var(--grain-strength);
   mask: var(--grain-tile) repeat left top / var(--grain-size);
   pointer-events: none;
+}
+/* The same grain on a filled violet button, in the button's text colour. */
+.grain-accent {
+  --color-grain: var(--color-on-accent);
+  --grain-strength: var(--cta-grain);
 }
 
 body {
@@ -577,6 +585,7 @@ textarea {
   .shimmer,
   .toast-in,
   .toast-timer,
+  .now-seal,
   .now-fallback {
     animation: none !important;
   }
@@ -587,7 +596,8 @@ textarea {
 }
 
 /* The seal in the "now" mark. It dims when idle and is full strength when
-   something needs you. The shader behind it draws the glow and spark. */
+   something needs you, and pulses while a check runs. The shader behind it
+   draws only the glow. */
 .now-seal {
   display: grid;
   color: var(--color-accent);
@@ -602,13 +612,19 @@ textarea {
 }
 .now-seal.now-working {
   opacity: 0.85;
+  animation: now-pulse 1.2s ease-in-out infinite;
 }
-/* When WebGL is not available, CSS does the pulse and the glow instead. */
+/* The gallery's still frame. */
+.now-seal.now-still {
+  animation: none;
+}
+/* Nothing loops while the app is hidden in the menu bar. */
+html[data-palette-hidden] .now-seal {
+  animation-play-state: paused;
+}
+/* When WebGL is not available, CSS does the glow instead. */
 .now-paused {
   animation-play-state: paused !important;
-}
-.now-fallback.now-working {
-  animation: now-pulse 1.2s ease-in-out infinite;
 }
 .now-fallback.now-needs-you {
   filter: drop-shadow(0 0 5px var(--color-now-glow));
@@ -617,6 +633,7 @@ textarea {
 @keyframes now-pulse {
   50% {
     opacity: 0.45;
+    transform: scale(0.92);
   }
 }
 @keyframes now-breathe {

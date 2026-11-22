@@ -17,8 +17,8 @@ import {
   CLEARED_GROUP,
   FindingsList,
   Headline,
-  NotChecked,
   ScanError,
+  SealState,
   groupOpen,
   listItems,
   listStops,
@@ -44,8 +44,8 @@ import { ViewHeading } from "../ui/Palette/ViewHeading";
 import { FINDINGS, endpointSamples, liveSamples, nowSamples, onboardingSample, routeSamples, sampleCorpus, scanSamples, type LiveSample } from "./fixtures";
 import { isSetupScreen, type OnboardingState } from "../lib/onboarding";
 import { DetailHint, ListHint, TimelineHint } from "../ui/Palette/FooterHint";
-import { ApproveIcon, CheckNowIcon, SealIcon, RemindIcon, TraceIcon } from "../ui/icons";
-import { SetupScreen } from "../ui/Onboarding/SetupScreen";
+import { ApproveIcon, CheckNowIcon, RemindIcon, TraceIcon } from "../ui/icons";
+import { SetupScreen, SetupSkip } from "../ui/Onboarding/SetupScreen";
 import { CrashPanel } from "../ui/CrashScreen";
 import { replayNote } from "../ui/replay";
 import { EndpointPreviewProvider, ModelDemoPreviewProvider, type EndpointStatus } from "../lib/endpoint";
@@ -243,6 +243,8 @@ type FrameProps = {
   filters?: FilterId[];
   /** The rail's Filter menu drawn open. */
   filterMenu?: boolean;
+  /** Setup was skipped with nothing connected. */
+  noSources?: boolean;
 };
 
 /**
@@ -282,6 +284,7 @@ function PaletteFrame({
   earlier = false,
   filters = [],
   filterMenu = false,
+  noSources = false,
   settings,
   agentOpen = false,
   sealFallback = false,
@@ -374,7 +377,8 @@ function PaletteFrame({
     );
   } else if (nothingYet && shownScan.phase === "error") main = <ScanError message={shownScan.error ?? "Something went wrong."} />;
   else if (nothingYet && shownScan.phase === "done") main = <AllClear checked={0} />;
-  else if (nothingYet && shownScan.phase === "idle") main = <NotChecked />;
+  else if (nothingYet && (shownScan.phase === "idle" || shownScan.phase === "scanning"))
+    main = <SealState kind={shownScan.phase === "scanning" ? "checking" : noSources ? "no-sources" : "not-checked"} onConnect={noop} onRun={noop} fallback={sealFallback} />;
   else
     main = (
       <FindingsList
@@ -422,7 +426,9 @@ function PaletteFrame({
               }
               onHome={inDetail ? { label: detailFrom === "timeline" ? copy.controls.timeline : copy.controls.list, run: noop } : undefined}
               controls={
-                setup ? undefined : inDetail ? (
+                setup ? (
+                  <SetupSkip onboarding={onboarding} hotkey={hotkey} hotkeyReady mouse={mouse} />
+                ) : inDetail ? (
                   openFinding && <FindingActions actions={findingActions(openFinding, shownScan, editing)} mouse={mouse} sidebarOpen={sidebarShown} onCommand={noop} />
                 ) : (
                   <>
@@ -797,7 +803,7 @@ export function Gallery() {
   // The top finding, and the list once it is approved (for the motion stills).
   const [top, second] = rankedFindings(s.done);
   const approvedTop: ScanState = { ...s.done, decisions: { ...s.done.decisions, [top.id]: "approved" } };
-  // Seal the leak's other routes, on approved findings with no email draft
+  // Seal's other routes, on approved findings with no email draft
   // (every finding in the seed has one, so these are hand-made from the samples).
   const approvedWith = (id: string, change: Partial<Finding>): ScanState => {
     const swap = (f: Finding) => (f.id === id ? { ...f, ...change } : f);
@@ -855,7 +861,7 @@ export function Gallery() {
 
           <main className="flex min-w-0 flex-col gap-16">
             <Section id="onboarding" title="Onboarding">
-              <Shot title="1. Welcome, waiting for the key" note="Logo and name only: no status, lines or bottom bar. The seal waves every 5 seconds until the key is pressed. Get started is locked until the summon key is pressed; ⌘↵ or Skip gets past it if no key works">
+              <Shot title="1. Welcome, waiting for the key" note="Logo and name only: no status, lines or bottom bar. The seal waves every 5 seconds until the key is pressed. Get started is locked until the summon key is pressed; Skip (⌘⇧↵, top right) gets past it if no key works">
                 <PaletteFrame scan={s.idle} live="none" onboarding={o({ step: "welcome" })} />
               </Shot>
               <Shot title="1. Welcome, desktop app" note="The quiet link for when another app already has ⌥Space. Switching asks for the new key">
@@ -864,7 +870,7 @@ export function Gallery() {
               <Shot title="1. Welcome, on ⌘⇧Space" note="The link goes back to ⌥Space, so a key another app has taken is never a dead end">
                 <PaletteFrame scan={s.idle} live="none" desktop hotkey={["⌘", "⇧", "Space"]} onboarding={o({ step: "welcome" })} />
               </Shot>
-              <Shot title="1. Welcome, key pressed" note="The line changes to the confirmation and the Onboarding CTA unlocks, with nothing moving">
+              <Shot title="1. Welcome, key pressed" note="The line changes to the confirmation, Skip goes, and the Onboarding CTA unlocks, with nothing moving up or down">
                 <PaletteFrame scan={s.idle} live="none" onboarding={o({ step: "welcome", summoned: true })} />
               </Shot>
               <Shot title="1. Welcome, key pressed, mouse mode" note="The CTA shows its icon instead of the key cap">
@@ -933,7 +939,7 @@ export function Gallery() {
               <Shot title="Findings, first run" note="Grouped by urgency: tile, name, kind, date, amount. Couldn't decide stays open; Checked and left alone is closed (the first-run hint is under Onboarding)">
                 <PaletteFrame scan={s.done} />
               </Shot>
-              <Shot title="Approved group, selected" note="Approved rows leave the main list for an open Approved group with a count (a title, not a J/K stop). ⋯ on an approved row has Seal the leak and Remind me">
+              <Shot title="Approved group, selected" note="Approved rows leave the main list for an open Approved group with a count (a title, not a J/K stop). ⋯ on an approved row has Seal and Remind me">
                 <PaletteFrame scan={s.decided} selected="f-skylink" />
               </Shot>
               <Shot title="After some decisions" note="An approved row and one marked Not a leak, mouse mode">
@@ -945,7 +951,7 @@ export function Gallery() {
               <Shot title="Quick menu, reminder already set" note="Remind me is greyed out and says the date, so L can't add a second one">
                 <PaletteFrame scan={s.reminded} mouse holdHover selected="f-streambox" />
               </Shot>
-              <Shot title="Quick menu on an approved row" note="Seal the leak (S) opens Mail with the draft; Remind me (L) to check for a reply">
+              <Shot title="Quick menu on an approved row" note="Seal (S) opens Mail with the draft; Remind me (L) to check for a reply">
                 <PaletteFrame scan={s.decided} mouse holdHover selected="f-skylink" />
               </Shot>
               <Shot title="Couldn't decide, selected" note="The footer's Check again for a case the model couldn't settle">
@@ -1158,7 +1164,7 @@ export function Gallery() {
               <Shot title="Actions in the heading" note="On the left, the ways to act: Approve (A, the main action) and Edit (E: change the wording first). On the right, the ways to put it off or set it aside: Remind me (L) and Not a leak (D). Always in view while the draft scrolls. The draft's text is clickable (editing starts with the caret where you clicked); hovering it shows Edit under its bottom right, where Done sits while editing">
                 <PaletteFrame scan={s.done} view="detail" selected="f-skylink" pane="draft" />
               </Shot>
-              <Shot title="Approved: Seal the leak" note="The sidebar folds by itself on Approve (the evidence has done its job; ] brings it back). The heading keeps Edit (E, takes the approval back) on the left and Remind me on the right. The draft itself is hidden: the timeline's first line says what was saved (hover it for a pencil that edits it). Seal the leak (S, opens Mail with the draft filled in) is on the Send it line, left of its dot, between today and the next date">
+              <Shot title="Approved: Seal" note="The sidebar folds by itself on Approve (the evidence has done its job; ] brings it back). The heading keeps Edit (E, takes the approval back) on the left and Remind me on the right. The draft itself is hidden: the timeline's first line says what was saved (hover it for a pencil that edits it). Seal (S, opens Mail with the draft filled in) is on the Send it line, left of its dot, between today and the next date">
                 <PaletteFrame scan={s.approved} view="detail" selected="f-skylink" pane="draft" />
               </Shot>
               <Shot title="Evidence folded away" note="] or the fold button in the sidebar's heading folds it to a strip: the unfold button and the trace icon under it (still in reach). The draft gets the room; Tab has only the draft side then, and ] (or a click on the strip) brings it back">
@@ -1170,7 +1176,7 @@ export function Gallery() {
               <Shot title="Drafted email folded" note="Drafted email is a fold drawn like the sidebar's panel headers, open to start: To, Subject and Attach as a paper plane, a quote and a paper clip, each named in its tooltip. Enter or Space on the draft side (Hide details in the footer), or a click, folds it">
                 <PaletteFrame scan={s.done} view="detail" selected="f-redgum" pane="draft" detailsOpen={false} />
               </Shot>
-              <Shot title="Approved, mouse mode" note="Plain buttons, each with its icon before the label (Seal the leak: a seal); hovering Seal the leak says where it goes">
+              <Shot title="Approved, mouse mode" note="Plain buttons, each with its icon before the label (Seal: a seal); hovering Seal says where it goes">
                 <PaletteFrame scan={s.approved} view="detail" selected="f-skylink" mouse />
               </Shot>
               <Shot title="Routes: Email" note="Best way and why, then one tab per route on keys 1-4, recommended first. Email keeps the draft as it was; hovering it adds Copy (Y) beside Edit">
@@ -1227,10 +1233,10 @@ export function Gallery() {
               <Shot title="Sample page" note="S on a call, chat or online route. Fictional businesses are never dialled or opened">
                 <PaletteFrame scan={r.approvedOnline} view="detail" selected="f-redgum" pane="draft" samplePage={r.samplePage} />
               </Shot>
-              <Shot title="Seal the leak: Calendar" note="Sample: no email or number, and a calendar event in the evidence (Ben's reminder), so it opens Calendar and names the date">
+              <Shot title="Seal: Calendar" note="Sample: no email or number, and a calendar event in the evidence (Ben's reminder), so it opens Calendar and names the date">
                 <PaletteFrame scan={sealCalendar} view="detail" selected="f-ironworks" pane="draft" />
               </Shot>
-              <Shot title="Seal the leak: the bank" note="Sample: a payment made twice with no email: there's no bank app to link to, so it says where to do it (in a toast on S)">
+              <Shot title="Seal: the bank" note="Sample: a payment made twice with no email: there's no bank app to link to, so it says where to do it (in a toast on S)">
                 <PaletteFrame scan={sealBank} view="detail" selected="f-brightpage" pane="draft" />
               </Shot>
               <Shot title="Approved, with a reminder" note="L added an all-day reminder to check for a reply: the bell notice says when, and the timeline has Reminder created (ticked) and the reminder's own day. Remind me leaves the button row once it's set">
@@ -1242,7 +1248,7 @@ export function Gallery() {
               <Shot title="Approved, a refund to expect" note="Redgum: the credit is an estimate, so it says about">
                 <PaletteFrame scan={s.approved} view="detail" selected="f-redgum" pane="draft" />
               </Shot>
-              <Shot title="Approved, nothing to send" note="Marked as handled, and what to expect once Maya cancels it herself. The step is in Apple's settings, so there's no Seal the leak: Undo (⌘Z) instead of Edit">
+              <Shot title="Approved, nothing to send" note="Marked as handled, and what to expect once Maya cancels it herself. The step is in Apple's settings, so there's no Seal: Undo (⌘Z) instead of Edit">
                 <PaletteFrame scan={s.approved} view="detail" selected="f-streambox" />
               </Shot>
               <Shot title="Finding, mouse mode" note="Plain action buttons, no selection highlight; the footer says to click any evidence line to preview it">
@@ -1379,10 +1385,10 @@ export function Gallery() {
               <Shot title="Loading bar" note="One bar everywhere: violet with grain, the number beside it" height={250}>
                 <LoadingBars />
               </Shot>
-              <Shot title="Checking, just started" note="The list stays in place. Bottom left: cog, Trace, Sync, the bar, then the status and date">
+              <Shot title="Checking, just started" note="An empty list shows the onboarding seal in the middle. Bottom left: cog, Trace, Sync, the bar, then the status and date">
                 <PaletteFrame scan={{ ...s.scanningEmpty, stage: undefined, progress: undefined, trace: [] }} live="syncing" />
               </Shot>
-              <Shot title="Checking, part way, nothing yet">
+              <Shot title="Checking, part way, nothing yet" note="The first finding replaces the seal">
                 <PaletteFrame scan={s.scanningEmpty} live="syncing" />
               </Shot>
               <Shot title="Checking, documents slow" note="No honest percentage, so the bar moves without a number and the status says why">
@@ -1409,8 +1415,11 @@ export function Gallery() {
               <Shot title="Check didn't finish">
                 <PaletteFrame scan={s.error} live="error" />
               </Shot>
-              <Shot title="Not checked yet">
+              <Shot title="Not checked yet" note="The seal with Run my check. Its layout matches the checking state, so pressing it moves nothing">
                 <PaletteFrame scan={s.idle} live="none" />
+              </Shot>
+              <Shot title="Nothing connected" note="Step 2 was skipped with no sources, so a check has nothing it may read. The button opens Connectors">
+                <PaletteFrame scan={s.idle} live="none" noSources />
               </Shot>
               <Shot title="Crash screen" note="If drawing the app fails. A still picture here: its keys only work on the real screen (__life.crash() in dev)">
                 <div data-gallery-frame style={{ width: 1000, height: 680 }} {...blockers}>
@@ -1727,12 +1736,12 @@ export function Gallery() {
                   </div>
                 </Strip>
               </Shot>
-              <Shot title="Key buttons" note="Keyboard (key caps before the label), mouse (an icon instead) and disabled. Seal the leak follows the same pattern: S in keyboard mode, its seal in mouse mode" height={150}>
+              <Shot title="Key buttons" note="Keyboard (key caps before the label), mouse (an icon instead) and disabled. Seal follows the same pattern: S in keyboard mode, its seal in mouse mode" height={150}>
                 <Strip>
                   <Labelled label="Keyboard">
                     <div className="flex items-center gap-6 text-meta">
                       <KeyButton keys={["A"]} label={copy.actions.approve} icon={<ApproveIcon />} tone="primary" onClick={noop} />
-                      <KeyButton keys={["S"]} label={copy.actions.seal} icon={<SealIcon />} tone="primary" onClick={noop} />
+                      <KeyButton keys={["S"]} label={copy.actions.seal} icon={<Mark size={14} />} tone="primary" onClick={noop} />
                       <KeyButton keys={["L"]} label={copy.actions.remind} icon={<RemindIcon />} onClick={noop} />
                       <KeyButton keys={["T"]} label="Trace" icon={<TraceIcon />} tone="faint" onClick={noop} />
                       <KeyButton keys={["R"]} label={copy.demo.checkInProgress} icon={<CheckNowIcon />} onClick={noop} disabled />
@@ -1741,7 +1750,7 @@ export function Gallery() {
                   <Labelled label="Mouse">
                     <div className="flex items-center gap-6 text-meta">
                       <KeyButton keys={["A"]} label={copy.actions.approve} icon={<ApproveIcon />} tone="primary" onClick={noop} mouse />
-                      <KeyButton keys={["S"]} label={copy.actions.seal} icon={<SealIcon />} tone="primary" onClick={noop} mouse />
+                      <KeyButton keys={["S"]} label={copy.actions.seal} icon={<Mark size={14} />} tone="primary" onClick={noop} mouse />
                       <KeyButton keys={["L"]} label={copy.actions.remind} icon={<RemindIcon />} onClick={noop} mouse />
                       <KeyButton keys={["T"]} label="Trace" icon={<TraceIcon />} tone="faint" onClick={noop} mouse />
                       <KeyButton keys={["R"]} label={copy.demo.checkInProgress} icon={<CheckNowIcon />} onClick={noop} mouse disabled />

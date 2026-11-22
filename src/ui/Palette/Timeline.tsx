@@ -168,6 +168,7 @@ function Headline({
   else if (!q && scan.phase === "done") line = copy.timeline.noSoonDates;
   return (
     <ViewHeading
+      divider
       title={title}
       reserveLine
       below={chips}
