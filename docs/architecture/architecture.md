@@ -305,7 +305,7 @@ Script checks are in [section 15](#15-testing-and-the-eval).
 | `icons.tsx` | The icon set |
 | `format.ts` | Dates, urgency, amounts for display |
 | `evidence.ts` | Turns an evidence id into something to show |
-| `filters.ts` | List filter logic |
+| `filters.ts` | Filter logic for the list and the timeline |
 | `timeline.ts` | Builds the timeline |
 | `next-steps.ts` | What to expect after approving |
 | `fix-route.ts` | Which route is chosen, and what it prepares |
@@ -1310,7 +1310,7 @@ There is **one global key handler**, `onKeyDown` in `Palette.tsx`. Its order mat
 | List | `J/K` move, `Enter` open, `A` approve, `S` seal, `D` not a leak, `E` edit, `L` remind, `F` filter, `⌫` remove last filter |
 | Finding | `1-4` route, `⇧1/⇧2` Firmer or Shorter, `Y` copy, `O` escalate, `C` figures, `Tab` switch pane, `]` sidebar, `T` trace |
 | Set aside | `1-3` say why |
-| Timeline | `J/K` move, `Enter` open or fold |
+| Timeline | `J/K` move, `Enter` open or fold, `F` filter, `⌫` remove last filter |
 | Everywhere | `/` search, `V` view, `⌘↵` timeline, `⌘Z` undo, `R` sync, `N` connectors, `M` models, `⌘,` settings, `?` shortcuts, `Esc` back |
 
 ### Layers: `layers.tsx`
@@ -1422,7 +1422,7 @@ dismissed: (merchant: string) => `Marked ${merchant} as not a leak.`,
 
 | Colour | Means |
 | --- | --- |
-| **Violet** | Only the main action, or the "now" mark |
+| **Violet** | Only the main action, the "now" mark, or the loading bar |
 | **Amber** | Urgent, due within 7 days, or a Warning toast (blocked until Maya does something) |
 | **Info blue** | The agent's own status (saved answers, not sure, came back), or a neutral Info toast |
 | **Green** | Done, or a Success toast (Seal saved or noted it, never that a business replied or money came back) |
@@ -1742,7 +1742,7 @@ Ask first. Prefer small hand-written code for motion and state. Add its licence 
 
 14. Words live in `src/copy.ts`.
 15. Colours and sizes come from `tokens.css`.
-16. Violet means the main action or the now mark. Amber means urgent, or a Warning toast.
+16. Violet means the main action, the now mark or the loading bar. Amber means urgent, or a Warning toast.
 17. Everything works by keyboard and by mouse.
 18. Motion respects reduced motion.
 19. New states go in the gallery, in both themes.
