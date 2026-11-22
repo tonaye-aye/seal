@@ -24,7 +24,10 @@ dist-ssr
 *.sln
 *.sw?
 scripts/spike-out/
-docs/
+# Local notes stay out of the repo, except the two published guides.
+docs/*
+!docs/seed/
+!docs/architecture/
 CLAUDE.md
 .claude/
 .cache/
