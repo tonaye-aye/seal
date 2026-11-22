@@ -1481,7 +1481,7 @@ The seal is an SVG drawn from `src/ui/seal-mark.ts`, and `scripts/make-seal-icon
 
 `SealAnimation.tsx` uses the state machine `Seal` on the artboard `Sappy`, with inputs `Click`, `Found` and `Wave` (triggers) and `Blush` and `Checking` (booleans). A mismatch in these names fails silently, so check the animation after any change. A missing input only loses that reaction.
 
-`seal-reaction.ts` works out the reaction from the onboarding step and the real check: a wave every 5 seconds on step 1 until the summon key is pressed, a magnifying glass while a check runs, and a celebration when it ends with findings. A failed check, or one that finds nothing, lowers the glass with no celebration. The seal is redrawn on every summon, so whether it has already celebrated is kept outside it.
+`seal-reaction.ts` works out the reaction from the onboarding step and the real check: a wave every 5 seconds on step 1 until the summon key is pressed, a magnifying glass, document and pencil in turn while a check runs, and a celebration when it ends with findings. The props change on a 9-second timer inside the `.riv`, so they don't show how far the check has got. A failed check, or one that finds nothing, lowers whichever prop is up with no celebration. The seal is redrawn on every summon, so whether it has already celebrated is kept outside it.
 
 ---
 

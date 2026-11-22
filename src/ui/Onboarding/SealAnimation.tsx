@@ -10,8 +10,9 @@ import { takeCelebration, type SealReaction } from "./seal-reaction";
 // watches the pointer and blushes wherever the pointer is in the window, and
 // sends hearts when it is clicked. On the first step it waves every few seconds
 // until the summon key is pressed. While a check runs it holds up a magnifying
-// glass, and it celebrates if the check finds something to look at. Nothing
-// waits for any of this.
+// glass, a document and a pencil in turn, on a timer inside the file, so they
+// say nothing about how far the check has got. It celebrates if the check finds
+// something to look at. Nothing waits for any of this.
 //
 // The canvas ignores the pointer, so it never gets in the way of a button or
 // of selecting text. The window's pointer moves are only watched and passed on.
