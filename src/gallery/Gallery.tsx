@@ -3,7 +3,7 @@ import type { Corpus } from "../agent/corpus";
 import { formatAUD } from "../lib/money";
 import { copy } from "../copy";
 import { LivePreviewProvider } from "../connectors/live";
-import { TOAST_MS, isEdited, rankedFindings, ScanPreviewProvider, type ScanState } from "../lib/scan-store";
+import { TOAST_MS, isEdited, rankedFindings, ScanPreviewProvider, type ScanState, type ToastTone } from "../lib/scan-store";
 import { KeyButton } from "../ui/Kbd";
 import { EARLIER_GROUP, buildTimeline, earlierOpen, filterTimeline, isSoonDay, pickTimelineStop, showsDate, timelineStops, type TimelineEntry } from "../ui/timeline";
 import { SearchField } from "../ui/Palette/SearchField";
@@ -37,7 +37,7 @@ import { usesEmail, type SamplePage } from "../ui/fix-route";
 import { ShortcutIntro, ShortcutSheet } from "../ui/Palette/ShortcutSheet";
 import { StatusStrip } from "../ui/Palette/StatusStrip";
 import { TIMELINE_ROW, Timeline, TimelineLine } from "../ui/Palette/Timeline";
-import { Toast } from "../ui/Palette/Toast";
+import { Toast, ToastCard } from "../ui/Palette/Toast";
 import { TraceDrawer } from "../ui/Palette/Trace";
 import { ViewHeading } from "../ui/Palette/ViewHeading";
 import { FINDINGS, endpointSamples, liveSamples, nowSamples, onboardingSample, routeSamples, sampleCorpus, scanSamples, type LiveSample } from "./fixtures";
@@ -607,6 +607,38 @@ function Labelled({ label, children }: { label: string; children: React.ReactNod
       <span className="w-40 shrink-0 font-mono text-label text-faint">{label}</span>
       <div className="min-w-0 flex-1">{children}</div>
     </div>
+  );
+}
+
+/** All four toast tones with and without Undo, plus the question. Replays every 5 s to show the bar and fade. */
+function ToastTones() {
+  const loop = useLoop(TOAST_MS, true);
+  const tones = [
+    { label: "Error", tone: "error", text: copy.toasts.sealFailed },
+    { label: "Warning", tone: "warning", text: copy.verbs.emailOnly },
+    { label: "Success", tone: "success", text: copy.toasts.reminderAdded("20 Nov") },
+    { label: "Info", tone: "info", text: copy.toasts.reminderRemoved("Skylink Internet") },
+  ] as const;
+  const card = (tone: ToastTone, text: string, undoable: boolean, ask?: string) => (
+    <ToastCard key={loop} className="relative" toast={{ id: loop, tone, text, undoable, ask }} />
+  );
+  return (
+    <Strip>
+      {tones.map(({ label, tone, text }) => (
+        <Labelled key={tone} label={label}>
+          {card(tone, text, false)}
+        </Labelled>
+      ))}
+      {tones.map(({ label, tone, text }) => (
+        <Labelled key={tone} label={`${label}, Undo`}>
+          <div className="flex items-center gap-3">
+            {card(tone, text, true)}
+            {tone !== "success" && <span className="text-meta text-faint">Not used today</span>}
+          </div>
+        </Labelled>
+      ))}
+      <Labelled label="Question">{card("success", copy.toasts.dismissed("BrightPage Kids"), true, "f-brightpage")}</Labelled>
+    </Strip>
   );
 }
 
@@ -1318,6 +1350,9 @@ export function Gallery() {
               </Shot>
               <Shot title="Toast without undo">
                 <PaletteFrame scan={s.toastNoUndo} />
+              </Shot>
+              <Shot title="Toast tones" note="Error, Warning, Success and Info, with and without Undo, plus the question. Replays every 5 s" height={533}>
+                <ToastTones />
               </Shot>
               <Shot title="Trace drawer">
                 <PaletteFrame scan={s.done} trace />

@@ -64,13 +64,19 @@ export function sealTip(t: SealTarget): string {
  * says where to do it instead. A sample route is drawn by the palette.
  */
 export async function seal(t: Exclude<SealTarget, { kind: "sample" }>): Promise<void> {
-  if (t.kind === "bank") return notify(copy.toasts.sealBank(t.account));
+  if (t.kind === "bank") return notify(copy.toasts.sealBank(t.account), "info");
   const opened = await openExternal(t.kind === "calendar" ? "calendar" : t.href);
-  if (!opened) notify(isTauri() ? copy.toasts.sealFailed : copy.toasts.sealPreview);
+  if (!opened) sayCouldntOpen();
+}
+
+/** In the app this is a real failure. In a browser preview it's only a limit of the preview. */
+function sayCouldntOpen(): void {
+  if (isTauri()) notify(copy.toasts.sealFailed, "error");
+  else notify(copy.toasts.sealPreview, "info");
 }
 
 /** Opens a real complaint body's form in the browser. */
 export async function openComplaintBody(href: string): Promise<void> {
   const opened = await openExternal(href);
-  if (!opened) notify(isTauri() ? copy.toasts.sealFailed : copy.toasts.sealPreview);
+  if (!opened) sayCouldntOpen();
 }

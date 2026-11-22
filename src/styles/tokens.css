@@ -357,14 +357,17 @@ input:focus-visible {
 }
 
 .trace-in,
-.toast-in,
 .sheet-in {
   animation: rise-in var(--duration-base) var(--ease-out);
 }
 
-/* The toast is centred with a transform, so it only fades. */
+/* The toast is centred with a transform, so it only fades. It fades out over
+   the end of its life (--toast-ms, set by Toast.tsx), so it is gone exactly
+   when the store removes it and stays usable until then. */
 .toast-in {
-  animation-name: fade-in;
+  animation:
+    fade-in var(--duration-base) var(--ease-out),
+    fade-out var(--duration-base) var(--ease-out) calc(var(--toast-ms) - var(--duration-base)) forwards;
 }
 
 @keyframes fade-in {
@@ -440,7 +443,7 @@ input:focus-visible {
   animation: fade-out var(--duration-fast) var(--ease-out) forwards;
 }
 
-/* The Undo countdown: a hairline that empties over the toast's lifetime. */
+/* The toast's countdown: a thin bar that empties over its lifetime. */
 @keyframes drain {
   to {
     transform: scaleX(0);
@@ -448,7 +451,7 @@ input:focus-visible {
 }
 
 .toast-timer {
-  animation: drain linear forwards;
+  animation: drain var(--toast-ms) linear forwards;
 }
 
 /* Placeholder for something still loading. */
@@ -499,6 +502,7 @@ textarea {
 @media (prefers-reduced-motion: reduce) {
   .shimmer,
   .scan-ring,
+  .toast-in,
   .toast-timer,
   .now-fallback {
     animation: none !important;
