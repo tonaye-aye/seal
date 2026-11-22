@@ -23,14 +23,7 @@
         "resizable": false,
         "visible": false,
         "skipTaskbar": true,
-        "shadow": true,
-        "windowEffects": {
-          "effects": [
-            "popover"
-          ],
-          "state": "active",
-          "radius": 14
-        }
+        "shadow": true
       }
     ],
     "security": {

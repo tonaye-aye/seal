@@ -595,7 +595,7 @@ function Shot({ title, note, height = 680, children }: { title: string; note?: s
 /** A small strip of single components on the palette's own background. */
 function Strip({ children }: { children: React.ReactNode }) {
   return (
-    <div data-gallery-frame className="flex w-[1000px] flex-col gap-3 rounded-[14px] border border-edge bg-panel p-4" {...blockers}>
+    <div data-gallery-frame className="grain relative flex w-[1000px] flex-col gap-3 rounded-[14px] border border-edge bg-panel p-4" {...blockers}>
       {children}
     </div>
   );

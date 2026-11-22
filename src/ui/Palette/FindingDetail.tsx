@@ -1069,7 +1069,7 @@ export function FindingDetail({
         <div
           ref={draftRef}
           onClick={finding ? onFocusDraft : undefined}
-          className={`min-h-0 flex-1 overflow-y-auto p-2 ${traceOpen ? "pb-(--trace-height) [scroll-padding-bottom:var(--trace-height)]" : ""}`}
+          className={`min-h-0 flex-1 overflow-y-auto p-2 ${traceOpen ? "pb-[calc(var(--trace-height)+var(--trace-fade))] [scroll-padding-bottom:calc(var(--trace-height)+var(--trace-fade))]" : ""}`}
         >
           {finding ? (
             <div className={`rounded-lg p-3 ${pane === "draft" && !mouse ? "pane-focus" : ""}`}>

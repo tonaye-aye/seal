@@ -77,7 +77,7 @@ export const PaletteShell = forwardRef<HTMLDivElement, Props>(function PaletteSh
   return (
     <div
       ref={setRefs}
-      className={`relative flex h-full overflow-hidden rounded-[14px] border border-edge bg-panel outline-none ${className}`}
+      className={`palette-shell grain relative flex h-full overflow-hidden rounded-[14px] border border-edge bg-panel ${className}`}
       {...rest}
     >
       <LayerContainer element={element}>
