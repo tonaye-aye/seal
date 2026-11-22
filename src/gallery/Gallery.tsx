@@ -28,7 +28,9 @@ import { ClearedCells, FindingCells, MENU_SLOT, ROW, RowDate, UndecidedCells } f
 import { Footer, ScanStatus } from "../ui/Palette/Footer";
 import { SettingsButton, TraceButton, ViewButton, type ControlItem } from "../ui/Palette/Controls";
 import { Header } from "../ui/Palette/Header";
+import { Mark } from "../ui/Palette/Mark";
 import { NowVisual } from "../ui/Palette/NowVisual";
+import trayIcon from "../../src-tauri/icons/tray.png";
 import { PaletteShell } from "../ui/Palette/PaletteShell";
 import { ScenariosSheet } from "../ui/Palette/ScenariosSheet";
 import { SamplePageSheet, hasHaveReady } from "../ui/Palette/RoutePanel";
@@ -1586,6 +1588,25 @@ export function Gallery() {
                       </Labelled>
                     </Preview>
                   ))}
+                </Strip>
+              </Shot>
+              <Shot title="The logo" note="At each size, and the menu bar icon in this theme's text colour (macOS draws it 18 px tall)" height={150}>
+                <Strip>
+                  <Labelled label="16, 18, 22, 32, 44">
+                    <div className="flex items-center gap-6 text-text">
+                      {[16, 18, 22, 32, 44].map((size) => (
+                        <Mark key={size} size={size} />
+                      ))}
+                    </div>
+                  </Labelled>
+                  <Labelled label="Menu bar icon">
+                    <span
+                      role="img"
+                      aria-label="Menu bar icon"
+                      className="block size-[18px] bg-current text-text"
+                      style={{ mask: `url(${trayIcon}) center / contain no-repeat`, WebkitMask: `url(${trayIcon}) center / contain no-repeat` }}
+                    />
+                  </Labelled>
                 </Strip>
               </Shot>
             </Section>
