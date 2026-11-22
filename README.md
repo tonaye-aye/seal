@@ -73,6 +73,11 @@ Press **⌥Space** to bring it up (or **⌘⇧Space** if ⌥Space is taken). The
 Every row and button shows its key, and everything works with the mouse too. The businesses' phone numbers and links are
 samples: the app shows them but never dials or opens them.
 
+## Guides
+
+- [Architecture guide](docs/architecture/architecture.md): how the whole app works and how to change it, written as a handover for someone new to the code.
+- [Seed data guide](docs/seed/seed-data.md): how the fictional household was created, how it mimics real data, and how to add more.
+
 ## Seed data
 
 The connectors are fake, but they behave like real ones. They load from [`seed/`](seed/README.md) and have
