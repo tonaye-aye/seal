@@ -60,7 +60,7 @@ export function SetupScreen({
       {onboarding.step === "connect" && <Connect onboarding={onboarding} mouse={mouse} />}
       {onboarding.step === "first-scan" && <FirstCheck mouse={mouse} agentOpen={agentOpen} onAgentOpen={onAgentOpen} />}
       {/* Outside the steps, so the same seal carries across all three. */}
-      <SealStage step={onboarding.step} summoned={!!onboarding.summoned} fallback={sealFallback} preview={sealPreview} />
+      <SealStage step={onboarding.step} summoned={!!onboarding.summoned} fallback={sealFallback} preview={sealPreview} connected={onboarding.connected} connecting={onboarding.connecting} />
     </div>
   );
 }

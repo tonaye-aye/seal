@@ -5,11 +5,15 @@ import { getScan, subscribeScan, type ScanState } from "../../lib/scan-store";
 // real check. The seal is drawn again on every summon, so whether it has
 // already celebrated is kept here, outside it.
 
-export type SealReaction = "rest" | "wave" | "checking" | "found";
+export type SealReaction = "rest" | "wave" | "lift" | "held" | "checking" | "found";
 
-/** Waving on step 1 until the summon key is pressed, holding up its props while a check runs, happy once it found something to look at. */
-export function sealReaction(step: Step, summoned: boolean, phase: ScanState["phase"], findings: number): SealReaction {
+/** Whether the seal has the plug up on the connect step, and if it should lift it or already has it. */
+export type SealPlug = "none" | "lift" | "held";
+
+/** Waving on step 1 until the summon key is pressed, holding the plug once a source connects, holding up its props while a check runs, happy once it found something to look at. */
+export function sealReaction(step: Step, summoned: boolean, phase: ScanState["phase"], findings: number, plug: SealPlug = "none"): SealReaction {
   if (step === "welcome") return summoned ? "rest" : "wave";
+  if (step === "connect" && plug !== "none") return plug;
   if (step !== "first-scan") return "rest";
   if (phase === "scanning") return "checking";
   return phase === "done" && findings > 0 ? "found" : "rest";
