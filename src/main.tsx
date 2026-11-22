@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import "./styles/tokens.css";
 import { Palette } from "./ui/Palette/Palette";
+import { CrashBoundary } from "./ui/CrashScreen";
 import { LayerProvider } from "./ui/layers";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -32,6 +33,21 @@ async function boot() {
   void checkEndpoint();
   resumeOnboarding();
   showPalette();
+}
+
+/**
+ * Dev only: __life.crash() in the console makes this throw while React draws.
+ * It has to be during drawing, because the crash screen can't catch errors
+ * from clicks, keys or background work.
+ */
+function DevCrash() {
+  const [crashed, setCrashed] = React.useState(false);
+  React.useEffect(() => {
+    const w = window as unknown as { __life?: Record<string, unknown> };
+    w.__life = { ...w.__life, crash: () => setCrashed(true) };
+  }, []);
+  if (crashed) throw new Error("Test crash from __life.crash()");
+  return null;
 }
 
 const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
@@ -106,9 +122,12 @@ if (!gallery) {
 
   root.render(
     <React.StrictMode>
-      <LayerProvider>
-        <Palette />
-      </LayerProvider>
+      <CrashBoundary>
+        <LayerProvider>
+          <Palette />
+          {import.meta.env.DEV && <DevCrash />}
+        </LayerProvider>
+      </CrashBoundary>
     </React.StrictMode>,
   );
 }
