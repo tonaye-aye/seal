@@ -35,12 +35,12 @@ export function ViewHeading({
   below?: React.ReactNode;
   /** Keep the line under the title even when it's empty, so the rows don't move when words arrive. */
   reserveLine?: boolean;
-  /** A dotted zig-zag line under it, inset to match the content (an open finding: it separates the actions from the draft). */
+  /** A dotted zig-zag line under it, inset to match the content. The list, the timeline and an open finding all use it. */
   divider?: boolean;
 }) {
   return (
     <div className="shrink-0">
-      <div className="flex items-start gap-3 px-4 py-6.5">
+      <div className="flex items-start gap-3 px-4 pt-6.5 pb-4.25">
         <div className="min-w-0 flex-1">
           {eyebrow && <div className="mb-1 flex items-center gap-2 text-meta whitespace-nowrap">{eyebrow}</div>}
           <h1 className="heading text-heading font-semibold">{title}</h1>

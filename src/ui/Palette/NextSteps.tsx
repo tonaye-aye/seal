@@ -6,11 +6,11 @@ import type { Escalation } from "../../agent/routes";
 import { useScan, type ScanState } from "../../lib/scan-store";
 import { copy } from "../../copy";
 import { expectation } from "../next-steps";
-import { sealNote, sealTarget, sealTip, type SealTarget } from "../seal";
+import { sealNote, sealTarget } from "../seal";
 import { chosenRoute } from "../fix-route";
 import { SampleChip } from "./RoutePanel";
 import { KeyButton } from "../Kbd";
-import { AttachIcon, EditIcon, RemoveReminderIcon, SealIcon } from "../icons";
+import { AttachIcon, EditIcon, RemoveReminderIcon } from "../icons";
 import { hasAttachmentWork, notFileLines, type MailAttachments } from "../mail-attachments";
 import { Tip } from "../layers";
 import { daysUntil, shortDate, urgency } from "../format";
@@ -32,8 +32,6 @@ type Line = {
   detail?: string;
   /** The saved draft: hovering the line shows a pencil that edits it (takes the approval back). */
   editable?: boolean;
-  /** The step Maya takes now: Seal the leak's button sits on this line, left of its dot. */
-  seal?: boolean;
   /** Where to go if the business says no: this line gets a button to open it. */
   escalate?: Escalation;
   /** What Maya must add in Mail herself, because a mail link can't carry files. */
@@ -68,11 +66,11 @@ export function nextLines(finding: Finding, scan: ScanState): Line[] {
   }
   const expect = approved ? expectation(finding, scan) : undefined;
   if (approved) {
-    // Sending the draft (or the step Maya takes herself), and what Seal the leak opens for it.
+    // Sending the draft (or the step Maya takes herself), and what the Seal button opens for it.
     const target = sealTarget(finding, scan.corpus, scan);
     const title = other && other.kind !== "email" ? copy.routes.doIt[other.kind] : finding.draft ? copy.next.sendIt : finding.action.summary;
     const attachments = target?.kind === "email" && hasAttachmentWork(target.attachments) ? target.attachments : undefined;
-    lines.push({ key: "send", title, detail: target && sealNote(target), seal: !!target, attachments });
+    lines.push({ key: "send", title, detail: target && sealNote(target), attachments });
     // If the business says no: a dated next step, only where somewhere can actually take it.
     const body = finding.fix?.escalation;
     if (body) dated.push({ key: "escalate", date: addDays(today, body.afterDays), title: copy.routes.escalate.title(body.shortName), detail: body.whenToUse, escalate: body });
@@ -95,21 +93,18 @@ export function nextLines(finding: Finding, scan: ScanState): Line[] {
 }
 
 /**
- * Shown once a finding is approved or has a reminder. Once approved, Seal the
- * leak is part of it: a button on the "Send it" line, between today and the
- * next date, so the way to finish is read along with what follows.
+ * Shown once a finding is approved or has a reminder. The Seal button itself is
+ * in the top bar, where Approve was. The "Send it" line says what it opens.
  */
 export function NextSteps({
   finding,
   mouse,
-  onSeal,
   onEdit,
   onRemoveReminder,
   onEscalate,
 }: {
   finding: Finding;
   mouse: boolean;
-  onSeal: () => void;
   onEdit: () => void;
   /** O, or the button on the "If they say no" line. */
   onEscalate: () => void;
@@ -119,9 +114,6 @@ export function NextSteps({
   const scan = useScan();
   const reminder = scan.reminders[finding.id];
   const lines = nextLines(finding, scan);
-  const target = finding.status === "approved" ? sealTarget(finding, scan.corpus, scan) : undefined;
-  // The date column widens to hold the button, so every dot stays on one rail.
-  const wide = !!target && lines.some((l) => l.seal);
   return (
     <div className="mb-4">
       {reminder && (
@@ -141,10 +133,7 @@ export function NextSteps({
             showDate={!!line.date && line.date !== lines[i - 1]?.date}
             first={i === 0}
             last={i === lines.length - 1}
-            wide={wide}
-            seal={line.seal ? target : undefined}
             mouse={mouse}
-            onSeal={onSeal}
             onEdit={onEdit}
             onEscalate={onEscalate}
           />
@@ -187,10 +176,7 @@ function NextLine({
   showDate,
   first,
   last,
-  wide,
-  seal,
   mouse,
-  onSeal,
   onEdit,
   onEscalate,
 }: {
@@ -198,12 +184,7 @@ function NextLine({
   showDate: boolean;
   first: boolean;
   last: boolean;
-  /** The date column is wide enough for Seal the leak (on every line, so the rail stays straight). */
-  wide: boolean;
-  /** Draw Seal the leak in this line's date column. */
-  seal?: SealTarget;
   mouse: boolean;
-  onSeal: () => void;
   onEdit: () => void;
   onEscalate: () => void;
 }) {
@@ -215,15 +196,7 @@ function NextLine({
   return (
     <li className={`group flex min-h-10 gap-3 py-1 text-small ${tall ? "items-start" : "items-center"}`}>
       {/* The date, as the timeline view writes it: day number over the weekday. */}
-      <span className={`flex shrink-0 flex-col items-end leading-none ${wide ? "w-36" : "w-8"}`}>
-        {/* Seal the leak: the main action now, so violet, with S like everywhere else. */}
-        {seal && (
-          <Tip content={sealTip(seal)}>
-            <span className="inline-flex">
-              <KeyButton keys={["S"]} label={copy.actions.seal} icon={<SealIcon />} tone="primary" mouse={mouse} onClick={onSeal} />
-            </span>
-          </Tip>
-        )}
+      <span className="flex w-8 shrink-0 flex-col items-end leading-none">
         {line.date && showDate && (
           <>
             <span className={`figure text-small ${soon ? "text-amber" : line.done ? "text-muted" : "text-text"}`}>{Number(line.date.slice(8, 10))}</span>

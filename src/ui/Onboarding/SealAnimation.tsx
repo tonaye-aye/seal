@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import sealFile from "../../assets/sappy-seal.riv?url";
 import { copy } from "../../copy";
 import { isPaletteHidden, onPaletteVisibility } from "../../lib/native";
-import { SealIcon } from "../icons";
+import { Mark } from "../Palette/Mark";
 import { takeCelebration, type SealReaction } from "./seal-reaction";
 
 // The seal in onboarding: "Sappy Seal" by dob (CC BY, see the README), a Rive
@@ -19,7 +19,8 @@ import { takeCelebration, type SealReaction } from "./seal-reaction";
 // The canvas ignores the pointer, so it never gets in the way of a button or
 // of selecting text. The window's pointer moves are only watched and passed on.
 //
-// The Rive engine only loads during onboarding, so summoning the app later
+// The Rive engine only loads during onboarding, or while a check runs on an
+// empty list, so summoning the app otherwise
 // stays instant, and it comes from the app's own files, so it works with no
 // network. If it can't load, the plain seal icon takes its place at the same size.
 
@@ -39,12 +40,16 @@ const PREVIEW_REPEAT_MS = 4000;
  */
 const REACH = 1;
 
+/** How long the pointer can sit still before the seal stops blushing. */
+const BLUSH_IDLE_MS = 3000;
+
 type Input = { name: string; value?: unknown; fire?: () => void };
 
 /** Passes the window's pointer moves to the seal. Returns a function that stops it. */
 function followPointer(canvas: HTMLCanvasElement, blush: Input | undefined): () => void {
   let frame = 0;
   let last: MouseEvent | undefined;
+  let idle: ReturnType<typeof setTimeout> | undefined;
   const send = () => {
     frame = 0;
     if (!last) return;
@@ -62,12 +67,18 @@ function followPointer(canvas: HTMLCanvasElement, blush: Input | undefined): () 
     canvas.dispatchEvent(new MouseEvent("mousemove", { clientX: centreX + x, clientY: centreY + y }));
     // After the move, as the file's own hover turns this off when the pointer leaves the seal.
     if (blush) blush.value = true;
+    // Any move restarts the wait. A still pointer lets the seal calm down.
+    clearTimeout(idle);
+    idle = setTimeout(() => {
+      if (blush) blush.value = false;
+    }, BLUSH_IDLE_MS);
   };
   const onMove = (event: MouseEvent) => {
     last = event;
     frame ||= requestAnimationFrame(send);
   };
   const onLeave = () => {
+    clearTimeout(idle);
     if (blush) blush.value = false;
   };
   const root = document.documentElement;
@@ -75,6 +86,7 @@ function followPointer(canvas: HTMLCanvasElement, blush: Input | undefined): () 
   root.addEventListener("mouseleave", onLeave);
   return () => {
     cancelAnimationFrame(frame);
+    clearTimeout(idle);
     window.removeEventListener("mousemove", onMove);
     root.removeEventListener("mouseleave", onLeave);
   };
@@ -228,7 +240,7 @@ export function SealAnimation({
     <div role="img" aria-label={copy.onboarding.sealAlt} onClick={() => love.current?.fire?.()} className="pointer-events-auto relative grid size-48 place-items-center">
       {failed ? (
         <span className="fade-in text-muted">
-          <SealIcon size={112} />
+          <Mark size={112} />
         </span>
       ) : (
         // Drawn larger than its box, as the seal only fills the middle of its artboard. It is

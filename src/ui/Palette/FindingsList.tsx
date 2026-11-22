@@ -9,9 +9,11 @@ import { fromSaved, mixedReplay } from "../replay";
 import { headlineAmount, shortDate, urgency, type Urgency } from "../format";
 import { copy } from "../../copy";
 import { KeyText } from "../KeyText";
-import { ApproveIcon, DismissIcon, SealIcon, RemindIcon } from "../icons";
+import { ApproveIcon, CheckNowIcon, DismissIcon, PlugIcon, RemindIcon } from "../icons";
+import { SealAnimation } from "../Onboarding/SealAnimation";
 import { sealTarget } from "../seal";
-import { Kbd } from "../Kbd";
+import { Mark } from "./Mark";
+import { Kbd, KeyButton } from "../Kbd";
 import { useCountUp, useFlip, useGlide, useScrollFade } from "../motion";
 import { HeadingTotal, ViewHeading } from "./ViewHeading";
 import { FilterChips } from "./Filters";
@@ -150,7 +152,7 @@ export function Headline({
     else title = hits.length ? copy.filters.of(hits.length, open.length) : copy.filters.noneOpen;
     const sentence = words.join(", ");
     return (
-      <ViewHeading title={title} below={chips} action={total}>
+      <ViewHeading divider title={title} below={chips} action={total}>
         {matches.length === 0 ? (
           // Nothing left: say how to get back. Filters are the likelier cause, so they come first.
           filtered ? (
@@ -177,7 +179,7 @@ export function Headline({
   else line = copy.list.needAttentionLine;
 
   return (
-    <ViewHeading title={title} action={total}>
+    <ViewHeading divider title={title} action={total}>
       {line}
     </ViewHeading>
   );
@@ -219,7 +221,7 @@ export type RowAction = "approve" | "seal" | "dismiss" | "remind";
 
 /**
  * The selected row's quick menu: a ⋯ button that opens Approve and Not a
- * leak (or, once approved, Seal the leak), and Remind me, each with its key
+ * leak (or, once approved, Seal), and Remind me, each with its key
  * (A, S, D, L still work without opening it). It
  * opens downwards, or upwards when the row is near the bottom of the list.
  * `startOpen` shows it open without a click (the dev gallery only).
@@ -231,7 +233,7 @@ function RowMenu({ finding, onAct, startOpen = false }: { finding: Finding; onAc
   const choose = (action: RowAction) => () => onAct(action);
   const scan = useScan();
   const open_ = finding.status === "new";
-  // Approved: Seal the leak opens Mail, a call or Calendar for it.
+  // Approved: Seal opens Mail, a call or Calendar for it.
   const canSeal = finding.status === "approved" && !!sealTarget(finding, scan.corpus, scan);
   // Remind me: greyed out with the reason when there's no calendar, or once one is set.
   const noCalendar = scan.result?.notConnected?.includes("calendar");
@@ -277,7 +279,7 @@ function RowMenu({ finding, onAct, startOpen = false }: { finding: Finding; onAc
             <MenuItem icon={<DismissIcon />} label={copy.actions.notALeak} keys={<Kbd keys={["D"]} />} onSelect={choose("dismiss")} />
           </>
         )}
-        {canSeal && <MenuItem icon={<SealIcon />} label={copy.actions.seal} keys={<Kbd keys={["S"]} />} onSelect={choose("seal")} />}
+        {canSeal && <MenuItem icon={<Mark size={14} />} label={copy.actions.seal} keys={<Kbd keys={["S"]} />} onSelect={choose("seal")} />}
         <MenuItem icon={<RemindIcon />} label={remindLabel} keys={<Kbd keys={["L"]} />} disabled={!!noCalendar || !!reminder} onSelect={choose("remind")} />
       </Menu>
     </span>
@@ -578,12 +580,72 @@ export function ScanError({ message }: { message: string }) {
   );
 }
 
-export function NotChecked() {
+/** How long a check must leave the list empty before the seal appears, so a fast one can't flash it. */
+const SEAL_DELAY_MS = 250;
+
+/** Why the list is empty and the seal is showing. */
+export type SealStateKind = "checking" | "not-checked" | "no-sources";
+
+/**
+ * An empty list: the onboarding seal at its usual size, with a heading, a line
+ * and the one thing to do next. All three kinds share this layout and keep the
+ * button's and a second line's space, so pressing Run my check moves nothing and
+ * the same seal picks up its props. While a check runs the first finding
+ * replaces it. `fallback`: the dev gallery's plain seal.
+ */
+export function SealState({
+  kind,
+  onConnect,
+  onRun,
+  fallback = false,
+}: {
+  kind: SealStateKind;
+  onConnect?: () => void;
+  onRun?: () => void;
+  fallback?: boolean;
+}) {
+  const [show, setShow] = useState(kind !== "checking" || fallback);
+  useEffect(() => {
+    if (show) return;
+    const timer = setTimeout(() => setShow(true), SEAL_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [show]);
+  const words = {
+    checking: [copy.list.checkingTitle, copy.list.findingsAppear],
+    "not-checked": [copy.list.notCheckedTitle, copy.list.notCheckedBody],
+    "no-sources": [copy.list.noSourcesTitle, copy.list.noSourcesBody],
+  }[kind];
+  const action =
+    kind === "no-sources"
+      ? { label: copy.list.connectorsCta, keys: ["N"], icon: <PlugIcon />, run: onConnect }
+      : kind === "not-checked"
+        ? { label: copy.list.runCheckCta, keys: ["R"], icon: <CheckNowIcon />, run: onRun }
+        : undefined;
   return (
-    <StateFrame title={copy.list.notCheckedTitle} icon={<span className="size-2 rounded-full bg-faint" />}>
-      <p>
-        <KeyText text={copy.list.notCheckedBody} />
+    <section className="flex flex-1 flex-col items-center justify-center px-10 text-center">
+      {/* The space is held from the start, so nothing moves when the seal arrives. The seal
+          draws at 192 px and scales to 144, so the negative margin makes it take up only 144. */}
+      <div className="pointer-events-none grid size-36 shrink-0 place-items-center">
+        {show && (
+          <div className="fade-in -m-6 shrink-0 scale-75">
+            <SealAnimation fallback={fallback} reaction={kind === "checking" ? "checking" : "rest"} />
+          </div>
+        )}
+      </div>
+      <h1 className="mt-5 heading text-heading font-semibold">{words[0]}</h1>
+      <p className="mt-1.5 min-h-[2lh] max-w-[48ch] text-muted">
+        <KeyText text={words[1]} />
       </p>
-    </StateFrame>
+      {/* The button always shows its icon. Its key is in the tooltip and the line above. */}
+      <div className="mt-3 flex h-7 items-center text-small">
+        {action && (
+          <Tip content={action.label} keys={action.keys} side="bottom">
+            <span className="inline-flex">
+              <KeyButton keys={action.keys} label={action.label} icon={action.icon} tone="primary" mouse onClick={() => action.run?.()} />
+            </span>
+          </Tip>
+        )}
+      </div>
+    </section>
   );
 }

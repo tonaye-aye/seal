@@ -32,6 +32,8 @@ import {
   ToIcon,
   UndoIcon,
 } from "../icons";
+import { sealTarget, sealTip } from "../seal";
+import { Mark } from "./Mark";
 import { NextSteps } from "./NextSteps";
 import { CopyIcon, FOLD_LINE, RouteChooser, RoutePanel } from "./RoutePanel";
 import { chosenRoute, showsVerbs, usesEmail } from "../fix-route";
@@ -972,7 +974,7 @@ export function FindingDetail({
   onOpenSource: (index: number) => void;
   /** A click in the main column makes the draft the side J/K act on. */
   onFocusDraft: () => void;
-  /** The action row's buttons (Approve, Seal the leak, Edit, ...). */
+  /** The action row's buttons (Approve, Seal, Edit, ...). */
   onCommand: (command: Command) => void;
   /** Keys 1-4, or a click on a route. */
   onPickRoute: (index: number) => void;
@@ -1084,7 +1086,6 @@ export function FindingDetail({
               {(finding.status === "approved" || reminder) && <NextSteps
                   finding={finding}
                   mouse={mouse}
-                  onSeal={() => onCommand("seal")}
                   onEdit={() => onCommand("edit")}
                   onRemoveReminder={() => onCommand("remind")}
                   onEscalate={() => onCommand("escalate")}
@@ -1170,8 +1171,8 @@ export type Command = "copy" | "escalate" | "approve" | "seal" | "details" | "tr
  * An open finding's buttons, in the top bar where Search, Filter and View
  * sit on the other pages. Approve (the main action) keeps its word; Edit and
  * Remind me are icons with tooltips. Done stands in for Approve and Edit while
- * editing. Not a leak is in the sidebar's heading. Once approved, Seal the leak is on the Next
- * timeline, not here.
+ * editing. Not a leak is in the sidebar's heading. Once approved, Seal takes Approve's place as
+ * the main action.
  */
 export function findingActions(finding: Finding, scan: ScanState, editing: boolean): Action[] {
   // Remind me (L) shows while it can still be added: calendar connected, none set yet.
@@ -1210,7 +1211,10 @@ export function findingActions(finding: Finding, scan: ScanState, editing: boole
     ];
   }
   if (finding.status === "approved") {
+    const target = sealTarget(finding, scan.corpus, scan);
     return [
+      // The main action now: opens Mail, or a labelled sample page. Nothing is sent.
+      ...(target ? [{ keys: ["S"], label: copy.actions.seal, command: "seal" as const, icon: <Mark size={16} />, primary: true, tip: sealTip(target) }] : []),
       // Edit takes the approval back to change the draft; with no draft in use there's nothing to edit, so it's plain Undo.
       editable
         ? { keys: ["E"], label: copy.actions.edit, command: "edit" as const, icon: <EditIcon />, iconOnly: true }

@@ -205,6 +205,14 @@ export const copy = {
     errorHint: "Press [R] to try again. Nothing was sent or changed.",
     notCheckedTitle: "Not checked yet",
     notCheckedBody: "Press [R] to check your bank, email, documents and calendar for charges that look wrong or unwanted.",
+    /** Setup was skipped with nothing connected, so a check has nothing to read. */
+    noSourcesTitle: "Nothing connected yet",
+    noSourcesBody: "Press [N] to connect a source, then [R] to run a check.",
+    /** The middle of an empty list while a check runs. */
+    checkingTitle: "Checking your data",
+    /** The button under the seal on an empty list. */
+    connectorsCta: "Connectors",
+    runCheckCta: "Run my check",
   },
 
   // ---------- Actions (row menu, action bar, footer hints) ----------
@@ -215,7 +223,7 @@ export const copy = {
     approveHandledTip: "Marks it handled: the fix is a step you take yourself.",
     edit: "Edit",
     /** Once approved: opens the app where Maya does the fix (Mail, a call, Calendar, her bank). */
-    seal: "Seal the leak",
+    seal: "Seal",
     sealTip: {
       email: (to: string) => `Opens Mail with the draft to ${to}, ready to send`,
       emailWithFiles: (to: string) => `Opens Mail with the draft to ${to} and a note of what to add`,
@@ -375,12 +383,12 @@ export const copy = {
     removeReminder: "Remove reminder",
     /** The notice above the timeline once a reminder is set. "when" is "tomorrow" or "in 14 days". */
     remindedIn: (when: string, date: string) => `You'll be reminded about this ${when}, on ${date}. It's in your calendar.`,
-    /** What Seal the leak does, under "Saved in Drafts" or "Marked as handled". */
+    /** What the Seal button does, under "Saved in Drafts" or "Marked as handled". */
     seal: {
-      email: "Seal the leak opens it in Mail, ready to send. Nothing goes until you do.",
-      emailWithFiles: "Seal the leak opens it in Mail with a note of what to add. Nothing goes until you do.",
-      sample: { call: "Seal the leak shows the sample number. Nothing is dialled.", chat: "Seal the leak shows a sample of their chat page.", online: "Seal the leak shows a sample of their page.", email: "" },
-      calendar: (date?: string) => (date ? `Seal the leak opens Calendar: look at ${date}.` : "Seal the leak opens Calendar."),
+      email: "Press Seal to open it in Mail, ready to send. Nothing goes until you do.",
+      emailWithFiles: "Press Seal to open it in Mail with a note of what to add. Nothing goes until you do.",
+      sample: { call: "Press Seal to see the sample number. Nothing is dialled.", chat: "Press Seal to see a sample of their chat page.", online: "Press Seal to see a sample of their page.", email: "" },
+      calendar: (date?: string) => (date ? `Press Seal to open Calendar: look at ${date}.` : "Press Seal to open Calendar."),
       bank: (account: string) => `Do it in your bank's app, on the ${account} account.`,
     },
     /** Mail links can't carry files, so Maya adds them herself. */
@@ -709,12 +717,13 @@ export const copy = {
   // ---------- Toasts (the note at the bottom after an action) ----------
   toasts: {
     stillWriting: "The draft is still being written. Try again in a moment.",
+    connectFirst: "Connect a source first. Press N to choose one.",
     markedHandled: (merchant: string) => `Marked ${merchant} as handled.`,
     couldntSave: (error: string) => `Couldn't save the draft: ${error}`,
-    savedToDrafts: (to: string) => `Saved to Drafts for ${to}. Seal the leak opens it in Mail when you're ready.`,
+    savedToDrafts: (to: string) => `Saved to Drafts for ${to}. Press Seal to open it in Mail when you're ready.`,
     /** Edit on an approved finding. */
     reopened: "Approval taken back: change the draft, then approve it again.",
-    /** Seal the leak, when the app it opens couldn't be opened. */
+    /** The Seal button, when the app it opens couldn't be opened. */
     sealPreview: "This opens in the desktop app. This browser preview can't.",
     sealFailed: "Couldn't open it. Try again, or do it from the app yourself.",
     sealBank: (account: string) => `Open your bank's app and do it there, on the ${account} account.`,
@@ -783,21 +792,21 @@ export const copy = {
     step: (n: number) => `Step ${n} of 3`,
     /** 1. Welcome. */
     welcomeTitle: `This is ${APP_NAME}`,
-    welcomeBody: "I look through your data and find pesky leaks.",
-    noShortcut: "The keyboard shortcut couldn't be set up on this Mac, so open me from the ring icon in the menu bar.",
+    welcomeBody: "I look through your data and fix any leaks I find.",
+    noShortcut: "The keyboard shortcut couldn't be set up on this Mac, so open me from the seal icon in the menu bar.",
     /** Step 1's line, before and after the summon key is pressed. */
     openWith: "Open and hide me using {keys}",
-    provedIt: "That's it, I am just one {keys} away!",
+    provedIt: "I am just one {keys} away!",
     useFallback: "Taken by another app? Use [⌘ ⇧ Space] instead",
     useDefault: "Not working? Go back to [⌥ Space]",
     getStarted: "Get started",
-    /** For when neither shortcut works: the menu bar icon still opens the app. */
-    skipShortcut: "Skip, I'll use the menu bar",
+    /** Top right on steps 1 and 2. */
+    skip: "Skip",
     /** 2. Connect. */
     connectTitle: "Connect your data",
     connectBody: "I just take a look and draft things for you, you make the final call.",
     runFirstCheck: "Run my first check",
-    connectedCount: (n: number, total: number) => `${n} of ${total} connected`,
+    connectedCount: (n: number) => `${n} connected`,
     connectFirst: "Connect at least one source to run your first check.",
     readyToCheck: "Ready when you are. You can change these later.",
     sources: {
@@ -826,8 +835,13 @@ export const copy = {
     checkTitle: "Checking your data",
     checkBody: "Working on it! Sit back and relax.",
     checkDoneTitle: "Your first check is done",
-    checkDoneBody: (n: number) =>
-      n === 0 ? "Nothing looks wrong this month." : `I found ${plural(n, "thing")} worth a look. Nothing is sent until you approve it.`,
+    /** `undecided`: cases it couldn't settle, so "nothing looks wrong" would be untrue. */
+    checkDoneBody: (n: number, undecided = 0) =>
+      n > 0
+        ? `I found ${plural(n, "thing")} that could be a leak!`
+        : undecided > 0
+          ? `I couldn't decide on ${plural(undecided, "thing")}. You can check them yourself.`
+          : "Nothing looks wrong this month.",
     checkFailedTitle: "The check didn't finish",
     checkFailedBody: "Nothing is lost. Try again, or carry on and check later.",
     viewFindings: "View findings",
@@ -943,7 +957,7 @@ export const copy = {
           [["A"], "Approve the chosen way (Email saves a draft)"],
           [["E"], "Edit the draft (takes an approval back)"],
           [["⌘", "⇧", "⌫"], "Revert your edits and stop editing (while editing)"],
-          [["S"], "Seal the leak: open the fix (once approved)"],
+          [["S"], "Seal: open the fix (once approved)"],
           [["O"], "If they say no: open where to go next"],
           [["D"], "Not a leak"],
           [["1", "3"], `Then say why, so ${APP_NAME} remembers`],

@@ -251,12 +251,21 @@ state = { ...state, undo: restoreUndo() };
 
 // ---------- Which sources a check reads ----------
 
-/** The sources the user connected (set by onboarding). Undefined means all four. */
+/**
+ * The sources the user connected (set by onboarding). Undefined means all four,
+ * for installs from before onboarding. Empty means setup was skipped with nothing
+ * connected, so a check has nothing it's allowed to read.
+ */
 let scanSources: ConnectorId[] | undefined;
 
 /** Onboarding tells the scan which sources are connected; every later check reads only those. */
 export function setScanSources(ids: ConnectorId[] | undefined): void {
-  scanSources = ids && ids.length ? ids : undefined;
+  scanSources = ids;
+}
+
+/** True when setup was skipped and no source has been connected since. */
+export function nothingConnected(): boolean {
+  return scanSources?.length === 0;
 }
 
 const ALL_SOURCES: ConnectorId[] = ["bank", "email", "documents", "calendar"];
@@ -275,6 +284,7 @@ export function sourcesChanged(on: ConnectorId[], s: ScanState = state): boolean
  */
 export async function syncEverything(): Promise<void> {
   if (state.phase === "scanning" || state.refreshing) return;
+  if (nothingConnected()) return showToast(copy.toasts.connectFirst, "warning");
   if (calendarNeedsReconnect()) await reconnectCalendar();
   await startScan();
 }
@@ -483,7 +493,7 @@ function noteRules(findings: Finding[], corpus: Corpus | undefined) {
  * `background`: keep showing the last results while it runs (used by the timer).
  */
 export async function startScan({ background = false } = {}): Promise<void> {
-  if (state.phase === "scanning" || state.refreshing) return;
+  if (state.phase === "scanning" || state.refreshing || nothingConnected()) return;
   // Noted before either kind of check starts, so a switch flipped later shows as waiting.
   set({ checkedSources: scanSources ?? ALL_SOURCES });
   if (background && state.phase === "done") {
@@ -996,7 +1006,7 @@ export async function reopen(findingId: string): Promise<boolean> {
   return true;
 }
 
-/** Shows a short message in the toast (Seal the leak's notes), with no Undo. */
+/** Shows a short message in the toast (the Seal button's notes), with no Undo. */
 export function notify(text: string, tone: ToastTone): void {
   showToast(text, tone);
 }

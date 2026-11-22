@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import type { Cleared, Finding } from "../../agent/pipeline";
-import { activeHotkey, copyText, hidePalette, onPaletteShown, onWindowFocus } from "../../lib/native";
+import { activeHotkey, copyText, hidePalette, onOpenSettings, onPaletteShown, onWindowFocus } from "../../lib/native";
 import {
   finishOnboarding,
   runFirstCheck,
@@ -10,13 +10,14 @@ import {
   next as nextSetupStep,
   proveSummon,
   resetOnboarding,
+  skipConnect,
   useOnboarding,
 } from "../../lib/onboarding";
 import { getPreferences } from "../../lib/preferences";
 import { DetailHint, ListHint, TimelineHint } from "./FooterHint";
 import { VERB_BY_CODE } from "./DraftVerbs";
-import { SetupScreen, welcomeLocked } from "../Onboarding/SetupScreen";
-import { approve, cancelReminder, cancelRewrite, chooseRoute, pressVerb, dismiss, isEdited, notify, rankedFindings, rememberWhy, remind, reopen, resetEdit, syncEverything, undoLast, useScan } from "../../lib/scan-store";
+import { SetupScreen, SetupSkip, welcomeLocked } from "../Onboarding/SetupScreen";
+import { approve, cancelReminder, cancelRewrite, chooseRoute, pressVerb, dismiss, isEdited, nothingConnected, notify, rankedFindings, rememberWhy, remind, reopen, resetEdit, syncEverything, undoLast, useScan } from "../../lib/scan-store";
 import { RULE_REASONS } from "../../lib/rules";
 import { openComplaintBody, seal, sealTarget } from "../seal";
 import { chosenRoute, escalationPage, routePage, routeText, usesEmail, type SamplePage } from "../fix-route";
@@ -27,8 +28,8 @@ import {
   AllClear,
   CLEARED_GROUP,
   FindingsList,
-  NotChecked,
   ScanError,
+  SealState,
   groupOpen,
   leftAlone,
   listItems,
@@ -248,10 +249,16 @@ export function Palette() {
       }
       setOpenCount((n) => n + 1);
     });
+    // Settings in the menu bar menu. A frame later, because showing the palette
+    // redraws it and clears any open dialog first.
+    const stopSettings = onOpenSettings(() => {
+      requestAnimationFrame(() => setSettingsTab("general"));
+    });
     // Dim the palette while another app has focus (it stays on screen during onboarding).
     const stopFocus = onWindowFocus(setFocused);
     return () => {
       stopShown();
+      stopSettings();
       stopFocus();
     };
   }, []);
@@ -259,7 +266,8 @@ export function Palette() {
   // Each onboarding step starts from the list, with nothing open on top.
   const lastStep = useRef(onboarding.step);
   useEffect(() => {
-    const finished = lastStep.current === "first-scan" && onboarding.step === "done";
+    // From step 3, or from step 2's Skip.
+    const finished = (lastStep.current === "first-scan" || lastStep.current === "connect") && onboarding.step === "done";
     lastStep.current = onboarding.step;
     setView(startingView());
     setPane("evidence");
@@ -501,7 +509,7 @@ export function Palette() {
       const id = item.finding.id;
       return void (view === "detail" && scan.reminders[id] ? cancelReminder(id) : remind(id));
     }
-    // Seal the leak, once approved: opens Mail (or a call, Calendar), and leaves the selection where it is.
+    // Seal, once approved: opens Mail (or a call, Calendar), and leaves the selection where it is.
     if (item?.type === "finding" && kind === "seal") {
       const target = item.finding.status === "approved" ? sealTarget(item.finding, scan.corpus, scan) : undefined;
       // A call, chat or online step belongs to a fictional business: show its sample, never dial or open it.
@@ -676,10 +684,15 @@ export function Palette() {
           setAgentOpen((o) => !o);
           return;
         }
-        // Step 1: Cmd+Enter skips the summon key, for when another app holds it.
+        // Skip, at the top right. Step 1's is for when another app holds the summon key.
+        if (key === "Enter" && event.metaKey && event.shiftKey) {
+          event.preventDefault();
+          if (onboarding.step === "welcome" && welcomeLocked(onboarding, hotkey, hotkeyReady)) nextSetupStep();
+          else if (onboarding.step === "connect") skipConnect();
+          return;
+        }
         if (key === "Enter" && event.metaKey && onboarding.step === "welcome") {
           event.preventDefault();
-          nextSetupStep();
           return;
         }
         // Step 3, if the check didn't finish: Cmd+Enter carries on without it.
@@ -1007,7 +1020,15 @@ export function Palette() {
     );
   } else if (nothingYet && scan.phase === "error") main = <ScanError message={scan.error ?? copy.shared.somethingWentWrong} />;
   else if (nothingYet && scan.phase === "done") main = <AllClear checked={0} />;
-  else if (nothingYet && scan.phase === "idle") main = <NotChecked />;
+  // One component for all three, so the same seal stays on screen when a check starts.
+  else if (nothingYet && (scan.phase === "idle" || scan.phase === "scanning"))
+    main = (
+      <SealState
+        kind={scan.phase === "scanning" ? "checking" : nothingConnected() ? "no-sources" : "not-checked"}
+        onConnect={() => setSettingsTab("connectors")}
+        onRun={() => run("rescan")}
+      />
+    );
   // While a check runs the list stays in place, like the timeline: the bottom
   // bar shows the loading bar and the rows fill in as each one is checked.
   else
@@ -1071,7 +1092,7 @@ export function Palette() {
       }}
       header={
         setup ? (
-          <Header bare />
+          <Header bare controls={<SetupSkip onboarding={onboarding} hotkey={hotkey} hotkeyReady={hotkeyReady} mouse={mouse} />} />
         ) : (
           <Header
             crumbs={crumbs}

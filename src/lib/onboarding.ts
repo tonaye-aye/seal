@@ -29,10 +29,12 @@ export type OnboardingState = {
   connecting?: ConnectorId;
   /** Step 1: the user has pressed the summon key, so Get started unlocks. */
   summoned?: boolean;
+  /** Step 2 was skipped with nothing connected, so no check may read anything until a source is. */
+  skipped?: boolean;
 };
 
 const KEY = "life.onboarding";
-type Saved = { v: 3; step: Step; connected: ConnectorId[]; summoned?: boolean };
+type Saved = { v: 3; step: Step; connected: ConnectorId[]; summoned?: boolean; skipped?: boolean };
 
 /** Steps from the longer onboarding with a practice round (v2). Its practice steps resume at connect. */
 const V2_STEPS: Record<string, Step> = {
@@ -53,13 +55,13 @@ function fresh(): OnboardingState {
 
 function load(): OnboardingState {
   try {
-    const raw = JSON.parse(localStorage.getItem(KEY) ?? "null") as { v?: number; step?: string; connected?: ConnectorId[]; summoned?: boolean } | null;
+    const raw = JSON.parse(localStorage.getItem(KEY) ?? "null") as { v?: number; step?: string; connected?: ConnectorId[]; summoned?: boolean; skipped?: boolean } | null;
     if (raw?.v === 3 || raw?.v === 2) {
       const step = raw.v === 3 ? (raw.step as Step) : V2_STEPS[raw.step ?? ""];
       if (!step) return fresh();
       // The practice round never connected real sources, so a save from it starts the real connect empty.
       const connected = raw.v === 2 && step === "connect" && raw.step !== "connect" ? [] : (raw.connected ?? []);
-      return { step, connected: connected.filter((id) => SOURCES.includes(id)), summoned: raw.summoned === true };
+      return { step, connected: connected.filter((id) => SOURCES.includes(id)), summoned: raw.summoned === true, skipped: raw.skipped === true };
     }
     // The first version's save: finished stays finished, anything else starts over.
     if (raw?.v === 1) return raw.step === "done" ? { ...fresh(), step: "done" } : fresh();
@@ -74,17 +76,23 @@ function load(): OnboardingState {
 let state: OnboardingState = load();
 const listeners = new Set<() => void>();
 
+/** What a check may read: the connected sources, nothing after a skip, or all four for an older install. */
+function sourcesToCheck(): ConnectorId[] | undefined {
+  if (state.connected.length) return state.connected;
+  return state.skipped ? [] : undefined;
+}
+
 function set(change: Partial<OnboardingState>) {
   state = { ...state, ...change };
   try {
-    const saved: Saved = { v: 3, step: state.step, connected: state.connected, summoned: state.summoned };
+    const saved: Saved = { v: 3, step: state.step, connected: state.connected, summoned: state.summoned, skipped: state.skipped };
     localStorage.setItem(KEY, JSON.stringify(saved));
   } catch {
     // Storage can be unavailable; onboarding then lasts until the app quits.
   }
   syncHideOnBlur();
   syncSummonTest();
-  setScanSources(state.connected);
+  setScanSources(sourcesToCheck());
   for (const listener of listeners) listener();
 }
 
@@ -113,7 +121,7 @@ syncSummonTest();
 onSummonProved(() => proveSummon());
 
 // Every check reads only the sources connected during setup (all four for installs from before onboarding).
-setScanSources(state.connected);
+setScanSources(sourcesToCheck());
 
 function subscribe(listener: () => void) {
   listeners.add(listener);
@@ -139,7 +147,7 @@ export function isSetupScreen(step: Step): boolean {
 
 /** The sources switched on. An install from before onboarding has none saved, and reads all four. */
 export function enabledSources(): ConnectorId[] {
-  return state.connected.length ? state.connected : SOURCES;
+  return sourcesToCheck() ?? SOURCES;
 }
 
 /** Step 1: the summon key was pressed, so Get started unlocks. */
@@ -203,6 +211,17 @@ export function runFirstCheck(): void {
   void startScan();
 }
 
+/**
+ * Step 2's Skip: ends setup with what's connected. It checks those sources, and
+ * with none connected it reads nothing until one is connected in Settings.
+ */
+export function skipConnect(): void {
+  if (state.step !== "connect" || state.connecting) return;
+  const none = state.connected.length === 0;
+  set({ step: "done", skipped: none });
+  if (!none) void startScan();
+}
+
 /** Connects the given source, or the next one not yet connected (its row's +, or Enter). */
 export async function connectNext(which?: ConnectorId): Promise<void> {
   if (state.connecting) return;
@@ -233,7 +252,7 @@ export async function setSourceEnabled(id: ConnectorId, on: boolean): Promise<vo
   set({ connecting: id });
   await connectOne(id);
   // In the usual order, so the same sources always ask the models the same questions.
-  set({ connecting: undefined, connected: SOURCES.filter((s) => s === id || current.includes(s)) });
+  set({ connecting: undefined, skipped: false, connected: SOURCES.filter((s) => s === id || current.includes(s)) });
 }
 
 /** Connects one failed source again (its row's Reconnect). */
