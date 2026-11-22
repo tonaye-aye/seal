@@ -1423,10 +1423,12 @@ dismissed: (merchant: string) => `Marked ${merchant} as not a leak.`,
 | Colour | Means |
 | --- | --- |
 | **Violet** | Only the main action, or the "now" mark |
-| **Amber** | Only urgent, due within 7 days |
-| **Info blue** | The agent's own status: saved answers, not sure, came back |
-| **Green** | Done |
-| **Red** | Failed |
+| **Amber** | Urgent, due within 7 days, or a Warning toast (blocked until Maya does something) |
+| **Info blue** | The agent's own status (saved answers, not sure, came back), or a neutral Info toast |
+| **Green** | Done, or a Success toast (Seal saved or noted it, never that a business replied or money came back) |
+| **Red** | Failed, including an Error toast |
+
+Every toast has one of these four tones (`ToastTone` in `scan-store.ts`). Its colour goes on the icon and timer bar, and the message stays in the normal text colour.
 
 All text colours pass WCAG AA (4.5:1) on background (at the grain's strongest speck), surface and raised, in both themes. Ratios are noted beside each token.
 
@@ -1740,7 +1742,7 @@ Ask first. Prefer small hand-written code for motion and state. Add its licence 
 
 14. Words live in `src/copy.ts`.
 15. Colours and sizes come from `tokens.css`.
-16. Violet means the main action or the now mark. Amber means urgent.
+16. Violet means the main action or the now mark. Amber means urgent, or a Warning toast.
 17. Everything works by keyboard and by mouse.
 18. Motion respects reduced motion.
 19. New states go in the gallery, in both themes.

@@ -41,9 +41,17 @@ export type TraceLine = {
   tone: "info" | "good" | "warn" | "bad";
 };
 
+/**
+ * What kind of message a toast is. Error: something failed. Warning: blocked
+ * until Maya does something. Success: her action worked (Seal saved or noted
+ * it, never that a business replied or money came back). Info: neutral.
+ */
+export type ToastTone = "error" | "warning" | "success" | "info";
+
 export type Toast = {
   id: number;
   text: string;
+  tone: ToastTone;
   undoable: boolean;
   /** The finding this toast is asking "why isn't it a leak?" about. It holds keys 1, 2 and 3 while it shows. */
   ask?: string;
@@ -815,9 +823,9 @@ export function rankedFindings(s: ScanState): Finding[] {
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 export const TOAST_MS = 5_000;
 
-function showToast(text: string, undoable: boolean, ask?: string, remembered?: string) {
+function showToast(text: string, tone: ToastTone, undoable = false, ask?: string, remembered?: string) {
   clearTimeout(toastTimer);
-  const toast: Toast = { id: nextId++, text, undoable, ask, remembered };
+  const toast: Toast = { id: nextId++, text, tone, undoable, ask, remembered };
   set({ toast });
   toastTimer = setTimeout(() => {
     if (state.toast?.id === toast.id) set({ toast: undefined });
@@ -861,16 +869,16 @@ export async function approve(findingId: string): Promise<void> {
   if (route) set({ routes: { ...state.routes, [findingId]: route.id } });
   if (route && route.kind !== "email") {
     decide(findingId, "approved", { label: copy.toasts.decision.route });
-    showToast(copy.toasts.routeReady[route.kind](route.provider), true);
+    showToast(copy.toasts.routeReady[route.kind](route.provider), "success", true);
     return;
   }
   if (finding.action.kind !== "none" && !shown.draft) {
-    showToast(copy.toasts.stillWriting, false);
+    showToast(copy.toasts.stillWriting, "warning");
     return;
   }
   if (!shown.draft) {
     decide(findingId, "approved", { label: copy.toasts.decision.handled });
-    showToast(copy.toasts.markedHandled(finding.merchant), true);
+    showToast(copy.toasts.markedHandled(finding.merchant), "success", true);
     return;
   }
   // Show it as approved at once; the mailbox save happens behind it. If the
@@ -890,11 +898,11 @@ export async function approve(findingId: string): Promise<void> {
       else delete decisions[findingId];
       const rules = entry?.ruleBefore ? { ...state.rules, [findingId]: entry.ruleBefore } : state.rules;
       set({ decisions, rules, undo: state.undo.filter((u) => u.saving !== saving) });
-      showToast(copy.toasts.couldntSave(error instanceof Error ? error.message : String(error)), false);
+      showToast(copy.toasts.couldntSave(error instanceof Error ? error.message : String(error)), "error");
       return undefined;
     });
   decide(findingId, "approved", { saving, label: copy.toasts.decision.approved });
-  showToast(copy.toasts.savedToDrafts(draft.to.name), true);
+  showToast(copy.toasts.savedToDrafts(draft.to.name), "success", true);
   await saving;
 }
 
@@ -908,7 +916,7 @@ export function dismiss(findingId: string): void {
   cancelRewrite(findingId);
   const f = state.findings.find((x) => x.id === findingId);
   decide(findingId, "dismissed", { label: copy.toasts.decision.dismissed }, f && newRule(f, state.corpus, Date.now()));
-  showToast(copy.toasts.dismissed(f?.merchant ?? copy.toasts.it), true, f && findingId);
+  showToast(copy.toasts.dismissed(f?.merchant ?? copy.toasts.it), "success", true, f && findingId);
 }
 
 /** Maya says why it isn't a leak (keys 1-3, from the toast or the dismissed finding). */
@@ -924,7 +932,7 @@ export function rememberWhy(findingId: string, reason: RuleReason): void {
   // Undo in the toast takes back the newest action, so it's only offered when that is this dismissal.
   const top = state.undo[state.undo.length - 1];
   const undoable = top?.findingId === findingId && (top.kind ?? "decision") === "decision";
-  showToast(copy.rules.remembered(ruleUntil(next)), undoable, undefined, findingId);
+  showToast(copy.rules.remembered(ruleUntil(next)), "success", undoable, undefined, findingId);
 }
 
 /** Deletes a remembered rule (Settings): its finding comes back straight away. */
@@ -954,21 +962,21 @@ export async function undoLast(): Promise<void> {
   const writing = Object.keys(state.rewriting)[0];
   if (writing) {
     cancelRewrite(writing);
-    return showToast(copy.verbs.stopped, false);
+    return showToast(copy.verbs.stopped, "info");
   }
   const entry = state.undo[state.undo.length - 1];
   if (!entry) return;
   // Maya's own edits sit on top of this rewrite, so going back would mix the two.
   if (entry.kind === "rewrite" && state.edits[entry.findingId] !== undefined) {
     const merchant = state.findings.find((x) => x.id === entry.findingId)?.merchant ?? copy.toasts.it;
-    return showToast(copy.verbs.revertEditsFirst(merchant), false);
+    return showToast(copy.verbs.revertEditsFirst(merchant), "warning");
   }
   set({ undo: state.undo.slice(0, -1) });
   if (entry.kind === "reminder") return removeReminder(entry.findingId);
   if (entry.kind === "rewrite") return goBackOneVersion(entry.findingId);
   const savedId = await revert(entry);
   const f = state.findings.find((x) => x.id === entry.findingId);
-  showToast(savedId ? copy.toasts.undoneDraft(f?.merchant) : copy.toasts.undone(f?.merchant), false);
+  showToast(savedId ? copy.toasts.undoneDraft(f?.merchant) : copy.toasts.undone(f?.merchant), "info");
 }
 
 /**
@@ -984,13 +992,13 @@ export async function reopen(findingId: string): Promise<boolean> {
   const entry: UndoEntry = at >= 0 ? state.undo[at] : { findingId, before: "new", label: "" };
   if (at >= 0) set({ undo: state.undo.filter((_, i) => i !== at) });
   await revert(entry);
-  showToast(copy.toasts.reopened, false);
+  showToast(copy.toasts.reopened, "info");
   return true;
 }
 
 /** Shows a short message in the toast (Seal the leak's notes), with no Undo. */
-export function notify(text: string): void {
-  showToast(text, false);
+export function notify(text: string, tone: ToastTone): void {
+  showToast(text, tone);
 }
 
 /** Puts a decision back as it was before, removing its saved draft. Returns the draft's id if one was removed. */
@@ -1038,9 +1046,9 @@ export async function remind(findingId: string): Promise<void> {
   const finding = state.findings.find((f) => f.id === findingId);
   if (!finding || adding.has(findingId)) return;
   const existing = state.reminders[findingId];
-  if (existing) return showToast(copy.toasts.reminderAlready(shortDate(existing.date)), false);
+  if (existing) return showToast(copy.toasts.reminderAlready(shortDate(existing.date)), "info");
   const why = cannotRemind(findingId);
-  if (why) return showToast(why, false);
+  if (why) return showToast(why, "warning");
   const input = reminderEvent(finding, state.decisions[findingId] === "approved");
   adding.add(findingId);
   try {
@@ -1050,11 +1058,11 @@ export async function remind(findingId: string): Promise<void> {
       reminders: { ...state.reminders, [findingId]: reminder },
       undo: [...state.undo, { kind: "reminder", findingId, before: state.decisions[findingId] ?? "new", label: copy.toasts.decision.reminder }],
     });
-    showToast(copy.toasts.reminderAdded(shortDate(input.start)), true);
+    showToast(copy.toasts.reminderAdded(shortDate(input.start)), "success", true);
   } catch (error) {
     const reauth = error instanceof ConnectorError && error.code === "unauthorized";
     if (reauth) markNeedsReconnect("calendar", error.message);
-    showToast(reauth ? copy.toasts.reminderReauth : copy.toasts.reminderFailed(error instanceof Error ? error.message : String(error)), false);
+    showToast(reauth ? copy.toasts.reminderReauth : copy.toasts.reminderFailed(error instanceof Error ? error.message : String(error)), "error");
   } finally {
     adding.delete(findingId);
   }
@@ -1074,7 +1082,7 @@ async function removeReminder(findingId: string, toast: (merchant: string) => st
   const { [findingId]: _gone, ...reminders } = state.reminders;
   set({ reminders });
   const f = state.findings.find((x) => x.id === findingId);
-  showToast(toast(f?.merchant ?? copy.toasts.it), false);
+  showToast(toast(f?.merchant ?? copy.toasts.it), "info");
 }
 
 /**
@@ -1138,7 +1146,7 @@ export function cancelRewrite(findingId: string): void {
  */
 export function pressVerb(findingId: string, verb: Verb): void {
   const why = cannotRewrite(findingId);
-  if (why) return showToast(why, false);
+  if (why) return showToast(why, "warning");
   const finding = state.findings.find((f) => f.id === findingId)!;
   const original = finding.draft!;
   // Pressed again while it's being written: stop waiting.
@@ -1167,7 +1175,7 @@ function goBackOneVersion(findingId: string) {
   if (!entry) return;
   const back = stepBack(entry);
   set({ rewrites: { ...state.rewrites, [findingId]: back } });
-  showToast(back.active ? copy.verbs.backToVerb(copy.verbs.name[back.active]) : copy.verbs.backToOriginal, false);
+  showToast(back.active ? copy.verbs.backToVerb(copy.verbs.name[back.active]) : copy.verbs.backToOriginal, "info");
 }
 
 async function writeRewrite(finding: Finding, verb: Verb): Promise<void> {
@@ -1204,7 +1212,9 @@ async function writeRewrite(finding: Finding, verb: Verb): Promise<void> {
   if (!outcome.ok) {
     const name = copy.verbs.name[verb];
     const offline = outcome.why === "no_saved";
-    return showToast(offline ? (session.lost() ? copy.verbs.unreachable(name) : copy.verbs.notOffline(name)) : copy.verbs.failed(name), false);
+    // No saved version while the model is fine is a limit of being offline, not a failure.
+    if (offline && !session.lost()) return showToast(copy.verbs.notOffline(name), "warning");
+    return showToast(offline ? copy.verbs.unreachable(name) : copy.verbs.failed(name), "error");
   }
   if (sameDraft && statusOf(id) === "new" && state.edits[id] === undefined) {
     putOnScreen(id, state.rewrites[id], verb);

@@ -527,8 +527,9 @@ export function Palette() {
   async function copyRoute() {
     const route = selectedFinding && chosenRoute(selectedFinding, scan);
     const text = route && routeText(selectedFinding, route);
-    if (!text) return notify(copy.toasts.nothingToCopy);
-    notify((await copyText(text)) ? copy.toasts.copied : copy.toasts.copyFailed);
+    if (!text) return notify(copy.toasts.nothingToCopy, "info");
+    if (await copyText(text)) notify(copy.toasts.copied, "success");
+    else notify(copy.toasts.copyFailed, "error");
   }
 
   /** O: where to go if the business says no. A real body's form opens; a fictional one shows its sample. */

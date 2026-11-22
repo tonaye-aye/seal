@@ -650,14 +650,14 @@ export function scanSamples(corpus: Corpus | undefined) {
     } satisfies ScanState,
     reminderFailed: {
       ...done,
-      toast: { id: 1, text: "Couldn't add the reminder: Calendar needs reconnecting. Press R to reconnect.", undoable: false },
+      toast: { id: 1, text: "Couldn't add the reminder: Calendar needs reconnecting. Press R to reconnect.", tone: "error", undoable: false },
     } satisfies ScanState,
     edited: { ...done, edits: { "f-skylink": skylink.draft!.body.replace("Could you please", "Can you") } } satisfies ScanState,
     rewriting: { ...done, rewriting: { "f-skylink": "firmer" } } satisfies ScanState,
     rewritten: { ...done, rewrites: { "f-skylink": firmerVersion("live") } } satisfies ScanState,
     rewrittenSaved: { ...done, rewrites: { "f-skylink": firmerVersion("cache") } } satisfies ScanState,
-    rewriteFailed: { ...done, toast: { id: 1, text: copy.verbs.failed("Firmer"), undoable: false } } satisfies ScanState,
-    rewriteOffline: { ...done, toast: { id: 1, text: copy.verbs.notOffline("Shorter"), undoable: false } } satisfies ScanState,
+    rewriteFailed: { ...done, toast: { id: 1, text: copy.verbs.failed("Firmer"), tone: "error", undoable: false } } satisfies ScanState,
+    rewriteOffline: { ...done, toast: { id: 1, text: copy.verbs.notOffline("Shorter"), tone: "warning", undoable: false } } satisfies ScanState,
     scanning: {
       ...done,
       phase: "scanning",
@@ -760,7 +760,7 @@ export function scanSamples(corpus: Corpus | undefined) {
       decisions: { "f-brightpage": "dismissed" },
       decidedAt: { "f-brightpage": mins(0) },
       rules: { "f-brightpage": sampleRule("f-brightpage", undefined, [{ key: "brightpage", cents: 1499 }]) },
-      toast: { id: 1, text: copy.toasts.dismissed("BrightPage Kids"), undoable: true, ask: "f-brightpage" },
+      toast: { id: 1, text: copy.toasts.dismissed("BrightPage Kids"), tone: "success", undoable: true, ask: "f-brightpage" },
     } satisfies ScanState,
     /** Answered: the toast says what would bring it back. */
     ruleAnswered: {
@@ -768,7 +768,7 @@ export function scanSamples(corpus: Corpus | undefined) {
       decisions: { "f-brightpage": "dismissed" },
       decidedAt: { "f-brightpage": mins(0) },
       rules: { "f-brightpage": sampleRule("f-brightpage", "wanted", [{ key: "brightpage", cents: 1499 }]) },
-      toast: { id: 1, text: copy.rules.remembered(copy.rules.until.wantedAmount("$14.99")), undoable: true },
+      toast: { id: 1, text: copy.rules.remembered(copy.rules.until.wantedAmount("$14.99")), tone: "success", undoable: true },
     } satisfies ScanState,
     /** Set aside with no answer: the finding still offers the question. */
     ruleNoReason: {
@@ -806,12 +806,12 @@ export function scanSamples(corpus: Corpus | undefined) {
         "f-streambox": { why: "bank_unread" },
       },
     } satisfies ScanState,
-    toastNoUndo: { ...done, toast: { id: 1, text: "The draft is still being written. Try again in a moment.", undoable: false } } satisfies ScanState,
+    toastNoUndo: { ...done, toast: { id: 1, text: "The draft is still being written. Try again in a moment.", tone: "warning", undoable: false } } satisfies ScanState,
     toast: {
       ...done,
       decisions: { "f-skylink": "approved" },
       decidedAt: { "f-skylink": mins(0) },
-      toast: { id: 1, text: "Saved to Drafts for Skylink Internet. Send it from your mail app when you're ready.", undoable: true },
+      toast: { id: 1, text: copy.toasts.savedToDrafts("Skylink Internet"), tone: "success", undoable: true },
     } satisfies ScanState,
   };
 }

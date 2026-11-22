@@ -12,11 +12,14 @@ import {
   BellPlus,
   CalendarDays,
   Check,
+  CircleCheck,
+  CircleX,
   Columns2,
   CreditCard,
   EyeOff,
   FileText,
   Image,
+  Info,
   Keyboard,
   Mail,
   Paperclip,
@@ -26,6 +29,7 @@ import {
   Plus,
   RotateCcw,
   ScanSearch,
+  TriangleAlert,
   Undo2,
   X,
   type LucideIcon,
@@ -56,6 +60,10 @@ export function SealIcon({ size = 14 }: { size?: number }) {
     </svg>
   );
 }
+export const ToastErrorIcon = icon(CircleX);
+export const ToastWarningIcon = icon(TriangleAlert);
+export const ToastSuccessIcon = icon(CircleCheck);
+export const ToastInfoIcon = icon(Info);
 export const RemindIcon = icon(BellPlus);
 export const RemoveReminderIcon = icon(BellOff);
 export const DismissIcon = icon(Ban);
