@@ -1447,6 +1447,7 @@ No animation library. `src/ui/motion.ts` holds:
 | `useFlip` | Rows slide to new positions, and removed rows fade out |
 | `useGlide` | The selection highlight slides between rows |
 | `useCountUp`, `<CountUp>` | Amounts count up the first time they appear |
+| `useDrawTick` | The approved line's tick draws once, when the finding on screen is approved |
 | `changeView` | View transitions between list, finding and timeline |
 | `useSettleText` | Text wraps once during the sidebar slide |
 | `useScrollFade` | Edge fades on scrolling areas |

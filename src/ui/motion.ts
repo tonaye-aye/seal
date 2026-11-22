@@ -99,7 +99,7 @@ export function useSettleText(
  * it at that point, so a still frame can show what it looks like partway.
  * 1 means "show the end state straight away". Left unset in the real app.
  */
-export type Freeze = Partial<Record<"flip" | "glide" | "count", number>>;
+export type Freeze = Partial<Record<"flip" | "glide" | "count" | "tick", number>>;
 export const MotionFreeze = createContext<Freeze | undefined>(undefined);
 
 /** How many animations have started; a gallery still holds once its own have. */
@@ -365,6 +365,39 @@ export function useSlideX(ref: React.RefObject<HTMLElement | null>) {
     if (was === undefined || was === left || freeze || reducedMotion()) return;
     el.animate([{ transform: `translateX(${was - left}px)` }, { transform: "none" }], { duration: ms("--duration-base", 180), easing: easing() });
   });
+}
+
+// ---------- The approval tick ----------
+
+/**
+ * Draws the tick on the Next timeline's first line, once, at the moment Maya
+ * approves the finding on screen. Opening one that's already approved never
+ * plays it, because this remembers only what it saw since the view opened.
+ * The tick is fully drawn without this, so a missed animation can't hide it.
+ */
+export function useDrawTick(area: React.RefObject<HTMLElement | null>, id: string | undefined, status: string | undefined) {
+  const freeze = useContext(MotionFreeze)?.tick;
+  const seen = useRef({ id, status });
+  useLayoutEffect(() => {
+    const was = seen.current;
+    seen.current = { id, status };
+    if (status !== "approved" || was.id !== id || was.status !== "new") return;
+    if (freeze === 1 || reducedMotion()) return;
+    const path = area.current?.querySelector("[data-draw-tick]");
+    if (!path) return;
+    // The line is 1 long. Starting just past 1 leaves nothing to draw on the first
+    // frame, as a zero-length line with a round cap can show as a dot.
+    const dash = "1 2";
+    play(
+      path,
+      [
+        { strokeDasharray: dash, strokeDashoffset: "1.01" },
+        { strokeDasharray: dash, strokeDashoffset: "0" },
+      ],
+      { duration: ms("--duration-base", 180), easing: easing() },
+      freeze,
+    );
+  }, [area, id, status, freeze]);
 }
 
 // ---------- Changing view ----------
