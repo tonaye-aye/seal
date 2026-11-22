@@ -43,7 +43,7 @@ export function reducedMotion(): boolean {
 }
 
 /** A timing token from tokens.css, in milliseconds (e.g. --duration-base is 180). */
-function ms(name: string, fallback: number): number {
+export function ms(name: string, fallback: number): number {
   const value = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
   return Number.isFinite(value) ? value : fallback;
 }

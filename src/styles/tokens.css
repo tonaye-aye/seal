@@ -127,6 +127,8 @@
      longer and a gentler curve that you can actually see glide and settle. */
   --duration-panel: 280ms;
   --ease-panel: cubic-bezier(0.4, 0, 0.1, 1);
+  /* The onboarding seal between steps: this long to fade out, and the same to fade back in. */
+  --duration-seal-fade: 240ms;
 }
 
 /* Numbers that aren't colours. --now-halo scales the WebGL mark's glow
@@ -857,6 +859,29 @@ html[data-view-dir="back"]::view-transition-new(palette-view) {
 }
 .seal-canvas {
   filter: var(--seal-shadow);
+}
+
+/* Onboarding's one seal. On a new step it fades out, moves while it can't be
+   seen, and fades back in. The new step's content comes in with it. */
+.seal-stage {
+  transform-origin: top left;
+  transition: opacity var(--duration-seal-fade) var(--ease-panel);
+}
+.seal-stage[data-fading] {
+  opacity: 0;
+}
+.seal-stage[data-fading] > * {
+  pointer-events: none;
+}
+[data-seal-moving] > section.fade-in {
+  animation-duration: var(--duration-seal-fade);
+  animation-delay: var(--duration-seal-fade);
+  animation-fill-mode: backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .seal-stage {
+    transition: none;
+  }
 }
 
 /* Everything fits (useScrollFade in motion.ts): no fade at either edge. */

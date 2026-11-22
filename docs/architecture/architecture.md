@@ -1377,7 +1377,7 @@ flowchart LR
 
 State lives in `lib/onboarding.ts`, and resumes after a restart. The palette doesn't hide on blur until it's finished. If both hotkeys are taken, `⌘↵` or the Skip link continues.
 
-`SealAnimation.tsx` lazy-loads the Rive engine, bundled locally so it works offline. If it can't load within 4 seconds, a static seal icon appears at the same size.
+One seal carries across all three steps. Each step reserves a space with `SealSlot`. On a new step, `SealStage.tsx` fades the seal out, moves it by transform while it can't be seen, and fades it back in with the step's content, so the engine loads once and nothing else shifts. `SealAnimation.tsx` lazy-loads the Rive engine, bundled locally so it works offline. If it can't load within 4 seconds, a static seal icon appears at the same size.
 
 ### Settings
 
@@ -1479,7 +1479,9 @@ The seal is an SVG drawn from `src/ui/seal-mark.ts`, and `scripts/make-seal-icon
 
 [`src/assets/sappy-seal.riv`](../../src/assets/sappy-seal.riv) is "Sappy Seal" by dob, CC BY 4.0, credited in the README. Any change to the file must be noted in that credit.
 
-`SealAnimation.tsx` uses the state machine `Seal` on the artboard `Sappy`, with inputs `Click` (trigger) and `Blush` (boolean). A mismatch in these names fails silently, so check the animation after any change.
+`SealAnimation.tsx` uses the state machine `Seal` on the artboard `Sappy`, with inputs `Click`, `Found` and `Wave` (triggers) and `Blush` and `Checking` (booleans). A mismatch in these names fails silently, so check the animation after any change. A missing input only loses that reaction.
+
+`seal-reaction.ts` works out the reaction from the onboarding step and the real check: a wave every 5 seconds on step 1 until the summon key is pressed, a magnifying glass while a check runs, and a celebration when it ends with findings. A failed check, or one that finds nothing, lowers the glass with no celebration. The seal is redrawn on every summon, so whether it has already celebrated is kept outside it.
 
 ---
 
