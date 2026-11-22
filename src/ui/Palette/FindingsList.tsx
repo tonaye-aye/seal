@@ -458,7 +458,7 @@ export function FindingsList({
         filters={filters}
         chips={<FilterChips active={filters} mouse={mouse} onRemove={onRemoveFilter} onClear={onClearFilters} />}
       />
-      <div ref={listRef} className="scroll-fade min-h-0 flex-1 overflow-y-auto pb-2">
+      <div ref={listRef} className="scroll-fade min-h-0 flex-1 overflow-y-auto pt-4.5 pb-2">
         {showHint && main.length + approved.length > 0 && <FirstRunHint onDismiss={onDismissHint} />}
         {scan.phase === "error" && (
           <p className={`${NOTE} bg-danger/[0.07]`}>

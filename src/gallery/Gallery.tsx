@@ -1239,7 +1239,7 @@ export function Gallery() {
               <Shot title="Seal: the bank" note="Sample: a payment made twice with no email: there's no bank app to link to, so it says where to do it (in a toast on S)">
                 <PaletteFrame scan={sealBank} view="detail" selected="f-brightpage" pane="draft" />
               </Shot>
-              <Shot title="Approved, with a reminder" note="L added an all-day reminder to check for a reply: the bell notice says when, and the timeline has Reminder created (ticked) and the reminder's own day. Remind me leaves the button row once it's set">
+              <Shot title="Approved, with a reminder" note="L added an all-day reminder to check for a reply: the bell notice says when, and the timeline has Reminder created (ticked) and the reminder's own day. The top bar's bell gets a slash, and pressing it or L removes the reminder">
                 <PaletteFrame scan={s.reminded} view="detail" selected="f-skylink" pane="draft" />
               </Shot>
               <Shot title="Reminder on an open finding" note="Not approved yet, but put off: a bell notice says when, with Remove reminder (L again) to take it off, and Remind me comes back (two days before the deadline, never before tomorrow: here 20 Nov), and the Next timeline starts with Reminder created, then the reminder and the deadline (amber: within 7 days)">

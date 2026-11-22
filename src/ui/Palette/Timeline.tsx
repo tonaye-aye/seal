@@ -44,10 +44,10 @@ export function ago(at: number | undefined): string {
  */
 export const DOT: Record<TimelineTone, string> = {
   soon: "size-2.5 rounded-full bg-amber",
-  upcoming: "size-2 rounded-full border border-muted bg-bg group-aria-selected/row:bg-raised",
+  upcoming: "size-2 rounded-full border border-muted bg-bg group-aria-selected/row:bg-row-active",
   past: "size-1.5 rounded-full bg-faint",
   done: "size-2 rounded-full bg-positive",
-  agent: "size-1.75 rotate-45 rounded-[2px] border border-info bg-bg group-aria-selected/row:bg-raised",
+  agent: "size-1.75 rotate-45 rounded-[2px] border border-info bg-bg group-aria-selected/row:bg-row-active",
 };
 
 /** The rail runs down this column; every dot is centred on it. */
@@ -320,7 +320,7 @@ export function Timeline({
         filtered={filters.length > 0}
         chips={<FilterChips active={filters} mouse={mouse} onRemove={onRemoveFilter} onClear={onClearFilters} />}
       />
-      <div ref={listRef} className="scroll-fade relative min-h-0 flex-1 overflow-y-auto pb-4">
+      <div ref={listRef} className="scroll-fade relative min-h-0 flex-1 overflow-y-auto pt-3 pb-4">
         <div ref={linesRef} role="listbox" aria-label={copy.timeline.label} className="relative flex flex-col px-1.5">
           <div ref={highlightRef} className="glide glide-soft inset-x-1.5" aria-hidden="true" />
           {/* Earlier folds away: none of it needs Maya. The palette owns the keys
