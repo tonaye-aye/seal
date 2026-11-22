@@ -16,7 +16,7 @@ import { CheckProgress } from "../CheckProgress";
 import { stateText, useTick } from "../Palette/StatusStrip";
 import { ConnectorList, MORE_ROWS, SOURCE_ROWS, type ConnectorRow } from "./ConnectorList";
 import { OnboardingCta } from "./OnboardingCta";
-import { SealAnimation } from "./SealAnimation";
+import { SealSlot, SealStage } from "./SealStage";
 
 // The three onboarding steps: welcome (press the summon key), connect, and the
 // first check. They fill the palette with no rail or bottom bar. The palette
@@ -33,6 +33,7 @@ export function SetupScreen({
   agentOpen = false,
   onAgentOpen = () => {},
   sealFallback = false,
+  sealPreview = false,
 }: {
   onboarding: OnboardingState;
   hotkey: string[];
@@ -49,17 +50,19 @@ export function SetupScreen({
   onAgentOpen?: (open: boolean) => void;
   /** The dev gallery only: draw the plain seal instead of the animation. */
   sealFallback?: boolean;
+  /** The dev gallery only: the seal repeats its reaction so it can be reviewed. */
+  sealPreview?: boolean;
 }) {
-  switch (onboarding.step) {
-    case "welcome":
-      return <Welcome onboarding={onboarding} hotkey={hotkey} hotkeyReady={hotkeyReady} onHotkey={onHotkey} mouse={mouse} desktop={desktop} />;
-    case "connect":
-      return <Connect onboarding={onboarding} mouse={mouse} />;
-    case "first-scan":
-      return <FirstCheck mouse={mouse} agentOpen={agentOpen} onAgentOpen={onAgentOpen} sealFallback={sealFallback} />;
-    default:
-      return null;
-  }
+  if (onboarding.step === "done") return null;
+  return (
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      {onboarding.step === "welcome" && <Welcome onboarding={onboarding} hotkey={hotkey} hotkeyReady={hotkeyReady} onHotkey={onHotkey} mouse={mouse} desktop={desktop} />}
+      {onboarding.step === "connect" && <Connect onboarding={onboarding} mouse={mouse} />}
+      {onboarding.step === "first-scan" && <FirstCheck mouse={mouse} agentOpen={agentOpen} onAgentOpen={onAgentOpen} />}
+      {/* Outside the steps, so the same seal carries across all three. */}
+      <SealStage step={onboarding.step} summoned={!!onboarding.summoned} fallback={sealFallback} preview={sealPreview} />
+    </div>
+  );
 }
 
 /**
@@ -103,6 +106,7 @@ function Welcome({
   const locked = welcomeLocked(onboarding, hotkey, hotkeyReady, desktop);
   return (
     <section className="fade-in flex flex-1 flex-col items-center justify-center px-10 pb-12 text-center">
+      <SealSlot className="mb-3 size-28 shrink-0" />
       <Eyebrow>{copy.onboarding.step(1)}</Eyebrow>
       <h1 className="heading text-hero font-semibold">{copy.onboarding.welcomeTitle}</h1>
       <p className="mt-3 max-w-[54ch] text-lead text-muted">{copy.onboarding.welcomeBody}</p>
@@ -224,24 +228,27 @@ function Connect({ onboarding, mouse }: { onboarding: OnboardingState; mouse: bo
             onFix={(id) => void retrySource(id as ConnectorId)}
           />
         </div>
-        <aside className="flex h-fit flex-col gap-3 rounded-xl border border-hairline bg-raised/60 p-4">
-          <p className="heading text-title font-semibold tabular">{copy.onboarding.connectedCount(count, SOURCES.length)}</p>
-          <div className="grid grid-cols-4 gap-1" aria-hidden="true">
-            {SOURCES.map((id, i) => (
-              <span key={id} className={`h-1 rounded-full transition-colors duration-(--duration-base) ${i < count ? "bg-positive" : "bg-hairline"}`} />
-            ))}
-          </div>
-          <p className="min-h-[38px] text-small text-muted">{count ? copy.onboarding.readyToCheck : copy.onboarding.connectFirst}</p>
-          <OnboardingCta
-            keys={["⌘", "↵"]}
-            label={copy.onboarding.runFirstCheck}
-            icon={<CheckNowIcon />}
-            // Connect at least one source first (each row's +, or Enter for the next one).
-            disabled={count === 0 || !!onboarding.connecting}
-            mouse={mouse}
-            onClick={runFirstCheck}
-          />
-        </aside>
+        <div className="flex min-h-0 flex-col items-center gap-5">
+          <aside className="flex h-fit w-full flex-col gap-3 rounded-xl border border-hairline bg-raised/60 p-4">
+            <p className="heading text-title font-semibold tabular">{copy.onboarding.connectedCount(count, SOURCES.length)}</p>
+            <div className="grid grid-cols-4 gap-1" aria-hidden="true">
+              {SOURCES.map((id, i) => (
+                <span key={id} className={`h-1 rounded-full transition-colors duration-(--duration-base) ${i < count ? "bg-positive" : "bg-hairline"}`} />
+              ))}
+            </div>
+            <p className="min-h-[38px] text-small text-muted">{count ? copy.onboarding.readyToCheck : copy.onboarding.connectFirst}</p>
+            <OnboardingCta
+              keys={["⌘", "↵"]}
+              label={copy.onboarding.runFirstCheck}
+              icon={<CheckNowIcon />}
+              // Connect at least one source first (each row's +, or Enter for the next one).
+              disabled={count === 0 || !!onboarding.connecting}
+              mouse={mouse}
+              onClick={runFirstCheck}
+            />
+          </aside>
+          <SealSlot className="size-36 shrink-0" />
+        </div>
       </div>
     </section>
   );
@@ -255,17 +262,7 @@ function Connect({ onboarding, mouse }: { onboarding: OnboardingState; mouse: bo
  * doesn't finish, the button tries again and a quiet link carries on, so this
  * step can never trap anyone.
  */
-function FirstCheck({
-  mouse,
-  agentOpen,
-  onAgentOpen,
-  sealFallback,
-}: {
-  mouse: boolean;
-  agentOpen: boolean;
-  onAgentOpen: (open: boolean) => void;
-  sealFallback: boolean;
-}) {
+function FirstCheck({ mouse, agentOpen, onAgentOpen }: { mouse: boolean; agentOpen: boolean; onAgentOpen: (open: boolean) => void }) {
   const scan = useScan();
   const failed = scan.phase === "error";
   const done = scan.phase === "done";
@@ -281,9 +278,7 @@ function FirstCheck({
         {title}
       </h1>
       <p className="mt-3 max-w-[72ch] text-lead text-muted select-text">{body}</p>
-      <div className="mt-8">
-        <SealAnimation fallback={sealFallback} />
-      </div>
+      <SealSlot className="mt-8 size-48 shrink-0" />
       <div className="mt-8 flex w-[480px] items-center gap-3 text-small">
         {failed ? (
           <>
