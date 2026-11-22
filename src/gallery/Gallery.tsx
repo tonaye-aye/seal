@@ -319,7 +319,7 @@ function PaletteFrame({
 
   let main: React.ReactNode;
   if (setup) {
-    main = <SetupScreen onboarding={onboarding} hotkey={hotkey} onHotkey={noop} mouse={mouse} desktop={desktop} agentOpen={agentOpen} sealFallback={sealFallback} />;
+    main = <SetupScreen onboarding={onboarding} hotkey={hotkey} onHotkey={noop} mouse={mouse} desktop={desktop} agentOpen={agentOpen} sealFallback={sealFallback} sealPreview />;
   } else if (inDetail) {
     main = (
       <FindingDetail
@@ -855,7 +855,7 @@ export function Gallery() {
 
           <main className="flex min-w-0 flex-col gap-16">
             <Section id="onboarding" title="Onboarding">
-              <Shot title="1. Welcome, waiting for the key" note="Logo and name only: no status, lines or bottom bar. Get started is locked until the summon key is pressed; ⌘↵ or Skip gets past it if no key works">
+              <Shot title="1. Welcome, waiting for the key" note="Logo and name only: no status, lines or bottom bar. The seal waves every 5 seconds until the key is pressed. Get started is locked until the summon key is pressed; ⌘↵ or Skip gets past it if no key works">
                 <PaletteFrame scan={s.idle} live="none" onboarding={o({ step: "welcome" })} />
               </Shot>
               <Shot title="1. Welcome, desktop app" note="The quiet link for when another app already has ⌥Space. Switching asks for the new key">
@@ -870,8 +870,14 @@ export function Gallery() {
               <Shot title="1. Welcome, key pressed, mouse mode" note="The CTA shows its icon instead of the key cap">
                 <PaletteFrame scan={s.idle} live="none" mouse onboarding={o({ step: "welcome", summoned: true })} />
               </Shot>
-              <Shot title="2. Connect your data, nothing yet" note="Larger heading and body, more room around the two columns. Enter connects the next">
+              <Shot title="1. If the animation can't load" note="The plain seal sits in the same reserved space, so nothing moves">
+                <PaletteFrame scan={s.idle} live="none" sealFallback onboarding={o({ step: "welcome", summoned: true })} />
+              </Shot>
+              <Shot title="2. Connect your data, nothing yet" note="Larger heading and body, more room around the two columns. The same seal fades out on step 1 and back in here. Enter connects the next">
                 <PaletteFrame scan={s.idle} live="none" onboarding={o({ step: "connect" })} />
+              </Shot>
+              <Shot title="2. If the animation can't load" note="The plain seal, under the card">
+                <PaletteFrame scan={s.idle} live="none" sealFallback onboarding={o({ step: "connect" })} />
               </Shot>
               <Shot title="2. Connect your data, part way" note="Bank and Email in, Documents reading: the other + buttons are disabled until it finishes, and the CTA waits too. Mouse mode">
                 <PaletteFrame scan={s.idle} live="connecting" mouse onboarding={o({ step: "connect", connected: ["bank", "email"], connecting: "documents" })} />
@@ -885,13 +891,13 @@ export function Gallery() {
               <Shot title="3. First check, documents slow" note="No honest percentage while waiting, so the bar moves without a number. The reason is in the open steps">
                 <PaletteFrame scan={s.scanningEmpty} live="slow" agentOpen onboarding={o({ step: "first-scan", connected: ["bank", "email", "documents", "calendar"] })} />
               </Shot>
-              <Shot title="3. First check, running" note="The live seal on a transparent background follows the pointer anywhere in the window. The fold is closed and shows how far along it is; View findings is locked until the check ends">
+              <Shot title="3. First check, running" note="The seal holds up a magnifying glass with its eyes open and still follows the pointer anywhere in the window. The fold is closed and shows how far along it is; View findings is locked until the check ends">
                 <PaletteFrame scan={s.scanning} live="syncing" onboarding={o({ step: "first-scan", connected: ["bank", "email", "documents", "calendar"] })} />
               </Shot>
               <Shot title="3. First check, Seal is on it, open" note="T or a click. The steps open over the empty space below, so the seal and button stay put">
                 <PaletteFrame scan={s.scanning} live="syncing" agentOpen onboarding={o({ step: "first-scan", connected: ["bank", "email", "documents", "calendar"] })} />
               </Shot>
-              <Shot title="3. First check, done" note="View findings unlocks; it waits for the press instead of jumping away">
+              <Shot title="3. First check, done" note="View findings unlocks at once; it waits for the press instead of jumping away. The seal celebrates once in the app (it repeats here), because it found something to look at">
                 <PaletteFrame scan={s.done} onboarding={o({ step: "first-scan", connected: ["bank", "email", "documents", "calendar"] })} />
               </Shot>
               <Shot title="3. First check, done, steps open, mouse mode" note="Seal is done, with a full bar and 100%">
@@ -900,7 +906,7 @@ export function Gallery() {
               <Shot title="3. First check, on saved answers" note="The replay notice stays on the bare screen, so saved answers are always labelled">
                 <PaletteFrame scan={s.replayForced} endpoint={endpointSamples.forced} onboarding={o({ step: "first-scan", connected: ["bank", "email", "documents", "calendar"] })} />
               </Shot>
-              <Shot title="3. First check, didn't finish" note="Try again, or carry on: this step can't trap anyone">
+              <Shot title="3. First check, didn't finish" note="The glass comes down with no celebration. Try again, or carry on: this step can't trap anyone">
                 <PaletteFrame scan={s.error} live="error" agentOpen onboarding={o({ step: "first-scan", connected: ["bank", "email", "documents", "calendar"] })} />
               </Shot>
               <Shot title="3. If the animation can't load" note="The plain seal takes its place at the same size">
