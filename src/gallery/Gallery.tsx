@@ -891,7 +891,7 @@ export function Gallery() {
               <Shot title="3. First check, documents slow" note="No honest percentage while waiting, so the bar moves without a number. The reason is in the open steps">
                 <PaletteFrame scan={s.scanningEmpty} live="slow" agentOpen onboarding={o({ step: "first-scan", connected: ["bank", "email", "documents", "calendar"] })} />
               </Shot>
-              <Shot title="3. First check, running" note="The seal holds up a magnifying glass with its eyes open and still follows the pointer anywhere in the window. The fold is closed and shows how far along it is; View findings is locked until the check ends">
+              <Shot title="3. First check, running" note="The seal holds up a magnifying glass, a document and a pencil in turn, with its eyes open, and still follows the pointer anywhere in the window. The props are only character, not progress. The fold is closed and shows how far along it is; View findings is locked until the check ends">
                 <PaletteFrame scan={s.scanning} live="syncing" onboarding={o({ step: "first-scan", connected: ["bank", "email", "documents", "calendar"] })} />
               </Shot>
               <Shot title="3. First check, Seal is on it, open" note="T or a click. The steps open over the empty space below, so the seal and button stay put">

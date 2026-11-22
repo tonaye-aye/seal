@@ -7,7 +7,7 @@ import { getScan, subscribeScan, type ScanState } from "../../lib/scan-store";
 
 export type SealReaction = "rest" | "wave" | "checking" | "found";
 
-/** Waving on step 1 until the summon key is pressed, the glass while a check runs, happy once it found something to look at. */
+/** Waving on step 1 until the summon key is pressed, holding up its props while a check runs, happy once it found something to look at. */
 export function sealReaction(step: Step, summoned: boolean, phase: ScanState["phase"], findings: number): SealReaction {
   if (step === "welcome") return summoned ? "rest" : "wave";
   if (step !== "first-scan") return "rest";
