@@ -47,6 +47,8 @@ export type Toast = {
   undoable: boolean;
   /** The finding this toast is asking "why isn't it a leak?" about. It holds keys 1, 2 and 3 while it shows. */
   ask?: string;
+  /** The finding whose remembered answer this toast confirms. Forgetting that answer clears the toast. */
+  remembered?: string;
 };
 
 type UndoEntry = {
@@ -813,9 +815,9 @@ export function rankedFindings(s: ScanState): Finding[] {
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 export const TOAST_MS = 5_000;
 
-function showToast(text: string, undoable: boolean, ask?: string) {
+function showToast(text: string, undoable: boolean, ask?: string, remembered?: string) {
   clearTimeout(toastTimer);
-  const toast: Toast = { id: nextId++, text, undoable, ask };
+  const toast: Toast = { id: nextId++, text, undoable, ask, remembered };
   set({ toast });
   toastTimer = setTimeout(() => {
     if (state.toast?.id === toast.id) set({ toast: undefined });
@@ -922,7 +924,7 @@ export function rememberWhy(findingId: string, reason: RuleReason): void {
   // Undo in the toast takes back the newest action, so it's only offered when that is this dismissal.
   const top = state.undo[state.undo.length - 1];
   const undoable = top?.findingId === findingId && (top.kind ?? "decision") === "decision";
-  showToast(copy.rules.remembered(ruleUntil(next)), undoable);
+  showToast(copy.rules.remembered(ruleUntil(next)), undoable, undefined, findingId);
 }
 
 /** Deletes a remembered rule (Settings): its finding comes back straight away. */
@@ -938,7 +940,8 @@ export function forgetRule(findingId: string): void {
     // Nothing is left for ⌘Z to take back on this finding.
     change.undo = state.undo.filter((u) => u.findingId !== findingId || (u.kind ?? "decision") !== "decision");
   }
-  if (state.toast?.ask === findingId) {
+  // A toast still asking about this answer, or confirming it, no longer applies (its Undo would take back something else).
+  if (state.toast?.ask === findingId || state.toast?.remembered === findingId) {
     clearTimeout(toastTimer);
     change.toast = undefined;
   }
