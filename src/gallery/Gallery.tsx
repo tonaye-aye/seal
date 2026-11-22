@@ -44,6 +44,7 @@ import { isSetupScreen, type OnboardingState } from "../lib/onboarding";
 import { DetailHint, ListHint, TimelineHint } from "../ui/Palette/FooterHint";
 import { ApproveIcon, CheckNowIcon, SealIcon, RemindIcon, TraceIcon } from "../ui/icons";
 import { SetupScreen } from "../ui/Onboarding/SetupScreen";
+import { CrashPanel } from "../ui/CrashScreen";
 import { replayNote } from "../ui/replay";
 import { EndpointPreviewProvider, ModelDemoPreviewProvider, type EndpointStatus } from "../lib/endpoint";
 import { SettingsDialog, type SettingsTab } from "../ui/Palette/SettingsDialog";
@@ -1393,6 +1394,11 @@ export function Gallery() {
               </Shot>
               <Shot title="Not checked yet">
                 <PaletteFrame scan={s.idle} live="none" />
+              </Shot>
+              <Shot title="Crash screen" note="If drawing the app fails. A still picture here: its keys only work on the real screen (__life.crash() in dev)">
+                <div data-gallery-frame style={{ width: 1000, height: 680 }} {...blockers}>
+                  <CrashPanel onReload={noop} onHide={noop} />
+                </div>
               </Shot>
             </Section>
 

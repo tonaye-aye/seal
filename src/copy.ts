@@ -698,6 +698,14 @@ export const copy = {
     drafted: "The draft is a saved answer from an earlier run. The judgment is live.",
   },
 
+  // ---------- Crash screen (when drawing the app fails) ----------
+  crash: {
+    title: "Something went wrong",
+    body: "Seal couldn't draw this screen. Nothing was sent or changed, and reloading keeps what you've done so far.",
+    reload: "Reload",
+    hide: "Hide",
+  },
+
   // ---------- Toasts (the note at the bottom after an action) ----------
   toasts: {
     stillWriting: "The draft is still being written. Try again in a moment.",
