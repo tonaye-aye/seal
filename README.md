@@ -232,7 +232,8 @@ error, replay, undo and more.
 - [Rive](https://rive.app) runtime (`@rive-app/canvas`) for the animated seal in onboarding: MIT. Its engine is bundled, so it
   works offline.
 - [Sappy Seal](https://rive.app/community/files/19467-36588-sappy-seal/) by dob, the animated seal in onboarding:
-  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Changed: its dark background is made transparent.
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Changed: its dark background is made transparent. Seal's logo
+  (top bar, menu bar and app icon) is a simplified flat drawing adapted from it.
 - [Radix Primitives](https://www.radix-ui.com/primitives) (`@radix-ui/react-tooltip`, `react-dropdown-menu`,
   `react-dialog`, `react-popover`, `react-switch`, `react-accordion`) for tooltips, menus, sheets, evidence previews,
   switches and the folding groups, restyled from the app's own tokens: MIT.
