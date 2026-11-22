@@ -7,7 +7,7 @@ mod palette;
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
-    AppHandle, Manager, State, WindowEvent,
+    AppHandle, Emitter, Manager, State, WindowEvent, Wry,
 };
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
@@ -29,6 +29,21 @@ const HOTKEYS: [(&str, &[&str]); 2] = [
 /// Empty if none could be registered (the menu bar icon still works).
 /// A Mutex (a lock) because onboarding can switch it while the app runs.
 struct ActiveHotkey(Mutex<Vec<String>>);
+
+/// The menu bar menu's items that change while the app runs: Open shows the
+/// current hotkey, and Settings is greyed out until onboarding is done.
+struct TrayItems {
+    open: MenuItem<Wry>,
+    settings: MenuItem<Wry>,
+}
+
+/// The shortcut text for some key labels, in the form the menu understands.
+fn shortcut_for(labels: &[String]) -> Option<&'static str> {
+    HOTKEYS
+        .iter()
+        .find(|(_, keys)| keys.iter().copied().eq(labels.iter().map(String::as_str)))
+        .map(|(shortcut, _)| *shortcut)
+}
 
 /// A file in the app's config folder that says "fallback" once the user has
 /// chosen Cmd+Shift+Space (because another app already uses Option+Space).
@@ -79,9 +94,13 @@ fn launch_flags() -> serde_json::Value {
 
 /// Onboarding keeps the palette on screen when the user clicks into another
 /// app (it dims instead); the usual hide-on-click-away returns once it's done.
+/// The same moment turns on the menu's Settings, because setup has no Settings.
 #[tauri::command]
-fn set_hide_on_blur(enabled: bool) {
+fn set_hide_on_blur(app: AppHandle, enabled: bool) {
     palette::set_hide_on_blur(enabled);
+    if let Some(items) = app.try_state::<TrayItems>() {
+        let _ = items.settings.set_enabled(enabled);
+    }
 }
 
 /// Whether the palette is on screen right now. The UI asks after a page
@@ -101,7 +120,7 @@ const COMPLAINT_PAGES: [&str; 3] = [
     "https://www.consumer.vic.gov.au/contact-us/resolve-your-problem/general-complaint",
 ];
 
-/// "Seal the leak": opens the Mac's own app for the fix. An email link
+/// The Seal button: opens the Mac's own app for the fix. An email link
 /// ("mailto:...") opens Mail with the draft filled in, "calendar" opens the
 /// Calendar app, and a complaint body's page opens in the browser. Nothing else
 /// is allowed. Phone links are refused on purpose: the businesses' numbers are
@@ -145,6 +164,10 @@ fn use_fallback_hotkey(app: AppHandle, state: State<ActiveHotkey>, fallback: boo
     if let Ok(mut active) = state.0.lock() {
         *active = keys.clone();
     }
+    // Keeps the shortcut shown in the menu bar menu in step with the new key.
+    if let Some(items) = app.try_state::<TrayItems>() {
+        let _ = items.open.set_accelerator(shortcut_for(&keys));
+    }
     keys
 }
 
@@ -172,18 +195,17 @@ fn register_hotkey(app: &AppHandle, fallback_first: bool) -> Vec<String> {
     Vec::new()
 }
 
-/// The menu bar icon with a two-item menu. It is the way back in if the
-/// hotkey could not be registered.
+/// The menu bar icon and its menu. It is the way back in if the hotkey could
+/// not be registered. Passing each shortcut as an "accelerator" makes macOS
+/// draw it itself, in grey at the right of the row.
 fn build_tray(app: &AppHandle, hotkey: &[String]) -> tauri::Result<()> {
-    let open_label = if hotkey.is_empty() {
-        format!("Open {APP_NAME}")
-    } else {
-        format!("Open {APP_NAME}    {}", hotkey.join(""))
-    };
-    let open = MenuItem::with_id(app, "open", open_label, true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", format!("Quit {APP_NAME}"), true, Some("CmdOrCtrl+Q"))?;
+    let open = MenuItem::with_id(app, "open", format!("Open {APP_NAME}"), true, shortcut_for(hotkey))?;
+    // Starts greyed out: the UI turns it on once onboarding is done.
+    let settings = MenuItem::with_id(app, "settings", "Settings", false, Some("CmdOrCtrl+,"))?;
+    let quit = MenuItem::with_id(app, "quit", "Quit", true, Some("CmdOrCtrl+Q"))?;
     let separator = PredefinedMenuItem::separator(app)?;
-    let menu = Menu::with_items(app, &[&open, &separator, &quit])?;
+    let menu = Menu::with_items(app, &[&open, &separator, &settings, &quit])?;
+    app.manage(TrayItems { open: open.clone(), settings: settings.clone() });
 
     TrayIconBuilder::with_id("main")
         // A black-on-transparent "template" image: macOS recolours it to suit
@@ -195,6 +217,10 @@ fn build_tray(app: &AppHandle, hotkey: &[String]) -> tauri::Result<()> {
         .show_menu_on_left_click(true)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open" => palette::show(app),
+            "settings" => {
+                palette::show(app);
+                let _ = app.emit("palette:open-settings", ());
+            }
             "quit" => app.exit(0),
             _ => {}
         })
