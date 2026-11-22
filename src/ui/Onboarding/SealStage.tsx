@@ -1,9 +1,11 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
+import { useLive } from "../../connectors/live";
+import type { ConnectorId } from "../../connectors/types";
 import type { Step } from "../../lib/onboarding";
 import { rankedFindings, useScan } from "../../lib/scan-store";
 import { ms, reducedMotion } from "../motion";
 import { SealAnimation } from "./SealAnimation";
-import { sealReaction } from "./seal-reaction";
+import { sealReaction, type SealPlug } from "./seal-reaction";
 
 // One seal for all three onboarding steps. Each step only reserves a space for
 // it (SealSlot). On a new step the seal fades out where it was, moves while it
@@ -38,8 +40,32 @@ function placeSeal(seal: HTMLElement) {
   seal.style.transform = place;
 }
 
-export function SealStage({ step, summoned, fallback, preview }: { step: Step; summoned: boolean; fallback: boolean; preview: boolean }) {
+export function SealStage({
+  step,
+  summoned,
+  fallback,
+  preview,
+  connected,
+  connecting,
+}: {
+  step: Step;
+  summoned: boolean;
+  fallback: boolean;
+  preview: boolean;
+  /** Sources added so far, and the one being connected right now. */
+  connected: ConnectorId[];
+  connecting?: ConnectorId;
+}) {
   const scan = useScan();
+  const live = useLive();
+  // Already connected when this seal appeared (a reload or a summon): it is holding the plug, with no second lift.
+  const startedConnected = useRef(connected.length > 0);
+  useEffect(() => {
+    if (!connected.length) startedConnected.current = false;
+  }, [connected.length]);
+  const failed = (id: ConnectorId) => ["needs_reconnect", "error"].includes(live.statuses[id]?.state ?? "");
+  const plugged = connected.some((id) => id !== connecting && !failed(id));
+  const plug: SealPlug = !plugged ? "none" : startedConnected.current ? "held" : "lift";
   const seal = useRef<HTMLDivElement>(null);
   const shownStep = useRef<Step | undefined>(undefined);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -85,7 +111,7 @@ export function SealStage({ step, summoned, fallback, preview }: { step: Step; s
 
   return (
     <div ref={seal} className="seal-stage pointer-events-none absolute top-0 left-0 z-1 size-48">
-      <SealAnimation fallback={fallback} preview={preview} reaction={sealReaction(step, summoned, scan.phase, rankedFindings(scan).length)} />
+      <SealAnimation fallback={fallback} preview={preview} reaction={sealReaction(step, summoned, scan.phase, rankedFindings(scan).length, plug)} />
     </div>
   );
 }

@@ -233,8 +233,8 @@ error, replay, undo and more.
   works offline.
 - [Sappy Seal](https://rive.app/community/files/19467-36588-sappy-seal/) by dob, the animated seal in onboarding:
   [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Changed: its dark background is made transparent, and new
-  animations are added: a wave, a magnifying glass, document and pencil held up in turn during a check, and a celebration
-  with three extra hearts.
+  animations are added: a wave, a small plug it lifts and keeps holding once a source connects, a magnifying glass, document and pencil held up in
+  turn during a check, and a celebration with three extra hearts.
   Seal's logo (top bar, menu bar and app icon) is a simplified flat drawing adapted from it.
 - [Radix Primitives](https://www.radix-ui.com/primitives) (`@radix-ui/react-tooltip`, `react-dropdown-menu`,
   `react-dialog`, `react-popover`, `react-switch`, `react-accordion`) for tooltips, menus, sheets, evidence previews,

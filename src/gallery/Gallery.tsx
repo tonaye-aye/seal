@@ -876,6 +876,9 @@ export function Gallery() {
               <Shot title="2. Connect your data, nothing yet" note="Larger heading and body, more room around the two columns. The same seal fades out on step 1 and back in here. Enter connects the next">
                 <PaletteFrame scan={s.idle} live="none" onboarding={o({ step: "connect" })} />
               </Shot>
+              <Shot title="2. Holding the plug" note="The first source that really connects makes the seal lift a small grey plug once. It keeps holding it until the check starts. A failed source doesn't count">
+                <PaletteFrame scan={s.idle} live="connecting" onboarding={o({ step: "connect", connected: ["bank", "email"] })} />
+              </Shot>
               <Shot title="2. If the animation can't load" note="The plain seal, under the card">
                 <PaletteFrame scan={s.idle} live="none" sealFallback onboarding={o({ step: "connect" })} />
               </Shot>

@@ -9,7 +9,9 @@ import { takeCelebration, type SealReaction } from "./seal-reaction";
 // animation with its background made transparent and reactions added. It
 // watches the pointer and blushes wherever the pointer is in the window, and
 // sends hearts when it is clicked. On the first step it waves every few seconds
-// until the summon key is pressed. While a check runs it holds up a magnifying
+// until the summon key is pressed. On the second step it lifts a small plug the
+// first time a source really connects and keeps holding it. While a check runs
+// it holds up a magnifying
 // glass, a document and a pencil in turn, on a timer inside the file, so they
 // say nothing about how far the check has got. It celebrates if the check finds
 // something to look at. Nothing waits for any of this.
@@ -105,6 +107,7 @@ export function SealAnimation({
     let gone = false;
     let stop = () => {};
     let stopFollowing = () => {};
+    let liftFrame = 0;
     const end = () => {
       if (gone) return;
       gone = true;
@@ -114,6 +117,7 @@ export function SealAnimation({
       love.current = undefined;
       wave.current = undefined;
       stopFollowing();
+      cancelAnimationFrame(liftFrame);
       stop();
     };
     // Stops the engine too, so a file arriving after the limit can't draw to a removed canvas.
@@ -159,12 +163,25 @@ export function SealAnimation({
             // A name missing from the file only loses that reaction: the app carries on.
             const checking = input("Checking");
             const found = input("Found");
+            const plug = input("Plug");
+            const plugHeld = input("Plug Held");
+            const applyPlug = () => {
+              cancelAnimationFrame(liftFrame);
+              // While the seal fades between steps the lift waits, so it plays where it can be seen.
+              if (latest.current === "lift" && target.closest<HTMLElement>(".seal-stage")?.dataset.fading !== undefined) {
+                liftFrame = requestAnimationFrame(applyPlug);
+                return;
+              }
+              if (plug) plug.value = latest.current === "lift";
+              if (plugHeld) plugHeld.value = latest.current === "held";
+            };
             wave.current = input("Wave");
             love.current = input("Click");
             applyReaction.current = () => {
               if (checking) checking.value = latest.current === "checking";
               // While hidden it waits: the next summon draws a new seal, and that one reacts.
               if (latest.current === "found" && found?.fire && !isPaletteHidden() && (preview || takeCelebration())) found.fire();
+              applyPlug();
             };
             // The check may have moved on while the engine loaded.
             applyReaction.current();
