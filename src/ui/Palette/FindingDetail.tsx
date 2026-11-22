@@ -47,7 +47,7 @@ import { DEADLINE_TONE } from "./FindingsList";
 import { SavedNote } from "../replay";
 import { Peek, Sheet, Tip } from "../layers";
 import { CountUp } from "../CountUp";
-import { useGlide, useSettleText } from "../motion";
+import { useDrawTick, useGlide, useSettleText } from "../motion";
 
 // One finding, opened. The main column has the header (business, kind, the
 // amount at stake, the deadline) and the drafted fix. The sidebar on the right
@@ -1005,6 +1005,8 @@ export function FindingDetail({
   const areaRef = useRef<HTMLElement>(null);
   const asideRef = useRef<HTMLElement>(null);
   useSettleText(areaRef, asideRef, sidebarOpen);
+  // Lives here, not in NextSteps, because the Next timeline usually appears at the moment of approval.
+  useDrawTick(draftRef, finding?.id, finding?.status);
 
   return (
     <section ref={areaRef} aria-label={copy.detail.label} className="flex min-h-0 flex-1">

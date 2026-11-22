@@ -240,7 +240,17 @@ function NextLine({
         {line.done ? (
           <span className="relative grid size-4 place-items-center rounded-full bg-positive/15 text-positive" aria-label={copy.next.doneLabel}>
             <svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true">
-              <path d="m2.5 6.5 2.25 2.25L9.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              {/* Only the approval's tick can draw itself (useDrawTick in motion.ts). */}
+              <path
+                d="m2.5 6.5 2.25 2.25L9.5 3.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                pathLength={line.key === "approved" ? 1 : undefined}
+                data-draw-tick={line.key === "approved" ? "" : undefined}
+              />
             </svg>
           </span>
         ) : (

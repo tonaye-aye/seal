@@ -545,7 +545,7 @@ function PaletteFrame({
 // ---------- Motion, stopped partway ----------
 
 /** Every motion in the gallery shows its end state at once (the frames are pictures). */
-const END: Freeze = { flip: 1, glide: 1, count: 1 };
+const END: Freeze = { flip: 1, glide: 1, count: 1, tick: 1 };
 
 /**
  * A palette frame that draws `before`, then switches to `after` on the next
@@ -1355,6 +1355,12 @@ export function Gallery() {
               </Shot>
               <Shot title="Amounts counting up" note="The first time a finding opens; also list rows and the timeline total. Stopped at 30%">
                 <Midway at={{ count: 0.3 }} before={{ scan: s.done, view: "detail", selected: top.id }} after={{ scan: s.done, view: "detail", selected: top.id }} />
+              </Shot>
+              <Shot title="Approve tick, halfway" note="A on an open finding: the tick on the first Next line draws itself once, in 180 ms. Stopped at 50%">
+                <Midway at={{ tick: 0.5 }} before={{ scan: s.done, view: "detail", selected: top.id }} after={{ scan: approvedTop, view: "detail", selected: top.id }} />
+              </Shot>
+              <Shot title="Approve tick, at rest" note="How it looks after the draw, and whenever an approved finding is opened again">
+                <PaletteFrame scan={approvedTop} view="detail" selected={top.id} />
               </Shot>
               <Shot title="Pressed" note="Buttons give a little while held down; rows dim instead. Changing view crossfades (no still)" height={110}>
                 <Strip>
