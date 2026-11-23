@@ -307,7 +307,7 @@ function documentSignals(corpus: Corpus, today: string): Signal[] {
 
 /**
  * Calendar titles are free text ("Car insurance renews (Wattle)"), so only
- * words that name a business we already know from the bank or mail count.
+ * words that name a business Seal already knows from the bank or mail count.
  */
 function calendarSignals(corpus: Corpus, today: string, known: Set<string>): Signal[] {
   const out: Signal[] = [];
@@ -400,7 +400,7 @@ function groupSignals(signals: Signal[], series: Series[], names: Map<string, st
 }
 
 /**
- * Every business we know of, with the best readable name: the sender name
+ * Every business Seal knows of, with the best readable name: the sender name
  * from email ("Skylink Internet") beats one built from bank text.
  */
 function knownBusinesses(corpus: Corpus, series: Series[]): Map<string, string> {

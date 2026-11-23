@@ -18,7 +18,7 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 const APP_NAME: &str = "Seal";
 
 /// Hotkeys to try, in order. The first one that registers wins. Option+Space
-/// is often taken (Raycast, Alfred), so we fall back rather than fail.
+/// is often taken (Raycast, Alfred), so it falls back rather than fails.
 /// Each entry is (shortcut for the plugin, key labels for the UI).
 const HOTKEYS: [(&str, &[&str]); 2] = [
     ("Alt+Space", &["⌥", "Space"]),

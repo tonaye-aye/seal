@@ -72,7 +72,7 @@ Quality numbers below are **totals over 3 runs** (temperature 0.1) unless marked
 | Retrieval | **Plain code**: exact links by sender, reference, amount near the date and folder | The spike planned code plus embeddings. As built, exact links found 82/82 evidence items, so the scan makes no embedding or tool calls. |
 | Arithmetic, dates, verification, claim check | **Plain code** | Every arithmetic slip came from a model. |
 
-**Main drafter: Flash** (decided by Tony after the 3-run results, replacing the earlier 35B-first plan).
+**Main drafter: Flash** (I decided this after the 3-run results, replacing my earlier 35B-first plan).
 Over 3 runs Flash was perfect (21/21) and only ~0.6 s slower than the 35B, whose single miss the claim
 check caught. The 35B stays as the regenerate fallback.
 

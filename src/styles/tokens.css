@@ -8,7 +8,7 @@
    Two themes, following the macOS setting (prefers-color-scheme): the values
    in @theme are the dark theme, and the block after it swaps in the light
    one. Greys carry a faint violet tint (hue 292.6, the accent's), and the
-   accent is Tony's violet scale (Radix steps 9-11). Contrast is noted beside
+   accent is my violet scale (Radix steps 9-11). Contrast is noted beside
    each text colour, measured on bg at the grain's strongest speck / surface /
    raised; all pass WCAG AA (4.5:1). The panel is fully opaque, so the desktop
    behind it never changes these numbers. */

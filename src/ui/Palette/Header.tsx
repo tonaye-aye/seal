@@ -3,7 +3,7 @@ import { centerWindow, startWindowDrag } from "../../lib/native";
 import { Tip } from "../layers";
 import { NowVisual } from "./NowVisual";
 
-// Top bar: who we are and where you are (the breadcrumb: "Seal  Timeline /
+// Top bar: the app's name and where you are (the breadcrumb: "Seal  Timeline /
 // Skylink Internet"), with Search, Filter and View on the right. It is also
 // the window's handle: drag it to move the palette, double-click it to put it
 // back in the centre.

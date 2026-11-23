@@ -7,7 +7,7 @@ import { SlidersHorizontal } from "lucide-react";
 import { Kbd } from "./Kbd";
 
 // Everything that floats above the palette: tooltips, menus and sheets, built
-// on Radix (accessible, well tested) and drawn from our own tokens.
+// on Radix (accessible, well tested) and drawn from my own tokens.
 //
 // The palette has one key handler for the whole window. While a menu or a
 // sheet is open, that layer owns the keys instead, so J/K/A/D can't act on

@@ -1,4 +1,4 @@
-// The model endpoint as the UI sees it: can we reach it, does it accept the
+// The model endpoint as the UI sees it: can the app reach it, does it accept the
 // key, how fast does it answer, and is the app using saved answers instead.
 //
 // A check runs at launch and before every scan: it asks the endpoint for its

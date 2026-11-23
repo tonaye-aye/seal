@@ -293,7 +293,7 @@ export function checkRewrite({ verb, written, original, c, allowed, signOff }: R
 
   for (const k of keep) if (!k.found(text)) bad.push(`dropped ${k.what}: ${k.text}`);
   if (c.kind === "renewal_trap" && !admitsMissedNotice(text, c.figures)) bad.push("no longer admits the notice deadline was missed");
-  // "Goodwill" says we're asking a favour, on any kind of problem: losing it turns a request into a demand.
+  // "Goodwill" says Maya is asking a favour, on any kind of problem: losing it turns a request into a demand.
   for (const ask of [...ASK_WORDS[c.kind], /\bgoodwill\b/i]) {
     if (ask.test(originalText) && !ask.test(text)) bad.push(`no longer asks with: ${ask.source}`);
   }
@@ -302,7 +302,7 @@ export function checkRewrite({ verb, written, original, c, allowed, signOff }: R
     if (found && !pattern.test(plain(originalText))) bad.push(`adds ${name}: "${found[0]}"`);
   }
 
-  // A goodwill request stays a request: we can't expect what we have no right to.
+  // A goodwill request stays a request: Maya can't expect what she has no right to.
   for (const sentence of plain(written.body).split(/(?<=[.!?])\s+|\n+/)) {
     if (/\bgoodwill\b/i.test(sentence) && /\b(expect|require|demand|insist|must|entitled)\b/i.test(sentence)) bad.push("demands goodwill instead of asking for it");
   }

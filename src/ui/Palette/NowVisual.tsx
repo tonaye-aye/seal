@@ -277,7 +277,7 @@ let probe: CanvasRenderingContext2D | null | undefined;
 
 /**
  * Turns any CSS colour (hex, rgb(), oklch() and so on) into 0-1 RGB for the
- * shader: the browser paints it into one pixel and we read that pixel back.
+ * shader: the browser paints it into one pixel and the code reads that pixel back.
  */
 function toRgb(value: string): Rgb {
   if (probe === undefined) {

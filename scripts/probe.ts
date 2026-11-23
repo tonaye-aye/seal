@@ -1,4 +1,4 @@
-// Endpoint capability probes (CLAUDE.md section 5 "not yet tested").
+// Endpoint capability probes: what the endpoint really supports.
 // Run: node --env-file=.env scripts/probe.ts [--only reasoning,schema,stream,tools,embed,concurrency]
 // Answers yes/no questions about the endpoint and measures latency. It does not score quality (spike.ts does).
 // Writes scripts/spike-out/probe.json (latest) and appends to probe.jsonl (history). Never prints the key.
@@ -25,7 +25,7 @@ const SEED = new URL("../seed/", import.meta.url).pathname;
 const results: Record<string, any> = {};
 const say = (s: string) => console.log(s);
 
-// ---------- raw client: returns everything so we can see what the endpoint really sends ----------
+// ---------- raw client: returns everything so I can see what the endpoint really sends ----------
 async function post(path: string, body: any, timeoutMs = 120_000) {
   const t0 = performance.now();
   try {
