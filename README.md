@@ -1,4 +1,4 @@
-# Seal
+# Seal (Demo product)
 
 A desktop agent for one household's monthly money check. It reads the household's bank statements, email,
 documents and calendar, and finds charges that are wrong or unwanted: price rises that break a contract,
