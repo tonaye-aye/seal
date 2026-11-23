@@ -210,7 +210,7 @@ Script checks are in [section 15](#15-testing-and-the-eval).
 | `__life.gallery()` | Open the gallery |
 | `__life.palette()` | Close the gallery window |
 
-**Inspecting the native window:** opening dev tools takes focus, which normally hides the palette. While debugging, set `HIDE_ON_BLUR` to `false` in `src-tauri/src/palette.rs`, and remember to change it back.
+**Inspecting the native window:** the palette stays open when dev tools take focus, so it can be inspected as it is.
 
 ### Common problems
 
@@ -223,7 +223,6 @@ Script checks are in [section 15](#15-testing-and-the-eval).
 | Findings show "Couldn't decide" on saved answers | Those requests aren't saved. A fresh clone has none, and any prompt or seed change invalidates some |
 | A fresh clone doesn't show onboarding | Seal's stored data isn't tied to the project folder, so clones on one Mac share it. Use `LIFE_ONBOARDING=1` |
 | Hotkey does nothing | Another app holds it. Use the menu bar icon, then **Settings > General** to switch to ⌘⇧Space |
-| Palette vanishes while debugging | It hides when it loses focus. See "Inspecting the native window" above |
 | A second `pnpm tauri dev` leaves a stray window | Only run one at a time |
 
 ---
@@ -429,7 +428,10 @@ sequenceDiagram
     R->>R: Register hotkey and tray, load config
     R->>M: Load the web page (window hidden)
     M->>R: launch_flags
-    alt Onboarding is finished
+    alt Onboarding is finished, with a saved check
+      M->>S: restoreLastCheck()
+      M->>E: checkEndpoint()
+    else Onboarding is finished, nothing to reopen
       M->>S: startScan()
       S->>E: checkEndpoint()
       E-->>S: live or saved answers
@@ -437,10 +439,15 @@ sequenceDiagram
       A-->>S: stream of AgentEvents
     else First run
       M->>E: checkEndpoint()
-      M->>R: show_palette
     end
+    M->>R: show_palette (first page load, and during onboarding)
     M->>S: startBackgroundChecks (every 30 min while hidden)
 ```
+
+A launch reopens the last complete, fully live check (`src/lib/last-check.ts`), so it makes no check calls. It still runs the
+quick endpoint check, so the app knows whether live rewrites can run. It runs a normal check instead when saved answers or a
+simulated failure are on, the connected sources have changed, or the saved check can't be read. A crash forgets the saved
+check, so a reload can't reopen whatever caused it. `LIFE_ONBOARDING=1` and the demo panel's reset forget it too.
 
 ### What happens when Maya approves a fix
 
@@ -482,16 +489,17 @@ Configured in `src-tauri/tauri.conf.json`:
 | Decorations | off | Custom top bar |
 | Transparent | on | Lets the opaque panel have round corners |
 | Shadow | on | The native window shadow |
+| Always on top | off | A normal window, so other apps can come in front and it shows in Mission Control |
 | `macOSPrivateApi` | on | Needed for window transparency |
 
 At launch, the app uses macOS's `Accessory` policy, which means no Dock icon and no ⌘Tab entry.
 
 ### Show and hide: `palette.rs`
 
-- `show()` shows and focuses the window, then emits `palette:shown`.
+- `show()` shows and focuses the window. It emits `palette:shown` only if the window was closed, so bringing it forward from behind another app keeps Maya's place.
 - `hide()` hides it, emits `palette:hidden`, and hides the app, which returns focus to the previous app.
-- `toggle()` is what the hotkey calls.
-- Losing focus hides the palette, except during onboarding (`set_hide_on_blur`).
+- `toggle()` is what the hotkey calls: it hides a window that's in front, and otherwise brings it forward.
+- Losing focus only dims the palette. It closes from **Hide Seal**, the hotkey, or the crash screen's Hide. `Esc` only steps back.
 - During onboarding's first step, `SUMMON_TEST` makes the next hotkey press count as proof, and emits `palette:summon-proved`, instead of hiding the window.
 
 ### Hotkey and tray: `lib.rs`
@@ -1228,6 +1236,7 @@ Everything is in `localStorage`, under `life.*`:
 | `life.reminders` | Reminders |
 | `life.rewrites` | Firmer and Shorter versions |
 | `life.rules` | What Seal remembers |
+| `life.lastCheck` | The last complete live check, reopened at launch |
 | `life.onboarding` | First-run progress |
 | `life.preferences` | Start view, background checks |
 | `life.scenarios` | Failure scenarios that are on |
@@ -1389,7 +1398,7 @@ flowchart LR
     F --> D["Palette, then shortcuts dialog"]
 ```
 
-State lives in `lib/onboarding.ts`, and resumes after a restart. The palette doesn't hide on blur until it's finished. **Skip** sits at the top right on steps 1 and 2 (`⌘⇧↵`). Step 1's is for when another app holds both hotkeys. Step 2's ends setup with what's connected and checks only those. With nothing connected it reads nothing: `skipped` in the saved state stops an empty list meaning "all four", and the List asks for a source.
+State lives in `lib/onboarding.ts`, and resumes after a restart. **Skip** sits at the top right on steps 1 and 2 (`⌘⇧↵`). Step 1's is for when another app holds both hotkeys. Step 2's ends setup with what's connected and checks only those. With nothing connected it reads nothing: `skipped` in the saved state stops an empty list meaning "all four", and the List asks for a source.
 
 One seal carries across all three steps. Each step reserves a space with `SealSlot`. On a new step, `SealStage.tsx` fades the seal out, moves it by transform while it can't be seen, and fades it back in with the step's content, so the engine loads once and nothing else shifts. `SealAnimation.tsx` lazy-loads the Rive engine, bundled locally so it works offline. If it can't load within 4 seconds, a static seal icon appears at the same size.
 
