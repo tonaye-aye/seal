@@ -148,6 +148,16 @@ export function setConnectorStatus(status: ConnectorStatus): void {
   setState({ statuses: { ...state.statuses, [status.id]: status }, pending });
 }
 
+/** What each source last reported, kept with a finished check. */
+export function getConnectorStatuses(): LiveState["statuses"] {
+  return state.statuses;
+}
+
+/** Puts back the sources' states from a reopened check, so Settings shows them as connected. */
+export function restoreConnectorStatuses(statuses: LiveState["statuses"]): void {
+  setState({ statuses });
+}
+
 /**
  * A write outside a sync found the sign-in expired (adding a reminder): the
  * chip says so, and R signs it back in before checking again.

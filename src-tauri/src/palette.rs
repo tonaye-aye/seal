@@ -1,7 +1,8 @@
 // Showing and hiding the palette window.
 //
-// The palette is the app's only window. It starts hidden and is summoned by the
-// global hotkey or the menu bar icon, like Raycast or Spotlight.
+// The palette is the app's only window. It opens at launch and behaves like a
+// normal Mac window: another app can sit in front of it, and it shows in Mission
+// Control. It only closes from Hide Seal or the global hotkey.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
@@ -12,42 +13,28 @@ pub const LABEL: &str = "palette";
 /// The dev-only gallery window (opened from the webview console with `__life.gallery()`).
 pub const GALLERY_LABEL: &str = "gallery";
 
-/// Hide the palette when the user clicks into another app.
-/// Set this to false while using the webview devtools, otherwise opening
-/// them steals focus and the palette disappears.
-pub const HIDE_ON_BLUR: bool = true;
-
-/// Switched off by the UI during first-run onboarding, so clicking elsewhere
-/// doesn't take the window away mid-way. An atomic bool is a true/false that
-/// is safe to read and write from any thread.
-static HIDE_ON_BLUR_NOW: AtomicBool = AtomicBool::new(true);
-
-pub fn set_hide_on_blur(enabled: bool) {
-    HIDE_ON_BLUR_NOW.store(enabled, Ordering::SeqCst);
-}
-
-/// True when clicking into another app should hide the palette.
-pub fn hides_on_blur() -> bool {
-    HIDE_ON_BLUR && HIDE_ON_BLUR_NOW.load(Ordering::SeqCst)
-}
-
 /// Onboarding's first step asks the user to press the hotkey. While this is
 /// true, the next press counts as that proof instead of hiding the window.
+/// An atomic bool is a true/false that is safe to read and write from any thread.
 static SUMMON_TEST: AtomicBool = AtomicBool::new(false);
 
 pub fn set_summon_test(armed: bool) {
     SUMMON_TEST.store(armed, Ordering::SeqCst);
 }
 
-/// Show the palette, focus it and tell the UI it opened (the UI uses that
-/// event to reset itself and replay its entrance animation). It opens where
-/// the user last left it: it starts centred (tauri.conf.json) and can be
-/// dragged by its top bar; a double-click there centres it again.
+/// Show the palette and focus it. If it was closed, also tell the UI it opened
+/// (the UI uses that event to reset itself and replay its entrance animation).
+/// If it was only behind another app, nothing resets, so Maya's place is kept.
+/// It opens where the user last left it: it starts centred (tauri.conf.json)
+/// and can be dragged by its top bar; a double-click there centres it again.
 pub fn show<R: Runtime>(app: &AppHandle<R>) {
     let Some(window) = app.get_webview_window(LABEL) else { return };
+    let was_open = window.is_visible().unwrap_or(false);
     let _ = window.show();
     let _ = window.set_focus();
-    let _ = window.emit("palette:shown", ());
+    if !was_open {
+        let _ = window.emit("palette:shown", ());
+    }
 }
 
 /// Hide the palette and hand focus back to whatever app the user was in.
@@ -69,9 +56,9 @@ pub fn hide<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
-/// The hotkey toggles: close if open and in front, otherwise open. While
-/// onboarding the palette can sit on screen dimmed behind another app; then
-/// the hotkey brings it to the front rather than hiding it.
+/// The hotkey toggles: close if open and in front, otherwise open. If the
+/// palette is open behind another app, the hotkey brings it to the front
+/// rather than hiding it.
 pub fn toggle<R: Runtime>(app: &AppHandle<R>) {
     let window = app.get_webview_window(LABEL);
     let visible = window.as_ref().and_then(|w| w.is_visible().ok()).unwrap_or(false);

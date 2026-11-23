@@ -1,5 +1,6 @@
 import { Component, useLayoutEffect, useRef, type ErrorInfo, type ReactNode, type Ref } from "react";
 import { copy } from "../copy";
+import { forgetLastCheck } from "../lib/last-check";
 import { hidePalette, onPaletteShown } from "../lib/native";
 
 // What shows if drawing the app fails. The window is see-through, so without
@@ -98,6 +99,8 @@ export class CrashBoundary extends Component<{ children: ReactNode }, { crashed:
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("Seal crashed while drawing:", error, info.componentStack);
+    // If the saved check caused this, reloading must not reopen it and crash again.
+    forgetLastCheck();
   }
 
   render() {

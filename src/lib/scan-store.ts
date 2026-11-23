@@ -8,8 +8,10 @@
 // email connector, which has no send operation.
 //
 // Maya's decisions and edits are kept in localStorage, so they survive a
-// restart. A background check (startBackgroundChecks) runs the scan again
-// while the palette is hidden, and only swaps in the new results at the end.
+// restart, and so is the last complete live check, so a launch can reopen on it
+// (src/lib/last-check.ts). A background check (startBackgroundChecks) runs the
+// scan again while the palette is hidden, and only swaps in the new results at
+// the end.
 
 import { createContext, useContext, useSyncExternalStore } from "react";
 import { discardSaved, loadVoice, saveDraft } from "../agent/draft.ts";
@@ -17,7 +19,17 @@ import { rewriteDraft, type RewriteOutcome, type Verb } from "../agent/rewrite.t
 import { copy } from "../copy.ts";
 import type { Corpus } from "../agent/corpus.ts";
 import { rank, runScan, type AgentEvent, type Cleared, type Finding, type ScanResult, type Stage } from "../agent/pipeline.ts";
-import { calendarNeedsReconnect, getConnectors, markNeedsReconnect, reconnectCalendar, setConnectorStatus } from "../connectors/live.ts";
+import {
+  calendarNeedsReconnect,
+  getConnectors,
+  getConnectorStatuses,
+  markNeedsReconnect,
+  reconnectCalendar,
+  restoreConnectorStatuses,
+  scenarios,
+  setConnectorStatus,
+} from "../connectors/live.ts";
+import { forgetLastCheck, isCompleteLive, loadLastCheck, sameSources, saveLastCheck } from "./last-check.ts";
 import { getPreferences } from "./preferences.ts";
 import { ConnectorError } from "../connectors/runtime.ts";
 import { reminderEvent, type Reminder } from "./reminders.ts";
@@ -27,7 +39,7 @@ import { shortDate } from "../ui/format.ts";
 import { chosenRoute, usesEmail } from "../ui/fix-route.ts";
 import type { ConnectorId } from "../connectors/types.ts";
 import { draftKey, keepVersion, shownDraft, showVerb, stepBack, versionsFor, type DraftVersions } from "./draft-versions.ts";
-import { checkEndpoint, dropAfterCalls, getEndpoint, markLost, usesReplay, type EndpointState, type EndpointStatus } from "./endpoint.ts";
+import { checkEndpoint, dropAfterCalls, getEndpoint, getModelDemo, markLost, usesReplay, type EndpointState, type EndpointStatus } from "./endpoint.ts";
 import { tauriTransport } from "./llm-tauri.ts";
 import { createModelSession } from "./model-session.ts";
 
@@ -77,6 +89,8 @@ export type ScanState = {
   refreshing: boolean;
   startedAt?: number;
   finishedAt?: number;
+  /** These results were reopened from an earlier launch, so the footer says when they're from. */
+  restored?: boolean;
   /** The stage running now, and how far through it is. */
   stage?: Stage;
   progress?: { stage: Stage; done: number; total: number; label?: string };
@@ -306,11 +320,13 @@ export async function resetScan(): Promise<boolean> {
   }
   restorePending = false;
   remindersPending = false;
+  forgetLastCheck();
   set({
     phase: "idle",
     refreshing: false,
     startedAt: undefined,
     finishedAt: undefined,
+    restored: false,
     stage: undefined,
     progress: undefined,
     findings: [],
@@ -506,6 +522,7 @@ export async function startScan({ background = false } = {}): Promise<void> {
     phase: "scanning",
     startedAt: Date.now(),
     finishedAt: undefined,
+    restored: false,
     stage: undefined,
     progress: undefined,
     findings: [],
@@ -560,6 +577,7 @@ export async function startScan({ background = false } = {}): Promise<void> {
       usedReplay: result.usedReplay,
       trace: trace(copy.trace.done(Date.now() - (state.startedAt ?? Date.now())), "good"),
     });
+    rememberCheck(result);
     forgetOldRewrites();
     await restoreDrafts();
     await restoreReminders();
@@ -599,6 +617,7 @@ async function runBackground(): Promise<void> {
     set({
       refreshing: false,
       finishedAt: Date.now(),
+      restored: false,
       stage: undefined,
       progress: undefined,
       result,
@@ -610,6 +629,7 @@ async function runBackground(): Promise<void> {
       replay: endpoint.state === "forced" ? { why: "forced", detail: endpoint.detail } : undefined,
       trace: trace(copy.trace.checkedAgain(Date.now() - (state.startedAt ?? Date.now())), "good"),
     });
+    rememberCheck(result);
     forgetOldRewrites();
   } catch (error) {
     // Keep the last good results; just say the background check didn't finish.
@@ -618,6 +638,57 @@ async function runBackground(): Promise<void> {
   } finally {
     quiet = false;
   }
+}
+
+// ---------- Reopening the last check ----------
+
+/** Keeps a finished check for the next launch, if it was complete and fully live. */
+function rememberCheck(result: ScanResult) {
+  const sources = state.checkedSources ?? ALL_SOURCES;
+  const statuses = getConnectorStatuses();
+  if (!state.corpus || state.replay || !isCompleteLive(result, statuses, sources)) return;
+  const finishedAt = state.finishedAt ?? Date.now();
+  saveLastCheck({ result, corpus: state.corpus, startedAt: state.startedAt ?? finishedAt, finishedAt, sources, statuses, trace: state.trace });
+}
+
+/**
+ * At launch: shows the last finished check instead of running a new one, and
+ * returns true if it did. Anything that needs a real check to mean what it says
+ * (saved answers only, a simulated failure, changed sources) returns false, so
+ * the app runs a normal check.
+ */
+export function restoreLastCheck(): boolean {
+  if (state.phase !== "idle" || nothingConnected()) return false;
+  const demo = getModelDemo();
+  if (demo.saved || demo.drop || demo.byFlag || scenarios.list().length > 0) return false;
+  const saved = loadLastCheck();
+  if (!saved || !sameSources(saved.sources, scanSources ?? ALL_SOURCES)) return false;
+
+  restoreConnectorStatuses(saved.statuses);
+  // New trace lines must not reuse the saved lines' ids.
+  nextId = Math.max(nextId, ...saved.trace.map((line) => line.id + 1));
+  const lastAt = saved.trace[saved.trace.length - 1]?.t ?? 0;
+  set({
+    phase: "done",
+    restored: true,
+    startedAt: saved.startedAt,
+    finishedAt: saved.finishedAt,
+    result: saved.result,
+    corpus: saved.corpus,
+    findings: saved.result.findings,
+    cleared: saved.result.cleared,
+    undecided: saved.result.undecided,
+    usedReplay: false,
+    replay: undefined,
+    checkedSources: saved.sources,
+    trace: [...saved.trace, { id: nextId++, t: lastAt, text: copy.trace.reopened, tone: "info" }],
+  });
+  forgetOldRewrites();
+  // The stand-in mailbox and calendar live in memory, so approved drafts and reminders go back in.
+  void restoreDrafts()
+    .then(restoreReminders)
+    .catch(() => undefined);
+  return true;
 }
 
 // ---------- The model endpoint, for one check ----------

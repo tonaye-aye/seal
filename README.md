@@ -73,8 +73,10 @@ pnpm tauri dev
 The first build compiles the Rust side and takes a few minutes. Later starts are quick.
 
 The first launch opens a short three-step setup: press the summon key once, connect the household's four sources,
-then run the first check. After that, the app sits in the menu bar.
-Press **⌥Space** to bring it up (or **⌘⇧Space** if ⌥Space is taken). The app's clock is fixed at
+then run the first check. After that, each launch opens the window on the last complete live check, so the findings
+are ready straight away. Press `R` to check again.
+The window stays open when you click another app and shows in Mission Control. Press **⌥Space** (or **⌘⇧Space** if
+⌥Space is taken) to bring it forward or hide it, or choose **Hide Seal** in Settings. The app's clock is fixed at
 **Thu 19 Nov 2026, 9:30am Melbourne**, so the dates line up with the seed data.
 
 | Key | Does |
@@ -99,7 +101,7 @@ Press **⌥Space** to bring it up (or **⌘⇧Space** if ⌥Space is taken). The
 | `N` / `M` | Settings: Connectors / Models |
 | `⌘,` | Settings |
 | `?` | All shortcuts |
-| `Esc` | Back, then close |
+| `Esc` | Go back |
 
 Key hints sit in the bottom bar and on buttons or their tooltips, and everything works with the mouse too. The businesses' phone numbers and links are
 samples: the app shows them but never dials or opens them.
@@ -234,7 +236,7 @@ LIFE_ONBOARDING=1 pnpm tauri dev
 ```
 
 The first uses saved answers for the whole session, so it needs one live check first (a fresh clone has none).
-The second starts onboarding again.
+The second forgets the saved check and your decisions, and starts onboarding again.
 
 In development, `http://localhost:1420/#/gallery` shows every component in every state: empty, scanning,
 error, replay, undo and more.

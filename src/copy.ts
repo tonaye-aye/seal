@@ -81,7 +81,8 @@ export const copy = {
     ago(minutes: number): string {
       if (minutes < 1) return "just now";
       if (minutes < 60) return `${minutes} min ago`;
-      return `${Math.round(minutes / 60)} h ago`;
+      if (minutes < 48 * 60) return `${Math.round(minutes / 60)} h ago`;
+      return `${Math.round(minutes / (24 * 60))} days ago`;
     },
   },
 
@@ -116,6 +117,8 @@ export const copy = {
     notChecked: "Not checked yet",
     checkingAgain: "Checking again",
     checkedAt: (time: string) => `Checked ${time}`,
+    /** Results reopened from an earlier launch. */
+    lastChecked: (ago: string) => `Last checked ${ago}`,
     didntFinish: "Check didn't finish",
     /** The sync button in the top bar. */
     sync: "Sync everything",
@@ -792,7 +795,7 @@ export const copy = {
     step: (n: number) => `Step ${n} of 3`,
     /** 1. Welcome. */
     welcomeTitle: `This is ${APP_NAME}`,
-    welcomeBody: "I look through your data and fix any leaks I find.",
+    welcomeBody: "I find the money leaks hiding in your bills.",
     noShortcut: "The keyboard shortcut couldn't be set up on this Mac, so open me from the seal icon in the menu bar.",
     /** Step 1's line, before and after the summon key is pressed. */
     openWith: "Open and hide me using {keys}",
@@ -979,7 +982,7 @@ export const copy = {
           [["R"], "Sync everything (reconnects first)"],
           [["N"], "Connectors"],
           [["M"], "Models"],
-          [["Esc"], "Back, then close"],
+          [["Esc"], "Go back"],
           [["⌘", ","], "Settings"],
           [["?"], "This sheet"],
         ],
@@ -1135,6 +1138,8 @@ export const copy = {
     /** The end of a check. */
     done: (ms: number) => `Done in ${secs(ms)} s. Nothing was sent or changed.`,
     checkedAgain: (ms: number) => `Checked again in ${secs(ms)} s. Nothing was sent or changed.`,
+    /** The end of a reopened check's trace. */
+    reopened: "Reopened the last finished check. Press R to check again.",
     /** One line when something Maya told Seal applied to this check. */
     remembered: (kept: number, back: string[]) =>
       [kept ? `Left ${plural(kept, "finding", "findings")} alone, as you said` : "", back.length ? `Brought back ${back.join(", ")}` : ""].filter(Boolean).join(". "),

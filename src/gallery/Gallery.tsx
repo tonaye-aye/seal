@@ -309,6 +309,7 @@ function PaletteFrame({
   const timelineItems = timelineStops(entries, isEarlierOpen);
   const entry = pickTimelineStop(entries, timelineItems, selected);
   const nothingYet = items.length === 0 && !query && !filters.length;
+  const sealOnTimeline = view === "timeline" && shownScan.phase === "idle" && !query && !filters.length;
   const inDetail = view === "detail" && !!openItem;
   const stops = openItem ? sidebarStops(openItem, shownScan.corpus, panels) : [];
   const stopAt = stop < 0 ? firstStop(stops) : Math.min(stop, stops.length - 1);
@@ -357,7 +358,7 @@ function PaletteFrame({
         scanning={shownScan.phase === "scanning"}
       />
     );
-  } else if (view === "timeline") {
+  } else if (view === "timeline" && !sealOnTimeline) {
     main = (
       <Timeline
         entries={entries}
@@ -377,7 +378,7 @@ function PaletteFrame({
     );
   } else if (nothingYet && shownScan.phase === "error") main = <ScanError message={shownScan.error ?? "Something went wrong."} />;
   else if (nothingYet && shownScan.phase === "done") main = <AllClear checked={0} />;
-  else if (nothingYet && (shownScan.phase === "idle" || shownScan.phase === "scanning"))
+  else if (sealOnTimeline || (nothingYet && (shownScan.phase === "idle" || shownScan.phase === "scanning")))
     main = <SealState kind={shownScan.phase === "scanning" ? "checking" : noSources ? "no-sources" : "not-checked"} onConnect={noop} onRun={noop} fallback={sealFallback} />;
   else
     main = (
@@ -500,7 +501,7 @@ function PaletteFrame({
                     onToggle={noop}
                     onPane={noop}
                   />
-                ) : view === "timeline" ? (
+                ) : sealOnTimeline ? undefined : view === "timeline" ? (
                   <TimelineHint stop={entry} mouse={mouse} onOpen={noop} />
                 ) : view === "list" && !nothingYet ? (
                   <ListHint item={hintItem} mouse={mouse} onOpen={noop} onRescan={noop} />
@@ -1421,6 +1422,9 @@ export function Gallery() {
               <Shot title="Nothing connected" note="Step 2 was skipped with no sources, so a check has nothing it may read. The button opens Connectors">
                 <PaletteFrame scan={s.idle} live="none" noSources />
               </Shot>
+              <Shot title="Nothing connected, on the Timeline" note="The same seal screen as the list, so V doesn't land on an empty page">
+                <PaletteFrame scan={s.idle} live="none" noSources view="timeline" />
+              </Shot>
               <Shot title="Crash screen" note="If drawing the app fails. A still picture here: its keys only work on the real screen (__life.crash() in dev)">
                 <div data-gallery-frame style={{ width: 1000, height: 680 }} {...blockers}>
                   <CrashPanel onReload={noop} onHide={noop} />
@@ -1667,6 +1671,7 @@ export function Gallery() {
                       ["Not checked", s.idle],
                       ["Checking", s.scanning],
                       ["Checked", s.done],
+                      ["Reopened", { ...s.done, restored: true, finishedAt: Date.now() - 12 * 60_000 }],
                       ["Checking again", s.refreshing],
                       ["Didn't finish", s.error],
                     ] as const
