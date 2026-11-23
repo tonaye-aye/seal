@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import type { Cleared, Finding } from "../../agent/pipeline";
-import { activeHotkey, copyText, hidePalette, onOpenSettings, onPaletteShown, onWindowFocus } from "../../lib/native";
+import { activeHotkey, copyText, onOpenSettings, onPaletteShown, onWindowFocus } from "../../lib/native";
 import {
   finishOnboarding,
   runFirstCheck,
@@ -254,7 +254,7 @@ export function Palette() {
     const stopSettings = onOpenSettings(() => {
       requestAnimationFrame(() => setSettingsTab("general"));
     });
-    // Dim the palette while another app has focus (it stays on screen during onboarding).
+    // Dim the palette while another app has focus (it stays open behind or beside that app).
     const stopFocus = onWindowFocus(setFocused);
     return () => {
       stopShown();
@@ -723,7 +723,8 @@ export function Palette() {
 
       if (key === "Escape") {
         event.preventDefault();
-        // Esc steps back one level at a time, and closes the palette last.
+        // Esc steps back one level at a time. It never closes the window: only
+        // Hide Seal and the summon key do that.
         if (editing) {
           setEditing(false);
           panelRef.current?.focus();
@@ -737,7 +738,6 @@ export function Palette() {
         else if (view === "timeline") back();
         else if (query) setQuery("");
         else if (filters.length) setFilters([]);
-        else hidePalette();
         return;
       }
 
@@ -960,6 +960,8 @@ export function Palette() {
 
   // What fills the middle of the palette.
   const nothingYet = items.length === 0 && !query && !filters.length;
+  // Before any check the timeline has nothing to show either, so it uses the list's seal screen.
+  const sealOnTimeline = view === "timeline" && scan.phase === "idle" && !query && !filters.length;
   let main: React.ReactNode;
   if (setup) {
     main = <SetupScreen onboarding={onboarding} hotkey={hotkey} hotkeyReady={hotkeyReady} onHotkey={setHotkey} mouse={mouse} agentOpen={agentOpen} onAgentOpen={setAgentOpen} />;
@@ -1001,7 +1003,7 @@ export function Palette() {
         scanning={scan.phase === "scanning"}
       />
     );
-  } else if (view === "timeline") {
+  } else if (view === "timeline" && !sealOnTimeline) {
     main = (
       <Timeline
         entries={entries}
@@ -1025,7 +1027,7 @@ export function Palette() {
   } else if (nothingYet && scan.phase === "error") main = <ScanError message={scan.error ?? copy.shared.somethingWentWrong} />;
   else if (nothingYet && scan.phase === "done") main = <AllClear checked={0} />;
   // One component for all three, so the same seal stays on screen when a check starts.
-  else if (nothingYet && (scan.phase === "idle" || scan.phase === "scanning"))
+  else if (sealOnTimeline || (nothingYet && (scan.phase === "idle" || scan.phase === "scanning")))
     main = (
       <SealState
         kind={scan.phase === "scanning" ? "checking" : nothingConnected() ? "no-sources" : "not-checked"}
@@ -1162,7 +1164,7 @@ export function Palette() {
                 onToggle={() => run(pane === "evidence" ? "toggle" : "details")}
                 onPane={() => run("pane")}
               />
-            ) : view === "timeline" ? (
+            ) : sealOnTimeline ? undefined : view === "timeline" ? (
               <TimelineHint stop={timelineStop} mouse={mouse} onOpen={() => openEntry()} />
             ) : view === "list" && !nothingYet ? (
               <ListHint

@@ -46,8 +46,8 @@ export function centerWindow(): void {
   if (isTauri()) void getCurrentWindow().center();
 }
 
-// Whether the palette is on screen. The window starts hidden in the app (it
-// waits for the hotkey); in a plain browser there is no hiding, so it is shown.
+// Whether the palette is on screen. The window starts hidden in the app until
+// launch opens it; in a plain browser there is no hiding, so it is shown.
 // The dev-only gallery window is never the palette, so it always counts as shown.
 const inPaletteWindow = isTauri() && getCurrentWindow().label === "palette";
 let paletteHidden = inPaletteWindow;
@@ -108,17 +108,17 @@ export function onSummonProved(handler: () => void): () => void {
   return () => void unlisten.then((stop) => stop());
 }
 
-/** Shows the palette without the hotkey (first run, so the welcome is waiting). */
+/** Shows the palette without the hotkey (at launch, so the app is waiting on screen). */
 export function showPalette(): void {
   if (isTauri()) void invoke("show_palette");
 }
 
-export type LaunchFlags = { onboarding: boolean; replay: boolean };
+export type LaunchFlags = { onboarding: boolean; replay: boolean; firstLoad: boolean };
 
 /**
  * Launch options from the native side: LIFE_ONBOARDING=1 starts onboarding
  * again, LIFE_REPLAY=1 uses saved model answers only for this launch. In a
- * browser: ?onboarding and ?replay.
+ * browser: ?onboarding and ?replay. firstLoad is false after a page reload.
  */
 export async function launchFlags(): Promise<LaunchFlags> {
   if (!isTauri()) {
@@ -130,14 +130,14 @@ export async function launchFlags(): Promise<LaunchFlags> {
       url.searchParams.delete("onboarding");
       history.replaceState(null, "", url);
     }
-    return { onboarding, replay };
+    return { onboarding, replay, firstLoad: true };
   }
   return invoke<LaunchFlags>("launch_flags");
 }
 
-/** Whether clicking into another app hides the palette (off during onboarding, so it dims instead). */
-export function setHideOnBlur(enabled: boolean): void {
-  if (isTauri()) void invoke("set_hide_on_blur", { enabled });
+/** Turns the menu bar menu's Settings on once onboarding is done. */
+export function setMenuSettings(enabled: boolean): void {
+  if (isTauri()) void invoke("set_menu_settings", { enabled });
 }
 
 /** Runs `handler(focused)` when the window gains or loses focus. Returns an unsubscribe. */

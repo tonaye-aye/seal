@@ -202,7 +202,7 @@ export function SettingsButton({
             <MenuItem
               icon={hotkey.length > 0 ? <HideIcon /> : <CloseIcon />}
               label={hotkey.length > 0 ? copy.footer.hide : copy.footer.close}
-              keys={caps(hotkey.length > 0 ? hotkey : ["Esc"])}
+              keys={hotkey.length > 0 ? caps(hotkey) : undefined}
               onSelect={choose(hidePalette)}
             />
           </>

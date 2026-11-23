@@ -8,6 +8,7 @@ import { clockTime } from "../format";
 import { useFinishing, useSlideX } from "../motion";
 import { SimulatingChip } from "./ScenariosSheet";
 import { useTick } from "./StatusStrip";
+import { ago } from "./Timeline";
 
 // Bottom bar. On the left: the Settings cog, Trace, Sync, the loading bar while
 // a check runs, then what the agent is doing (or when it last checked) and the
@@ -69,6 +70,8 @@ function status(scan: ScanState): { text: string; dot: string } {
     case "done":
       // The timer's background check: the results shown are still the last ones.
       if (scan.refreshing) return { text: copy.header.checkingAgain, dot: "bg-info motion-safe:animate-pulse" };
+      // Reopened results say how old they are in real time, because the app's own clock is fixed.
+      if (scan.restored) return { text: copy.header.lastChecked(ago(scan.finishedAt)), dot: "bg-positive" };
       return { text: copy.header.checkedAt(clockTime(scan.result?.checkedAt ?? "")), dot: "bg-positive" };
     case "error":
       return { text: copy.header.didntFinish, dot: "bg-danger" };

@@ -30,8 +30,8 @@ export function sealTarget(finding: Finding, corpus: Corpus | undefined, scan: P
   if (route && route.kind !== "email") return { kind: "sample", route };
   const draft = finding.draft;
   if (draft?.to.address) {
-    // A mailto link carries the recipient, subject and body, but no files. Seal's
-    // window hides as Mail opens, so anything Maya must add is noted above the draft.
+    // A mailto link carries the recipient, subject and body, but no files. Mail
+    // opens in front of Seal, so anything Maya must add is noted above the draft.
     const attachments = mailAttachments(draft, finding.evidence, corpus);
     const query = `subject=${encodeURIComponent(draft.subject)}&body=${encodeURIComponent(mailBody(draft.body, attachments))}`;
     return { kind: "email", href: `mailto:${draft.to.address}?${query}`, to: draft.to.name, attachments };

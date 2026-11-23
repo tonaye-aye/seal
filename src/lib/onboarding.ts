@@ -13,7 +13,7 @@
 import { useSyncExternalStore } from "react";
 import type { ConnectorId } from "../connectors/types";
 import { connectOne, forgetConnection, forgetConnections, getConnectors } from "../connectors/live";
-import { onSummonProved, setHideOnBlur, setSummonTest } from "./native";
+import { onSummonProved, setMenuSettings, setSummonTest } from "./native";
 import { resetPreferences } from "./preferences";
 import { getScan, resetScan, setScanSources, startScan, subscribeScan } from "./scan-store";
 
@@ -90,23 +90,22 @@ function set(change: Partial<OnboardingState>) {
   } catch {
     // Storage can be unavailable; onboarding then lasts until the app quits.
   }
-  syncHideOnBlur();
+  syncMenuSettings();
   syncSummonTest();
   setScanSources(sourcesToCheck());
   for (const listener of listeners) listener();
 }
 
-// While onboarding runs, clicking into another app leaves the palette on
-// screen (dimmed) instead of hiding it, so nothing is lost mid-way. Once it's
-// done, the usual Spotlight-style hide on click-away comes back.
-let hidesOnBlur: boolean | undefined;
-function syncHideOnBlur() {
+// The menu bar menu's Settings stays greyed out until onboarding is done,
+// because setup has no Settings to open.
+let menuSettings: boolean | undefined;
+function syncMenuSettings() {
   const want = state.step === "done";
-  if (want === hidesOnBlur) return;
-  hidesOnBlur = want;
-  setHideOnBlur(want);
+  if (want === menuSettings) return;
+  menuSettings = want;
+  setMenuSettings(want);
 }
-syncHideOnBlur();
+syncMenuSettings();
 
 // Step 1 waits for the summon key: until it's pressed, the key doesn't hide
 // the app (src-tauri/src/palette.rs). After that it works as usual.

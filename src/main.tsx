@@ -7,27 +7,31 @@ import { LayerProvider } from "./ui/layers";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { isPaletteHidden } from "./lib/native";
-import { getScan, startBackgroundChecks, startScan } from "./lib/scan-store";
+import { getScan, restoreLastCheck, startBackgroundChecks, startScan } from "./lib/scan-store";
 import { getConnectors } from "./connectors/live";
 import { launchFlags, showPalette } from "./lib/native";
 import { getOnboarding, onboardingDone, resetOnboarding, resumeOnboarding } from "./lib/onboarding";
 import { checkEndpoint, getEndpoint, setReplayFlag } from "./lib/endpoint";
 
 /**
- * At launch: after onboarding, run the monthly check straight away so the
- * findings are ready (or well on the way) by the time the palette is first
- * summoned. Before that, pick onboarding up where it was left and show the
- * palette, so the welcome is waiting. LIFE_ONBOARDING=1 (desktop) or
- * ?onboarding (browser) starts onboarding again from an empty account.
- * LIFE_REPLAY=1 (or ?replay) uses saved model answers only for this launch.
- * Either way the model endpoint is checked first (the scan does it itself).
+ * At launch: after onboarding, reopen the last finished check so the findings
+ * are ready. With none to reopen, run the monthly check straight away. Before
+ * onboarding is done, pick it up where it was left. Either way the window
+ * opens at launch, but a later page reload leaves it as it was, unless
+ * onboarding is still running. LIFE_ONBOARDING=1
+ * (desktop) or ?onboarding (browser) starts onboarding again from an empty
+ * account and forgets the saved check. LIFE_REPLAY=1 (or ?replay) uses saved
+ * model answers only for this launch. The model endpoint is always checked
+ * (a new check does it itself), so the app knows if live rewrites can run.
  */
 async function boot() {
-  const flags = await launchFlags().catch(() => ({ onboarding: false, replay: false }));
+  const flags = await launchFlags().catch(() => ({ onboarding: false, replay: false, firstLoad: true }));
   if (flags.replay) setReplayFlag(true);
   if (flags.onboarding) await resetOnboarding();
   if (onboardingDone()) {
-    void startScan();
+    if (restoreLastCheck()) void checkEndpoint();
+    else void startScan();
+    if (flags.firstLoad) showPalette();
     return;
   }
   void checkEndpoint();

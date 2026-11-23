@@ -7,7 +7,7 @@ mod palette;
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
-    AppHandle, Emitter, Manager, State, WindowEvent, Wry,
+    AppHandle, Emitter, Manager, State, Wry,
 };
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
@@ -57,7 +57,7 @@ fn prefers_fallback(app: &AppHandle) -> bool {
         .is_some_and(|text| text.trim() == "fallback")
 }
 
-/// Called by the UI on Esc.
+/// Called by Hide Seal in the Settings menu, and the crash screen's Hide.
 #[tauri::command]
 fn hide_palette(app: AppHandle) {
     palette::hide(&app);
@@ -69,7 +69,7 @@ fn active_hotkey(state: State<ActiveHotkey>) -> Vec<String> {
     state.0.lock().map(|keys| keys.clone()).unwrap_or_default()
 }
 
-/// Called on first run, so the onboarding's welcome is on screen without the hotkey.
+/// Called at launch, so the app is on screen without the hotkey.
 #[tauri::command]
 fn show_palette(app: AppHandle) {
     palette::show(&app);
@@ -80,24 +80,28 @@ fn show_palette(app: AppHandle) {
 /// can reload when the window comes back, which would start onboarding over).
 static ONBOARDING_FLAG_USED: AtomicBool = AtomicBool::new(false);
 
+/// Set after the first page load, so the window opens at launch but a later
+/// page reload doesn't bring it back after Maya has hidden it.
+static PAGE_LOADED: AtomicBool = AtomicBool::new(false);
+
 /// Launch options for the UI. LIFE_ONBOARDING=1 starts onboarding again
 /// (to rehearse the demo): `LIFE_ONBOARDING=1 pnpm tauri dev`.
 /// LIFE_REPLAY=1 uses saved model answers only, for the whole launch.
+/// `firstLoad` is true only for the first page load of this launch.
 #[tauri::command]
 fn launch_flags() -> serde_json::Value {
     let asked = std::env::var("LIFE_ONBOARDING").is_ok_and(|v| v == "1");
     // `swap` sets the flag and returns what it was before, in one step.
     let onboarding = asked && !ONBOARDING_FLAG_USED.swap(true, Ordering::SeqCst);
     let replay = std::env::var("LIFE_REPLAY").is_ok_and(|v| v == "1");
-    serde_json::json!({ "onboarding": onboarding, "replay": replay })
+    let first_load = !PAGE_LOADED.swap(true, Ordering::SeqCst);
+    serde_json::json!({ "onboarding": onboarding, "replay": replay, "firstLoad": first_load })
 }
 
-/// Onboarding keeps the palette on screen when the user clicks into another
-/// app (it dims instead); the usual hide-on-click-away returns once it's done.
-/// The same moment turns on the menu's Settings, because setup has no Settings.
+/// Turns on the menu bar menu's Settings once onboarding is done, because
+/// setup has no Settings.
 #[tauri::command]
-fn set_hide_on_blur(app: AppHandle, enabled: bool) {
-    palette::set_hide_on_blur(enabled);
+fn set_menu_settings(app: AppHandle, enabled: bool) {
     if let Some(items) = app.try_state::<TrayItems>() {
         let _ = items.settings.set_enabled(enabled);
     }
@@ -234,7 +238,7 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
             // "Accessory" means no Dock icon and no Cmd+Tab entry: the app
-            // lives in the menu bar and appears only when summoned.
+            // lives in the menu bar. Its window still shows in Mission Control.
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
@@ -244,21 +248,13 @@ pub fn run() {
             app.manage(llm::LlmConfig::load());
             Ok(())
         })
-        .on_window_event(|window, event| {
-            // Clicking into another app hides the palette, like Spotlight.
-            if let WindowEvent::Focused(false) = event {
-                if palette::hides_on_blur() && window.label() == palette::LABEL {
-                    palette::hide(window.app_handle());
-                }
-            }
-        })
         .invoke_handler(tauri::generate_handler![
             hide_palette,
             active_hotkey,
             show_palette,
             launch_flags,
             use_fallback_hotkey,
-            set_hide_on_blur,
+            set_menu_settings,
             set_summon_test,
             palette_visible,
             open_external,
