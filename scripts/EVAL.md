@@ -8,8 +8,10 @@ the right evidence or figures: the agent has to find them.
 
 | Measure | Result |
 | --- | --- |
-| **Final three fully live runs** (`main` at `5aca746`) | 24/24 leaks with the right kind, amount, deadline and citations; 0/6 decoys; drafts 24/24; best route 24/24; 103-155 s per scan |
-| **The three live runs before them**, same prompts | Drafts 23/24 and best route 23/24 |
+| **All nine fully live runs**, same prompts | 72/72 leaks with the right kind, amount, deadline and citations; 0/18 decoys; drafts 70/72; best route 66/72; 103-295 s per scan |
+| **Latest three** (`main` at `4892009`, 23 Nov) | 24/24 leaks; 0/6 decoys; drafts 23/24; best route 19/24; 116-139 s per scan |
+| **Three before those** (`main` at `5aca746`) | 24/24 leaks; 0/6 decoys; drafts 24/24; best route 24/24; 103-155 s per scan |
+| **First three** | 24/24 leaks; 0/6 decoys; drafts 23/24; best route 23/24; 129-295 s per scan |
 | **Saved answers on the final code** | 8/8 leaks, 0/2 decoys, drafts 8/8, routes 8/8 |
 | Detect | 8/8 leaks reach a candidate |
 | Retrieve | 82/82 expected evidence items, 5 extras |
@@ -17,8 +19,10 @@ the right evidence or figures: the agent has to find them.
 | Verify | 44/44 expected figures |
 | Rewrites | Firmer 8/8, Shorter 6/8 |
 
-No prompt, agent code or seed data has changed since the final live runs. Later commits changed the UI, the docs and
-one demo switch in the fake calendar connector. These are small samples, on a seed the rules were written against.
+No prompt or seed data changed across these nine runs. PR #36 made the draft claim check stricter after the first three, and
+later commits changed the UI, the window, the docs and one demo switch in the fake calendar connector. Finding leaks and
+leaving decoys alone held in every run. Choosing the best route varied most. These are small samples, on a seed the rules
+were written against.
 The sections below are in date order, so earlier sections show the seven-leak build and the failures that shaped it.
 
 ## How to run
@@ -244,6 +248,29 @@ Three fully live runs (`eval.ts --live --repeat 3`), every model call fresh:
 
 These three runs had no misses, but the three before them, with the same prompts, missed one Wattle draft and one Redgum route, so
 those mistakes can still happen. Three runs is a small sample. The drafts were scored by the eval's checks and not read by hand.
+
+## Final live check on the merged code (23 Nov)
+
+The eval ran again on `main` at `4892009`, from a clean clone with its own cache, so the saved answers in `.cache/llm` were not touched.
+Three fully live runs (`eval.ts --live --repeat 3`), every model call fresh:
+
+| | Result |
+| --- | --- |
+| Leaks flagged, right kind, amount, deadline, cites evidence | 24/24 each |
+| Decoys flagged, other false alarms | 0/6, 0 |
+| Drafts fully correct / pass the claim check / needed the 35B rewrite | 23/24 / 23/24 / 0 |
+| Best route / pass the check / have their scripts | 19/24 / 23/24 / 23/24 |
+| Time per scan | 116-139 s |
+
+The misses:
+
+- **Redgum, 3 of 3 runs:** chose Email over the expected meter-read form. Email is a listed route that accepts the photo, but the form is
+  the scored best route.
+- **Skylink, 1 run:** chose a call over the expected Email route.
+- **Norvik, 1 run:** the case was found with the right kind, amount, deadline and citations, but had no draft and no routes.
+
+Across all nine live runs with these prompts: leaks 72/72, decoys 0/18, drafts 70/72, best route 66/72, at 103-295 s per scan. The
+agent is steadier at finding a problem than at choosing how to fix it, which is why every route is shown and the person chooses.
 
 ## Firmer and Shorter rewrites (22 Nov)
 

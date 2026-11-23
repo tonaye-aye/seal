@@ -295,6 +295,7 @@ Script checks are in [section 15](#15-testing-and-the-eval).
 | `endpoint.ts` | Endpoint health and saved-answer switches |
 | `onboarding.ts` | First-run state |
 | `rules.ts` | What Seal remembers after "Not a leak" |
+| `last-check.ts` | The last complete live check, reopened at launch |
 | `reminders.ts` | Reminder dates and words |
 | `draft-versions.ts` | Which draft version is on screen |
 | `preferences.ts` | Settings choices |
@@ -476,7 +477,7 @@ sequenceDiagram
 
 ## 6. The Rust shell
 
-Rust is 562 lines across four files. Keep it that way: put logic in TypeScript unless it truly needs native access or the API key.
+Rust is 571 lines across four files. Keep it that way: put logic in TypeScript unless it truly needs native access or the API key.
 
 ### Window
 
@@ -514,8 +515,8 @@ The tray icon is a macOS **template image** (`src-tauri/icons/tray.png`), which 
 | --- | --- |
 | `hide_palette`, `show_palette`, `palette_visible` | Window visibility |
 | `active_hotkey`, `use_fallback_hotkey`, `set_summon_test` | Hotkey state |
-| `set_hide_on_blur` | Keep the window up during onboarding |
-| `launch_flags` | Reads `LIFE_ONBOARDING` and `LIFE_REPLAY` |
+| `set_menu_settings` | Turns on the menu bar's Settings once onboarding is done |
+| `launch_flags` | Reads `LIFE_ONBOARDING` and `LIFE_REPLAY`, and says if this is the launch's first page load |
 | `open_external` | Opens Mail, Calendar or an allowed complaint page |
 | `llm_request` | Sends one model request |
 | `llm_configured` | Is an endpoint and key set? Never returns the key |
@@ -639,7 +640,7 @@ On the full seed, one check does:
 | Draft | 8 drafts |
 | Routes | 8 fix plans |
 
-On the saved run, that's **90 model calls** by the 9B (60), the 35B (14) and Flash (16). Fully live runs took **103-155 seconds**. Extraction runs 8 at a time, and judging runs 6 cases at a time.
+On the saved run, that's **90 model calls** by the 9B (60), the 35B (14) and Flash (16). Fully live runs took **103-295 seconds**. Extraction runs 8 at a time, and judging runs 6 cases at a time.
 
 ### Events
 
@@ -1578,7 +1579,7 @@ Other scripts:
 | Routes | Recommend the expected best route |
 | Save and undo | Drafts save and discard correctly |
 
-**Latest results.** Three fully live runs on the final code: leaks, kind, amount, deadline and citations 24/24, decoys 0/6, drafts 24/24, routes 24/24, at 103-155 seconds per scan. The three runs before those scored 23/24 on drafts and routes. That's a small sample on a seed the rules were written against. Full history, including failures, is in [`scripts/EVAL.md`](../../scripts/EVAL.md).
+**Latest results.** Nine fully live runs with the same prompts: leaks, kind, amount, deadline and citations 72/72, decoys 0/18, drafts 70/72, best route 66/72, at 103-295 seconds per scan. The latest three scored 23/24 on drafts and 19/24 on best route. That's a small sample on a seed the rules were written against. Full history, including failures, is in [`scripts/EVAL.md`](../../scripts/EVAL.md).
 
 ### Before you open a PR
 
