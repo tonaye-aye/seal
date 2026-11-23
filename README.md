@@ -22,7 +22,8 @@ Both platforms need:
 
 - Xcode Command Line Tools: `xcode-select --install`
 
-### Windows
+<details>
+<summary><strong>Windows (not fully tested)</strong></summary>
 
 - [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/), with **Desktop development with C++** selected in the installer
 - Rust's MSVC toolchain: choose it when installing rustup, or run `rustup default stable-msvc`
@@ -33,6 +34,8 @@ On Windows, the summon key is **Alt+Space**, or **Ctrl+Shift+Space** if that's t
 - Shortcuts shown with `⌘` listen for the Windows key, not Ctrl. Use `V` for the timeline, the cog for Settings and the toast's Undo button.
 - `S` can't open a draft in your mail app and `O` can't open a complaint form, because both use a macOS command. Use `Y` to copy the draft.
 - The `LIFE_REPLAY=1` and `LIFE_ONBOARDING=1` commands below use macOS shell syntax. In PowerShell, run `$env:LIFE_REPLAY=1; pnpm tauri dev`.
+
+</details>
 
 ## Setup
 
