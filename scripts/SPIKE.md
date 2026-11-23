@@ -1,5 +1,10 @@
 # Model spike results (19 Nov 2026)
 
+**Status (23 Nov):** these numbers are from 19 Nov, when the seed had seven leaks. The spike wasn't rerun after the
+eighth leak (the warranty case) was added, and a rerun now reads all eight, so its totals won't match the tables
+below. The model roles here are the ones in the final app. End-to-end results for all eight leaks are in
+[`EVAL.md`](EVAL.md).
+
 **What this is:** a test of the models before building on them. Each model is handed the *correct evidence*
 for the 7 planted leaks and 2 decoys and scored against `seed/eval/ground_truth.json`. It measures
 reading, judging and writing, **not retrieval** (that is the agent's job, scored later by the end-to-end
@@ -34,13 +39,13 @@ Quality numbers below are **totals over 3 runs** (temperature 0.1) unless marked
 1-run results not repeated because they were already ruled out on speed: Flash *thinking* drafts 6/7 at
 68 s (up to 205 s); drafting without code-computed figures failed on 3-4 of 7 for every fast model.
 
-## What the failures teach (use these in the report)
+## What the failures taught
 
 - **L1 is the hard case.** "Price rose after 12 months but the agreement says 24" needs the judge to connect
   a contract term to a date. Without thinking the 35B never gets it; with thinking it still missed 1 in 21.
   **Design response:** compute it in code. The verify stage gives the judge "agreement promises $79.00 for
   24 months from 14 October 2025; $99.00 charged from 14 October 2026 (month 13)", the way drafters get
-  figures. Retest L1 when the real pipeline exists.
+  figures. The pipeline now does this, and L1 passed in the final live runs (see `EVAL.md`).
 - **Models do sums, and get them wrong.** Without figures, drafters wrote their own totals; most were right
   ($20.00 = $99 − $79) but the 9B claimed "1,534 kWh" used (correct is ~1,077). **Response:** code computes
   every figure; the drafter is told never to calculate; the claim check rejects any amount, date, reference
@@ -64,7 +69,7 @@ Quality numbers below are **totals over 3 runs** (temperature 0.1) unless marked
 | Vision (meter photo) | **9B, thinking off** (35B fallback) | 3/3 correct at ~3.7 s; it failed earlier only because thinking ate its budget. |
 | Judgment (leak or not) | **35B, thinking on**, with code-computed facts | 20/21 with no false positives; without thinking it never gets L1. ~30 s each, run in parallel in the background scan. |
 | Drafting | **Flash, thinking off**; claim check; on failure regenerate once with **35B, thinking off** | 3 runs: Flash 21/21 at ~4.9 s; 35B 20/21 at ~4.3 s (its miss was caught by the claim check). Half a second slower is invisible; one fewer failure is not. |
-| Retrieval | Code (keyword + amount/date window) + embeddings; 35B tool calling optional | Embeddings rank well but not decisively. |
+| Retrieval | **Plain code**: exact links by sender, reference, amount near the date and folder | The spike planned code plus embeddings. As built, exact links found 82/82 evidence items, so the scan makes no embedding or tool calls. |
 | Arithmetic, dates, verification, claim check | **Plain code** | Every arithmetic slip came from a model. |
 
 **Main drafter: Flash** (decided by Tony after the 3-run results, replacing the earlier 35B-first plan).
@@ -77,3 +82,11 @@ check caught. The 35B stays as the regenerate fallback.
 - Drafters get code figures and human-labelled, id-free evidence with human dates.
 - Claim check covers amounts, day-month dates, month-year dates, references and kWh; allows today's date.
 - `--repeat N` for variance; all quality numbers above are 3-run totals.
+
+## What happened after the spike
+
+- Flash also picks each finding's best route and writes its call script or chat opener, with the 35B as its fallback.
+- Firmer and Shorter rewrites start with Flash, and code re-checks every rewrite.
+- A bill with missing meter readings goes up the extraction retry path to the 35B, because the 9B returned that table
+  in only 3 of 12 identical calls.
+- The final live scores, the misses and every failure are in [`EVAL.md`](EVAL.md).

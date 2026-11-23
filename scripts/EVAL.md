@@ -1,10 +1,29 @@
-# Pipeline eval results (19-20 Nov 2026)
+# Pipeline eval results (19-23 Nov 2026)
 
-**What this is:** the whole scan the app runs (sync, detect, retrieve, extract, verify, judge, draft) scored
-end to end against `seed/eval/ground_truth.json`. Unlike the spike (`SPIKE.md`), nothing is handed the right
-evidence or figures: the agent has to find them.
+**What this is:** the whole scan the app runs (sync, detect, retrieve, extract, verify, judge, draft, plan the
+route) scored end to end against `seed/eval/ground_truth.json`. Unlike the spike (`SPIKE.md`), nothing is handed
+the right evidence or figures: the agent has to find them.
 
-**How to run** (scripts may read `seed/eval/`; the app never does):
+## Final status (23 Nov)
+
+| Measure | Result |
+| --- | --- |
+| **Final three fully live runs** (`main` at `5aca746`) | 24/24 leaks with the right kind, amount, deadline and citations; 0/6 decoys; drafts 24/24; best route 24/24; 103-155 s per scan |
+| **The three live runs before them**, same prompts | Drafts 23/24 and best route 23/24 |
+| **Saved answers on the final code** | 8/8 leaks, 0/2 decoys, drafts 8/8, routes 8/8 |
+| Detect | 8/8 leaks reach a candidate |
+| Retrieve | 82/82 expected evidence items, 5 extras |
+| Extract | 12/12 key facts |
+| Verify | 44/44 expected figures |
+| Rewrites | Firmer 8/8, Shorter 6/8 |
+
+No prompt, agent code or seed data has changed since the final live runs. Later commits changed the UI, the docs and
+one demo switch in the fake calendar connector. These are small samples, on a seed the rules were written against.
+The sections below are in date order, so earlier sections show the seven-leak build and the failures that shaped it.
+
+## How to run
+
+Scripts may read `seed/eval/`; the app never does.
 
 ```bash
 node --env-file=.env scripts/eval.ts --verbose                          # saved replies where available
@@ -13,8 +32,12 @@ node --env-file=.env scripts/eval.ts --fresh-draft --repeat 3 --verbose # drafti
 node --env-file=.env scripts/eval.ts --live                             # every model call fresh
 ```
 
-Stage checks (each runs in seconds): `connectors-check.ts` (33 checks), `detectors-check.ts`,
-`retrieval-check.ts`, `extract-check.ts`, `verify-check.ts`, `llm-check.ts`.
+`--live` overwrites the saved answers in `.cache/llm`, so back them up first. Without `--live`, a run with a key still
+calls the endpoint for any request that has no saved answer.
+
+Stage checks (each runs in seconds): `connectors-check.ts` (33), `detectors-check.ts` (8/8), `retrieval-check.ts`
+(82/82), `extract-check.ts` (12/12), `verify-check.ts` (44/44), `claim-check.ts` (18), `rules-check.ts` (64),
+`rewrites-check.ts` (16 rewrites), `replay-check.ts` and `saved-answers-check.ts`. `llm-check.ts` calls the live models.
 
 **What is scored, per planted leak:** flagged at all; the right kind; a headline amount equal to one of the
 expected amounts (to the cent, or within the stated tolerance: ±$15 for the meter); the deadline equal to an
@@ -27,7 +50,7 @@ is found in the verified figures or the evidence the drafter was given, and no i
 Each run also saves every draft through the email connector and discards them again (approve, then undo);
 the connector has no send operation.
 
-## Results
+## First results, seven leaks (19-20 Nov)
 
 Extraction from saved replies, judge called fresh each run (temperature 0.1), 3 runs each.
 
@@ -61,7 +84,7 @@ The scan's other scores were unchanged in every run: 21/21 leaks with the right 
 citations, 0/6 decoys, 0 false alarms. Each case is drafted as soon as it is judged: the finding shows straight
 away and its draft follows about 5 s later, while other cases are still being judged.
 
-Stage by stage (deterministic stages run every time; model stages from the extract run):
+Stage by stage at that point, with seven leaks (deterministic stages run every time; model stages from the extract run):
 
 | Stage | Who | Result | Time |
 | --- | --- | --- | --- |
@@ -74,7 +97,7 @@ Stage by stage (deterministic stages run every time; model stages from the extra
 
 ## What went wrong, and what the design does about it
 
-These are real failures seen while building, for the report.
+These are real failures seen while building.
 
 1. **The judge contradicted checked facts (L1).** In one run the 35B cleared Skylink's $79 to $99 rise as
    "aligns perfectly with your contract term", although the brief said the rise came in month 13 of a
@@ -135,8 +158,8 @@ These are real failures seen while building, for the report.
    10 across the runs, each one costing a rewrite). That is a preference, not a claim, so code now fixes it instead of asking for a rewrite.
 
 10. **Embeddings were not needed on this data.** Exact links (sender, attachment, references, amount near
-   the charge date, household mail by kind of business, same folder) found 76/76 evidence items, so the
-   scan makes no embedding calls. On real mail, where names don't line up, embeddings are the fallback.
+   the charge date, household mail by kind of business, same folder) found 76/76 evidence items at this point
+   and 82/82 with all eight leaks, so the scan makes no embedding calls. On real mail, where names don't line up, embeddings are the fallback.
 
 ## Fix routes (21 Nov)
 
@@ -221,6 +244,20 @@ Three fully live runs (`eval.ts --live --repeat 3`), every model call fresh:
 
 These three runs had no misses, but the three before them, with the same prompts, missed one Wattle draft and one Redgum route, so
 those mistakes can still happen. Three runs is a small sample. The drafts were scored by the eval's checks and not read by hand.
+
+## Firmer and Shorter rewrites (22 Nov)
+
+Firmer and Shorter rewrite an email draft without a chat box. Code re-checks every rewrite against the evidence and the original
+draft, so it can't add a figure, reference, date, apology, threat or made-up feeling, or lose the key facts and the ask.
+
+| Saved rewrites | Result |
+| --- | --- |
+| Firmer | 8/8 pass |
+| Shorter | 6/8 pass |
+
+BrightPage's and Norvik's Shorter have no passing version, so the app says so and keeps the original draft. **Warmer was built and
+cut:** its first pass cleared the checks 8/8 but invented feelings, such as "enjoyed being part of the community" in an email cancelling
+that gym. Reading the output mattered more than the pass rate.
 
 ## Caveats
 

@@ -1,7 +1,8 @@
 # Seed data: the Whitlock household
 
 A fictional Melbourne household (Maya, Ben, Ollie 8, Pia 5) with three months of bank history, a year of
-email, a synced documents folder and a family calendar. Everything is fictional; brand names are invented.
+email, a synced documents folder and a family calendar. The people and data are fictional, and so are the brands,
+except Apple and the real complaint bodies in `help/`.
 
 "Today" inside the app is **Thursday 19 November 2026, 9:30am (Australia/Melbourne)**.
 
@@ -13,7 +14,7 @@ email, a synced documents folder and a family calendar. Everything is fictional;
 | `calendar/events.json` | Family, Maya and Ben calendars (some recurring) |
 | `connectors/manifest.json` | Connection state, paging, latency, opt-in failure scenarios |
 | `persona.json` | Household profile and the agent's standing preferences |
-| `help/` | Hand-written help directory: each business's channels, short help articles, and where to escalate. Merchants are fictional; complaint bodies marked `real` are real and were checked on their official sites |
+| `help/` | Hand-written help directory: each business's channels, short help articles, and where to escalate. Merchants are fictional except Apple, whose contact details are labelled samples. Complaint bodies marked `real` are real and were checked on their official sites |
 | `eval/` | Ground truth for scoring. **The app must never load this.** |
 
 ## Regenerate / check

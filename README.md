@@ -2,7 +2,8 @@
 
 A desktop agent for one household's monthly money check. It reads the household's bank statements, email,
 documents and calendar, and finds charges that are wrong or unwanted: price rises that break a contract,
-things paid twice, forgotten trials, renewal traps and a bill based on a bad meter estimate. For each one it
+things paid twice, forgotten trials, renewal traps, a bill based on a bad meter estimate and a paid repair
+booked for a washer still under warranty. For each one it
 gathers the evidence and drafts the fix, and you approve it with one key. It isn't a chat window. You summon
 it, triage what it found, then approve or dismiss each item, and seal the leak from your own mail app. All model calls go to the Base Compute endpoint (Qwen models).
 
@@ -35,19 +36,29 @@ On Windows, the summon key is **Alt+Space**, or **Ctrl+Shift+Space** if that's t
 
 ## Setup
 
-1. Install the dependencies:
+1. Clone the repo:
+
+   ```bash
+   git clone https://github.com/tonaye-aye/seal.git
+   ```
+
+   ```bash
+   cd seal
+   ```
+
+2. Install the dependencies:
 
    ```bash
    pnpm install
    ```
 
-2. Copy the example environment file:
+3. Copy the example environment file:
 
    ```bash
    cp .env.example .env
    ```
 
-3. Fill in `BC_BASE_URL` and `BC_API_KEY` in `.env` with the endpoint and key from the take-home brief.
+4. Fill in `BC_BASE_URL` and `BC_API_KEY` in `.env` with the endpoint and key from the take-home brief.
    `.env` is gitignored. Only the Rust side reads the key, and it never reaches the web view.
 
 ## Run
@@ -73,12 +84,13 @@ Press **⌥Space** to bring it up (or **⌘⇧Space** if ⌥Space is taken). The
 | `A` | Approve the chosen way (only Email saves a draft, and nothing is sent) |
 | `S` | Seal, once approved: opens Mail with the draft filled in, or a labelled sample page for a call, chat or online step |
 | `O` | If they say no: opens the real complaint body's form, or a labelled sample |
-| `E` / `D` / `L` | Edit the draft (takes an approval back) / Not a leak / Remind me (a calendar reminder) |
+| `E` / `D` / `L` | Edit the draft (takes an approval back) / Not a leak / Remind me (a calendar reminder; press `L` again inside a finding to remove it) |
 | `1`-`3` after `D` | Say why it isn't a leak: We want this, Already sorted, or Seal got it wrong. Seal remembers the answer in Settings, and the finding comes back if the charge changes or a new problem appears. Plain code applies it, and it never reaches a model |
-| `⌘Z` | Undo |
+| `⌘Z` | Undo the newest action. An approved finding also has its own Undo button |
 | `⌘↵` | Timeline: what's coming |
 | `V` | Switch between findings and the timeline |
-| `/` | Search |
+| `/` / `F` | Search / Filter |
+| `C` / `]` | In a finding: open "Checked by code" / fold the sidebar |
 | `T` | Show what the agent did (the trace) |
 | `R` | Sync everything and check again |
 | `N` / `M` | Settings: Connectors / Models |
@@ -112,7 +124,7 @@ realistic latency, paging and errors. The data covers:
 | `seed/calendar/` | Family, Maya and Ben calendars, some recurring |
 | `seed/connectors/manifest.json` | Connection state, latency, paging and opt-in failure scenarios |
 | `seed/persona.json` | The household and the agent's standing preferences (tone, sign-off, never act without approval) |
-| `seed/help/` | A hand-written help directory: each business's channels, short help articles and where to escalate. Merchants are fictional, with phone numbers from the ACMA's pool reserved for fiction where the seed doesn't already print one. Complaint bodies marked `real` are real |
+| `seed/help/` | A hand-written help directory: each business's channels, short help articles and where to escalate. Merchants are fictional except Apple, whose contact details here are labelled samples. Phone numbers come from the ACMA's pool reserved for fiction where the seed doesn't already print one. Complaint bodies marked `real` are real |
 | `seed/eval/` | Ground truth for scoring. **Only the eval scripts read it.** The app never bundles or reads it. |
 
 `python3 seed/verify.py` checks that the data adds up (balances, cross-references, arithmetic).
@@ -136,10 +148,12 @@ The models read, judge and write. Plain code does all the arithmetic, date maths
    Where the code's facts disagree with the verdict, the finding is kept at low confidence.
 7. **Draft** *(Qwen3.8 Flash, thinking off):* write the fix. A claim check rejects any number, date or reference
    that isn't in the verified figures or the evidence. If a draft fails it, the 35B rewrites it once.
+8. **Plan the route** *(code and Flash):* code narrows the ways to fix it (email, call, chat or online steps), Flash
+   picks the best one and writes any script or opener, and code checks the contacts and figures.
 
 | Folder | What's there |
 | --- | --- |
-| `src/agent/` | The pipeline above (`pipeline.ts`, detectors, retrieval, extraction, verify, judge, drafting) |
+| `src/agent/` | The pipeline above (`pipeline.ts`, detectors, retrieval, extraction, verify, judge, drafting, routes, rewrites) |
 | `src/connectors/` | The fake bank, email, documents and calendar connectors |
 | `src/lib/` | The model client, money in integer cents, Melbourne dates, the fixed clock, the scan store |
 | `src/ui/` | The palette, findings, evidence and draft, timeline, trace, onboarding, "now" mark |
@@ -188,7 +202,7 @@ node scripts/detectors-check.ts
 node scripts/replay-check.ts
 ```
 
-`retrieval-check.ts` also runs offline. `extract-check.ts`, `verify-check.ts` and `llm-check.ts` need the
+`retrieval-check.ts` and `claim-check.ts` also run offline. `extract-check.ts`, `verify-check.ts` and `llm-check.ts` need the
 endpoint, so run them with `node --env-file=.env`. `saved-answers-check.ts`, `rewrites-check.ts` and
 `rules-check.ts` need saved answers that aren't in the repo, so they fail on a fresh clone.
 
@@ -228,6 +242,8 @@ error, replay, undo and more.
   Nothing else leaves the app.
 - **Nothing is ever sent, cancelled or paid.** The email connector can only save drafts, and every action needs
   your approval and can be undone.
+- **It doesn't check the outcome.** Seal says what to expect after a fix, but it can't confirm that a refund, reply
+  or price change actually happened.
 - **Replay needs one live check first.** Saved answers are kept in the app's cache folder, which starts empty on a
   fresh clone.
 - **The detectors were written against this seed data.** They use no merchant names, but they need a broader
@@ -254,4 +270,5 @@ error, replay, undo and more.
   `react-dialog`, `react-popover`, `react-switch`, `react-accordion`) for tooltips, menus, sheets, evidence previews,
   switches and the folding groups, restyled from the app's own tokens: MIT.
 - React, Vite, Tailwind CSS: MIT. Tauri: MIT or Apache-2.0.
-- All seed data, people and brands are made up.
+- All seed data and people are made up, and so are the brands, except Apple and the real complaint bodies (TIO, EWOV
+  and Consumer Affairs Victoria).

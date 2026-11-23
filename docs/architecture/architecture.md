@@ -136,10 +136,18 @@ Then run the checks in [section 15](#before-you-open-a-pr), and open a PR using 
 
 ### Setup
 
-You need macOS, [Node.js](https://nodejs.org) 22.18 or newer (scripts run TypeScript directly), [pnpm](https://pnpm.io), [Rust](https://rustup.rs) and the Xcode Command Line Tools.
+You need [Node.js](https://nodejs.org) 22.18 or newer (scripts run TypeScript directly), [pnpm](https://pnpm.io), [Rust](https://rustup.rs) and, on macOS, the Xcode Command Line Tools. The [README](../../README.md#prerequisites) lists the Windows prerequisites and limits.
 
 ```bash
 xcode-select --install
+```
+
+```bash
+git clone https://github.com/tonaye-aye/seal.git
+```
+
+```bash
+cd seal
 ```
 
 ```bash
@@ -1104,6 +1112,8 @@ A finding's `fix` is a `FixPlan`:
 
 `NextSteps.tsx` then shows how to finish, what to expect (from `next-steps.ts`) and dated lines for any deadlines. **The app doesn't check the outcome.** That text is guidance written by code.
 
+**Taking an approval back.** The top bar's Undo button calls `undoApproval(id)`. It takes back only that finding's approval and its saved draft, even if other actions came after it, and doesn't open the editor. `E` and the pencil on the Saved in Drafts line call `reopen(id)`, which does the same and then opens the editor. A reminder is a separate action, so it stays set.
+
 ### The Seal button
 
 Once a finding is approved, **Seal** takes Approve's place at the top right. `sealTarget()` in `ui/seal.ts` decides where it and `S` go:
@@ -1129,6 +1139,8 @@ Once a finding is approved, **Seal** takes Approve's place at the top right. `se
 `L` calls `remind(id)`. `reminderDate()` picks two days before the deadline, never before tomorrow and never after the deadline. With no deadline, it's 14 days away.
 
 The event goes into the fake calendar and is kept in `life.reminders`. Because the stand-in calendar lives in memory, `restoreReminders()` puts events back after a restart. Inside a finding, `L` again removes it.
+
+In a finding's top bar, the same action is one bell button: a plain bell adds the reminder, and a bell with a slash removes it. A set reminder can always be removed, even if a new one couldn't be added right now.
 
 ### Teach Seal: "Not a leak" rules
 
@@ -1222,7 +1234,7 @@ Everything is in `localStorage`, under `life.*`:
 | `life.modelDemo` | Saved-answers and endpoint-drop switches |
 | `life.hintSeen` | First-run hint dismissed |
 
-The `life` prefix, the `life` package name and the `com.life.app` identifier are from the project's working name. They were kept when the app became Seal, so saved data survives.
+The `life` prefix, the `life` package name and the `com.life.app` identifier are from the project's working name. They were kept when the app and the GitHub repo became Seal, so saved data survives.
 
 Each saved value has a version field. Add a new key rather than changing an existing format where you can.
 
@@ -1248,6 +1260,8 @@ The fake mailbox and calendar live in memory, so `restoreDrafts()` and `restoreR
 - a **decision** reverts it, removes its saved draft, and restores any earlier rule
 - a **reminder** removes it from the calendar
 - a **rewrite** steps back one version
+
+`undoApproval(id)` is the exception: it targets one approved finding rather than the newest action. Its tooltip shows `⌘Z` only when that approval is also the newest action.
 
 `restoreUndo()` rebuilds the stack from saved state after a restart, oldest first, so `⌘Z` still works.
 
@@ -1349,7 +1363,7 @@ Rows use `RowCells`, so date and amount columns always line up.
 - **Main:** heading, amount, deadline, route chooser, then the draft or route panel. Once approved, it shows the Next timeline.
 - **Sidebar:** one accordion with **Evidence it relied on**, **Also gathered** and **Checked by code**. A line opens a `Peek` card, and that opens the full source in a `Sheet`.
 
-`findingActions()` decides what appears in the top bar. The draft has a read mode and an editor with matching metrics, so clicking into it causes no layout shift.
+`findingActions()` decides what appears in the top bar: Approve, Edit and the bell for an open finding, or Seal, Undo and the bell once it's approved. The draft has a read mode and an editor with matching metrics, so clicking into it causes no layout shift.
 
 ### Timeline
 
@@ -1432,7 +1446,9 @@ Every toast has one of these four tones (`ToastTone` in `scan-store.ts`). Its co
 
 All text colours pass WCAG AA (4.5:1) on background (at the grain's strongest speck), surface and raised, in both themes. Ratios are noted beside each token.
 
-**Grain:** the panel is opaque, with a tinted grain under its content (`.grain`). Filled violet buttons add `.grain-accent`, at a strength (`--cta-grain`) that keeps white text at 4.5:1 on the strongest speck. `scripts/make-grain.ts` draws the tile, and tokens set its colour, size and strength. Text keeps AA up to a strength of 0.087, and it is set to 0.08.
+**Row highlight:** the List and Timeline use `--color-row-active` through `.glide-soft`, for both hover and `J`/`K`. It's stronger than `--color-raised` and still keeps every row's text at AA. The evidence sidebar, toasts and key caps stay on `--color-raised`.
+
+**Grain:** the panel is opaque, with a tinted grain under its content (`.grain`). Filled violet buttons add `.grain-accent`, at a strength (`--cta-grain`) that keeps white text at 4.5:1 on the strongest speck. `scripts/make-grain.ts` draws the tile, and tokens set its colour, size and strength. It is set to 0.10, with the light theme's faint, danger and info text darkened to keep AA.
 
 **Themes:** `@theme` holds dark, and a `prefers-color-scheme: light` block swaps in light. The app follows macOS.
 
@@ -1758,7 +1774,7 @@ Ask first. Prefer small hand-written code for motion and state. Add its licence 
 
 | Area | Limitation |
 | --- | --- |
-| Platform | macOS only, one household, AUD only |
+| Platform | Best on macOS. On Windows, `⌘` shortcuts read the Windows key and `S` and `O` can't open anything. One household, AUD only |
 | Data | Connectors are fake, and the clock is fixed |
 | Privacy | Household data goes to the model endpoint, standing in for local inference |
 | Outcome | The app doesn't check that a fix worked |
