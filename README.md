@@ -108,6 +108,7 @@ samples: the app shows them but never dials or opens them.
 
 ## Guides
 
+- [Figma design system](https://www.figma.com/design/bexxmWYImvbPr0tJDpJled/Seal?node-id=30-11204): the app's tokens, 46 components and 30 screens, built from the running app, with a clickable prototype. `src/styles/tokens.css` stays the source of truth.
 - [Architecture guide](docs/architecture/architecture.md): how the whole app works and how to change it, written as a handover for someone new to the code.
 - [Seed data guide](docs/seed/seed-data.md): how the fictional household was created, how it mimics real data, and how to add more.
 
